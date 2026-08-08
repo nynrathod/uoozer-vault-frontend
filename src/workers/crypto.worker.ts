@@ -11,8 +11,8 @@ import type {
 
 import * as Comlink from 'comlink'
 import * as _sodiumModule from 'libsodium-wrappers'
+import { argon2id } from 'hash-wasm'
 
-// ─── FIX: the live exports object with all crypto functions is on .default ──
 let sodium: any = null
 let _initialized = false
 
@@ -50,23 +50,40 @@ const api: CryptoApi = {
     params: Argon2Params
   ): Promise<DerivedKeys> {
     assertReady()
+    console.log('[Worker] deriveKeysFromPassword START')
 
-    const salt = await this.base64ToBytes(saltB64)
-    const memLimit = params.m_cost * 1024
-    const opsLimit = params.t_cost
+    try {
+      const salt = await this.base64ToBytes(saltB64)
+      console.log('[Worker] Salt decoded, len:', salt.length)
 
-    const masterKey = sodium.crypto_pwhash(
-      32,
-      password,
-      salt,
-      opsLimit,
-      memLimit,
-      sodium.crypto_pwhash_ALG_ARGON2ID13
-    )
+      console.log('[Worker] Calling hash-wasm argon2id with params:', {
+        parallelism: params.p_cost,
+        iterations: params.t_cost,
+        memorySize: params.m_cost, // <-- FIX: hash-wasm expects KiB directly!
+        hashLength: params.output_len,
+      })
 
-    const authKey = sodium.crypto_kdf_derive_from_key(32, 1, 'Uoozer_Auth', masterKey)
+      const masterKey = await argon2id({
+        password,
+        salt,
+        parallelism: params.p_cost,
+        iterations: params.t_cost,
+        memorySize: params.m_cost, // <-- FIX: Removed the * 1024
+        hashLength: params.output_len,
+        outputType: 'binary',
+      })
 
-    return { masterKey, authKey }
+      console.log('[Worker] argon2id DONE. masterKey len:', masterKey.length)
+
+      // FIX: Context MUST be exactly 8 bytes. 'Uoozer_Auth' (11 bytes) throws an error.
+      const authKey = sodium.crypto_kdf_derive_from_key(32, 1, 'UoozerAu', masterKey)
+      console.log('[Worker] authKey derived, len:', authKey.length)
+
+      return { masterKey, authKey }
+    } catch (err) {
+      console.error('[Worker] deriveKeysFromPassword FAILED:', err)
+      throw err
+    }
   },
 
   async generateDek(): Promise<Uint8Array> {
@@ -140,6 +157,7 @@ const api: CryptoApi = {
     params: Argon2Params
   ): Promise<SignupCryptoBundle> {
     assertReady()
+    console.log('[Worker] generateSignupBundle START')
 
     const { masterKey, authKey } = await this.deriveKeysFromPassword(password, saltB64, params)
     const dek = await this.generateDek()
@@ -152,6 +170,10 @@ const api: CryptoApi = {
     const identityKeyPair = await this.generateKeyPair()
     const deviceKeyPair = await this.generateKeyPair()
 
+    console.log('[Worker] generateSignupBundle DONE')
+
+    // FIX: Removed Comlink.transfer. We need to pass this bundle back to the worker
+    // later for `bundleForSignupRequest`, so we MUST let Comlink clone it normally.
     return {
       masterKey,
       authKey,
