@@ -136,11 +136,20 @@ class AuthService {
     await this.ensureCryptoReady()
 
     const initResp = await this.signupInit(credentials.email)
-    const bundle = await generateSignupBundle(
+
+    // Add a 30-second timeout to prevent infinite hanging
+    const bundlePromise = generateSignupBundle(
       credentials.password,
       initResp.salt,
       initResp.argon2_params
     )
+
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Crypto bundle generation timed out after 30s')), 30_000)
+    })
+
+    // Race the bundle generation against the timeout
+    const bundle = (await Promise.race([bundlePromise, timeoutPromise])) as SignupCryptoBundle
 
     return this.signupComplete(credentials, bundle, initResp.signup_token)
   }
