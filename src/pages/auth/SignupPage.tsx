@@ -2,31 +2,54 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Eye, EyeOff, Shield, ArrowRight, AlertCircle, Check, Copy, Key } from 'lucide-react'
+import {
+  Eye,
+  EyeOff,
+  Shield,
+  ArrowRight,
+  AlertCircle,
+  Check,
+  Copy,
+  Key,
+  Loader2,
+  ArrowDownToLine,
+} from 'lucide-react'
 
 import { useAuth } from '@hooks/useAuth'
 import { Button } from '@ui/Button'
 import { Input } from '@ui/Input'
 import { Label } from '@ui/Label'
+import { Dialog, DialogHeader, DialogTitle, DialogDescription } from '@ui/Dialog'
 import { ROUTES } from '@lib/constants'
 import { cn } from '@lib/utils'
 import { type SignupInput, signupSchema } from '@/lib/validator'
+import { AuthError } from '@/services/auth/error'
+import { mapErrorToAlert, type ApiErrorAlert } from '@/lib/errors'
 
 export function SignupPage() {
   const navigate = useNavigate()
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
-  const [step, setStep] = useState<'form' | 'recovery'>('form')
+
+  // Modal state
+  const [isModalOpen, setIsModalOpen] = useState(false)
   const [recoveryKey, setRecoveryKey] = useState('')
+  const [cryptoBundle, setCryptoBundle] = useState<any>(null)
+  const [userEmail, setUserEmail] = useState('')
+
   const [copied, setCopied] = useState(false)
-  const { signup, isSigningUp, signupError, clearSignupError } = useAuth()
+  const [downloaded, setDownloaded] = useState(false)
+  const [acknowledged, setAcknowledged] = useState(false)
+
+  const [apiError, setApiError] = useState<ApiErrorAlert | null>(null)
+  const { signup, completeSignup, isSigningUp } = useAuth()
 
   const {
     register,
     handleSubmit,
     formState: { errors },
     watch,
-  } = useForm({
+  } = useForm<SignupInput>({
     resolver: zodResolver(signupSchema),
     defaultValues: {
       email: '',
@@ -38,26 +61,56 @@ export function SignupPage() {
 
   const password = watch('password')
 
+  const copyRecoveryKey = () => {
+    navigator.clipboard.writeText(recoveryKey)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const downloadRecoveryKey = () => {
+    const blob = new Blob([recoveryKey], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'uoozer-vault-recovery-key.txt'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    setDownloaded(true)
+    setTimeout(() => setDownloaded(false), 2000)
+  }
+
   const onSubmit = async (data: SignupInput) => {
-    clearSignupError()
+    setApiError(null)
     try {
+      // Step 1: Create account (does NOT change global auth state)
       const result = await signup({
         email: data.email,
         password: data.password,
         deviceName: 'Web Browser',
         acceptTerms: data.acceptTerms,
       })
+
+      // Step 2: Store result in local state and open modal
       setRecoveryKey(result.recoveryKey)
-      setStep('recovery')
-    } catch {
-      // Error is handled by hook state
+      setCryptoBundle(result.cryptoBundle)
+      setUserEmail(data.email)
+      setIsModalOpen(true)
+    } catch (error) {
+      if (error instanceof AuthError || error instanceof Error) {
+        setApiError(mapErrorToAlert(error))
+      } else {
+        setApiError({ title: 'Unknown Error', message: 'Something went wrong.' })
+      }
     }
   }
 
-  const copyRecoveryKey = () => {
-    navigator.clipboard.writeText(recoveryKey)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+  const handleEnterVault = async () => {
+    // Step 3: Set global auth state and navigate
+    await completeSignup(cryptoBundle, userEmail)
+    setIsModalOpen(false)
+    navigate(ROUTES.VAULT)
   }
 
   return (
@@ -66,185 +119,208 @@ export function SignupPage() {
         <div className="bg-primary/10 text-primary mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl">
           <Shield className="h-7 w-7" strokeWidth={1.8} />
         </div>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {step === 'form' ? 'Create your vault' : 'Save your recovery key'}
-        </h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Create your vault</h1>
         <p className="text-muted-foreground mt-1.5 text-sm">
-          {step === 'form'
-            ? 'Start your zero-knowledge encrypted storage'
-            : 'This is the only way to recover your account'}
+          Start your zero-knowledge encrypted storage
         </p>
       </div>
 
-      {step === 'form' ? (
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          {signupError && (
-            <div className="border-destructive/20 bg-destructive/10 text-destructive animate-fade-in flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm">
-              <AlertCircle className="h-4 w-4 shrink-0" />
-              <span>{signupError}</span>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        {apiError && (
+          <div className="border-destructive/20 bg-destructive/5 text-destructive animate-fade-in flex items-start gap-2.5 rounded-lg border p-3">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <div className="text-[13px] leading-relaxed">
+              <p className="font-medium">{apiError.title}</p>
+              <p className="text-destructive/80">{apiError.message}</p>
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-1.5">
+          <Label htmlFor="email">Email</Label>
+          <Input
+            id="email"
+            type="email"
+            placeholder="you@example.com"
+            autoComplete="email"
+            {...register('email')}
+            className={cn(errors.email && 'border-destructive')}
+          />
+          {errors.email && <p className="text-destructive text-xs">{errors.email.message}</p>}
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="password">Password</Label>
+          <div className="relative">
+            <Input
+              id="password"
+              type={showPassword ? 'text' : 'password'}
+              placeholder="Create a strong password"
+              autoComplete="new-password"
+              {...register('password')}
+              className={cn('pr-10', errors.password && 'border-destructive')}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2"
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+          {errors.password && <p className="text-destructive text-xs">{errors.password.message}</p>}
+
+          {password && password.length > 0 && (
+            <div className="mt-2 flex gap-1">
+              {[1, 2, 3, 4].map((i) => (
+                <div
+                  key={i}
+                  className={cn(
+                    'h-1 flex-1 rounded-full transition-colors duration-150',
+                    password.length >= i * 3
+                      ? password.length >= 12 &&
+                        /[A-Z]/.test(password) &&
+                        /[0-9]/.test(password) &&
+                        /[^A-Za-z0-9]/.test(password)
+                        ? 'bg-emerald-500'
+                        : 'bg-amber-500'
+                      : 'bg-muted'
+                  )}
+                />
+              ))}
             </div>
           )}
+        </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="email">Email</Label>
+        <div className="space-y-1.5">
+          <Label htmlFor="confirmPassword">Confirm password</Label>
+          <div className="relative">
             <Input
-              id="email"
-              type="email"
-              placeholder="you@example.com"
-              autoComplete="email"
-              {...register('email')}
-              className={cn(errors.email && 'border-destructive')}
+              id="confirmPassword"
+              type={showConfirm ? 'text' : 'password'}
+              placeholder="Confirm your password"
+              autoComplete="new-password"
+              {...register('confirmPassword')}
+              className={cn('pr-10', errors.confirmPassword && 'border-destructive')}
             />
-            {errors.email && <p className="text-destructive text-xs">{errors.email.message}</p>}
+            <button
+              type="button"
+              onClick={() => setShowConfirm(!showConfirm)}
+              className="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2"
+            >
+              {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+          {errors.confirmPassword && (
+            <p className="text-destructive text-xs">{errors.confirmPassword.message}</p>
+          )}
+        </div>
+
+        <label className="flex items-start gap-2.5 text-sm">
+          <input
+            type="checkbox"
+            {...register('acceptTerms')}
+            className="border-border text-primary focus:ring-primary mt-0.5 h-4 w-4 rounded"
+          />
+          <span className={cn('text-muted-foreground', errors.acceptTerms && 'text-destructive')}>
+            I understand that losing my password and recovery key means losing access to my data
+            permanently. No one, including Uoozer, can recover it for me.
+          </span>
+        </label>
+        {errors.acceptTerms && (
+          <p className="text-destructive -mt-2 text-xs">{errors.acceptTerms.message}</p>
+        )}
+
+        <Button type="submit" className="h-10 w-full rounded-lg" disabled={isSigningUp}>
+          {isSigningUp ? (
+            <span className="flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Creating vault...
+            </span>
+          ) : (
+            <span className="flex items-center gap-2">
+              Create vault
+              <ArrowRight className="h-4 w-4" />
+            </span>
+          )}
+        </Button>
+      </form>
+
+      <p className="text-muted-foreground mt-6 text-center text-sm">
+        Already have an account?{' '}
+        <Link to={ROUTES.LOGIN} className="text-primary font-medium hover:underline">
+          Sign in
+        </Link>
+      </p>
+
+      {/* Recovery Key Modal */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen} className="sm:max-w-[480px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-left">
+            <Key className="h-5 w-5 text-amber-500" />
+            Save your recovery key
+          </DialogTitle>
+          <DialogDescription className="text-left text-[13px]">
+            This is the only way to recover your account if you forget your password. Save it
+            somewhere safe. You will never see it again.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="mt-2 space-y-4">
+          <div className="bg-muted/50 flex-1 rounded-lg border p-3 font-mono text-[11px] tracking-wide break-all">
+            {recoveryKey}
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="password">Password</Label>
-            <div className="relative">
-              <Input
-                id="password"
-                type={showPassword ? 'text' : 'password'}
-                placeholder="Create a strong password"
-                autoComplete="new-password"
-                {...register('password')}
-                className={cn('pr-10', errors.password && 'border-destructive')}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2"
-              >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-            {errors.password && (
-              <p className="text-destructive text-xs">{errors.password.message}</p>
-            )}
-
-            {password && password.length > 0 && (
-              <div className="mt-2 flex gap-1">
-                {[1, 2, 3, 4].map((i) => (
-                  <div
-                    key={i}
-                    className={cn(
-                      'h-1 flex-1 rounded-full transition-colors duration-150',
-                      password.length >= i * 3
-                        ? password.length >= 12 &&
-                          /[A-Z]/.test(password) &&
-                          /[0-9]/.test(password) &&
-                          /[^A-Za-z0-9]/.test(password)
-                          ? 'bg-emerald-500'
-                          : 'bg-amber-500'
-                        : 'bg-muted'
-                    )}
-                  />
-                ))}
-              </div>
-            )}
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={copyRecoveryKey}
+              className={cn('gap-1.5', copied && 'text-emerald-500')}
+            >
+              {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              {copied ? 'Copied!' : 'Copy Key'}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={downloadRecoveryKey}
+              className={cn('gap-1.5', downloaded && 'text-emerald-500')}
+            >
+              {downloaded ? <Check className="h-4 w-4" /> : <ArrowDownToLine className="h-4 w-4" />}
+              {downloaded ? 'Downloaded' : 'Download .txt'}
+            </Button>
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="confirmPassword">Confirm password</Label>
-            <div className="relative">
-              <Input
-                id="confirmPassword"
-                type={showConfirm ? 'text' : 'password'}
-                placeholder="Confirm your password"
-                autoComplete="new-password"
-                {...register('confirmPassword')}
-                className={cn('pr-10', errors.confirmPassword && 'border-destructive')}
-              />
-              <button
-                type="button"
-                onClick={() => setShowConfirm(!showConfirm)}
-                className="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2"
-              >
-                {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-            {errors.confirmPassword && (
-              <p className="text-destructive text-xs">{errors.confirmPassword.message}</p>
-            )}
+          <div className="border-destructive/20 bg-destructive/5 rounded-lg border p-3">
+            <p className="text-destructive text-[11px] leading-relaxed">
+              <strong>Warning:</strong> If you lose your password and don't have this recovery key,
+              your data is permanently lost. We cannot recover it for you.
+            </p>
           </div>
 
-          <label className="flex items-start gap-2.5 text-sm">
+          <label className="flex cursor-pointer items-start gap-2.5 text-[13px]">
             <input
               type="checkbox"
-              {...register('acceptTerms')}
+              checked={acknowledged}
+              onChange={(e) => setAcknowledged(e.target.checked)}
               className="border-border text-primary focus:ring-primary mt-0.5 h-4 w-4 rounded"
             />
-            <span className={cn('text-muted-foreground', errors.acceptTerms && 'text-destructive')}>
-              I understand that losing my password and recovery key means losing access to my data
-              permanently. No one, including Uoozer, can recover it for me.
+            <span className="text-muted-foreground">
+              I have saved my recovery key and understand the risks.
             </span>
           </label>
-          {errors.acceptTerms && (
-            <p className="text-destructive -mt-2 text-xs">{errors.acceptTerms.message}</p>
-          )}
 
-          <Button type="submit" className="h-10 w-full rounded-lg" disabled={isSigningUp}>
-            {isSigningUp ? (
-              <span className="flex items-center gap-2">
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                Creating vault...
-              </span>
-            ) : (
-              <span className="flex items-center gap-2">
-                Create vault
-                <ArrowRight className="h-4 w-4" />
-              </span>
-            )}
-          </Button>
-        </form>
-      ) : (
-        <div className="animate-fade-in space-y-6">
-          <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
-            <div className="mb-2 flex items-center gap-2 text-amber-600 dark:text-amber-400">
-              <Key className="h-4 w-4" />
-              <span className="text-sm font-medium">Recovery Key</span>
-            </div>
-            <p className="text-muted-foreground mb-3 text-xs">
-              Save this key somewhere safe (password manager, printed copy). You will never see it
-              again.
-            </p>
-            <div className="flex items-center gap-2">
-              <code className="bg-background flex-1 rounded-lg border px-3 py-2.5 font-mono text-sm tracking-wider">
-                {recoveryKey}
-              </code>
-              <Button
-                variant="secondary"
-                size="icon"
-                onClick={copyRecoveryKey}
-                className={cn(copied && 'text-emerald-500')}
-              >
-                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-              </Button>
-            </div>
-          </div>
-
-          <div className="bg-muted/50 space-y-2 rounded-xl border p-4">
-            <p className="text-foreground text-xs font-medium">What happens if I lose this key?</p>
-            <p className="text-muted-foreground text-xs leading-relaxed">
-              Your data is encrypted with your password. If you forget your password and don't have
-              this recovery key, your data is permanently lost. We cannot help you recover it.
-            </p>
-          </div>
-
-          <Button onClick={() => navigate(ROUTES.VAULT)} className="h-10 w-full rounded-lg">
-            I've saved it — go to my vault
+          <Button
+            onClick={handleEnterVault}
+            disabled={!acknowledged}
+            className="h-10 w-full gap-2 rounded-lg"
+          >
+            Enter my vault
             <ArrowRight className="h-4 w-4" />
           </Button>
         </div>
-      )}
-
-      {step === 'form' && (
-        <p className="text-muted-foreground mt-6 text-center text-sm">
-          Already have an account?{' '}
-          <Link to={ROUTES.LOGIN} className="text-primary font-medium hover:underline">
-            Sign in
-          </Link>
-        </p>
-      )}
+      </Dialog>
     </div>
   )
 }
