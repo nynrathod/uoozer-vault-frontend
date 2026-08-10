@@ -26,7 +26,7 @@ export const ACCEPTED_FILE_TYPES = {
 } as const
 
 export const FILE_TYPE_COLORS: Record<string, string> = {
-  image: 'text-purple-500 bg-purple-500/10',
+  image: 'text-pink-500 bg-pink-500/10',
   video: 'text-rose-500 bg-rose-500/10',
   audio: 'text-amber-500 bg-amber-500/10',
   pdf: 'text-red-500 bg-red-500/10',
@@ -43,9 +43,26 @@ export const ROUTES = {
   LOGIN: '/login',
   SIGNUP: '/signup',
   RECOVERY: '/recovery',
+  UNLOCK: '/unlock',
+
+  // Vault App
   VAULT: '/vault',
+  VAULT_STARRED: '/vault/starred',
+  VAULT_PRIVATE: '/vault/private',
+  VAULT_TRASH: '/vault/trash',
   VAULT_FOLDER: '/vault/folder/:folderId',
+
+  // Notes App
   NOTES: '/notes',
+  NOTES_PINNED: '/notes/pinned',
+  NOTES_TRASH: '/notes/trash',
+
+  // Passwords App (New)
+  PASSWORDS: '/passwords',
+  PASSWORDS_FAVORITES: '/passwords/favorites',
+  PASSWORDS_TRASH: '/passwords/trash',
+
+  // System
   SETTINGS: '/settings',
   DEVICES: '/devices',
   AUDIT_LOGS: '/audit-logs',

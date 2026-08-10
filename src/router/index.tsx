@@ -15,6 +15,7 @@ import { NotesPage } from '@pages/notes/NotesPage'
 import { DevicesPage } from '@/pages/devices/DevicesPage'
 import { AuditLogsPage } from '@/pages/audit/AuditLogsPage'
 import { SettingsPage } from '@/pages/settings/SettingsPage'
+import { RecoveryPage } from '@/pages/auth/RecoveryPage'
 
 function ProtectedRoute() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -35,6 +36,7 @@ const router = createBrowserRouter([
         children: [
           { path: ROUTES.LOGIN, element: <LoginPage /> },
           { path: ROUTES.SIGNUP, element: <SignupPage /> },
+          { path: ROUTES.RECOVERY, element: <RecoveryPage /> },
         ],
       },
     ],
@@ -46,11 +48,21 @@ const router = createBrowserRouter([
         element: <AppLayout />,
         children: [
           { path: ROUTES.VAULT, element: <VaultPage /> },
+          { path: ROUTES.VAULT_STARRED, element: <VaultPage /> },
+          { path: ROUTES.VAULT_PRIVATE, element: <VaultPage /> },
+          { path: ROUTES.VAULT_TRASH, element: <VaultPage /> },
           { path: ROUTES.VAULT_FOLDER, element: <VaultPage /> },
+
           { path: ROUTES.NOTES, element: <NotesPage /> },
+          { path: ROUTES.NOTES_PINNED, element: <NotesPage /> },
+          { path: ROUTES.NOTES_TRASH, element: <NotesPage /> },
           { path: ROUTES.SETTINGS, element: <SettingsPage /> },
           { path: ROUTES.DEVICES, element: <DevicesPage /> },
           { path: ROUTES.AUDIT_LOGS, element: <AuditLogsPage /> },
+
+          { path: ROUTES.PASSWORDS, element: <VaultPage /> }, // Reusing VaultPage as placeholder
+          { path: ROUTES.PASSWORDS_FAVORITES, element: <VaultPage /> },
+          { path: ROUTES.PASSWORDS_TRASH, element: <VaultPage /> },
 
           { path: '/', element: <Navigate to={ROUTES.VAULT} replace /> },
         ],
