@@ -1,6 +1,5 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react-swc'
-import { VitePWA } from 'vite-plugin-pwa'
 import tailwindcss from '@tailwindcss/vite'
 import tsconfigPaths from 'vite-tsconfig-paths'
 import path from 'path'
@@ -93,27 +92,6 @@ export default defineConfig({
     react(),
     tailwindcss(),
     tsconfigPaths(),
-    VitePWA({
-      registerType: 'autoUpdate',
-      injectRegister: 'auto',
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
-      },
-      manifest: {
-        name: 'Uoozer Vault',
-        short_name: 'Vault',
-        description: 'Zero-knowledge encrypted file storage',
-        theme_color: '#0a0a0f',
-        background_color: '#0a0a0f',
-        display: 'standalone',
-        orientation: 'portrait',
-        icons: [
-          { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
-        ],
-      },
-    }),
   ],
   server: {
     host: true,
@@ -135,11 +113,33 @@ export default defineConfig({
     sourcemap: true,
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router-dom'],
-          ui: ['framer-motion', 'lucide-react', 'vaul'],
-          query: ['@tanstack/react-query'],
-          form: ['react-hook-form', 'zod', '@hookform/resolvers'],
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (
+              id.includes('react') ||
+              id.includes('react-dom') ||
+              id.includes('react-router-dom')
+            ) {
+              return 'vendor'
+            }
+            if (
+              id.includes('framer-motion') ||
+              id.includes('lucide-react') ||
+              id.includes('vaul')
+            ) {
+              return 'ui'
+            }
+            if (id.includes('@tanstack/react-query')) {
+              return 'query'
+            }
+            if (
+              id.includes('react-hook-form') ||
+              id.includes('zod') ||
+              id.includes('@hookform/resolvers')
+            ) {
+              return 'form'
+            }
+          }
         },
       },
     },
