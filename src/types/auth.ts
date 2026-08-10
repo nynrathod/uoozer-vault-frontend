@@ -122,7 +122,8 @@ export interface CryptoState {
 
 export interface LoginCredentials {
   email: string
-  password: string
+  password?: string
+  authKey?: string
   rememberMe?: boolean
 }
 

@@ -10,6 +10,9 @@ import {
   decodeJwt,
   wrapDek,
   zeroize,
+  deriveRecoveryAuthKey,
+  unwrapDek,
+  base64ToBytes,
 } from '@lib/crypto'
 
 import type {
@@ -18,7 +21,6 @@ import type {
   SignupCompleteRequest,
   LoginRequest,
   AuthResponse,
-  LogoutRequest,
   Device,
   Session,
   LoginCredentials,
@@ -111,7 +113,7 @@ class AuthService {
       )
 
       tokenManager.setUserEmail(credentials.email)
-
+      tokenManager.setHasSession(true)
       const claims = decodeJwt(data.access_token)
       tokenManager.setDeviceId(claims.did)
 
@@ -137,26 +139,18 @@ class AuthService {
 
     const initResp = await this.signupInit(credentials.email)
 
-    // Add a 30-second timeout to prevent infinite hanging
-    const bundlePromise = generateSignupBundle(
-      credentials.password,
+    // Race the bundle generation against the timeout
+    const bundle = await generateSignupBundle(
+      credentials.password || '', // <-- FIX: Add fallback
       initResp.salt,
       initResp.argon2_params
     )
-
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error('Crypto bundle generation timed out after 30s')), 30_000)
-    })
-
-    // Race the bundle generation against the timeout
-    const bundle = (await Promise.race([bundlePromise, timeoutPromise])) as SignupCryptoBundle
-
     return this.signupComplete(credentials, bundle, initResp.signup_token)
   }
 
   async login(credentials: LoginCredentials): Promise<{
     tokens: AuthResponse
-    masterKey: Uint8Array
+    masterKey: Uint8Array | null
   }> {
     console.log('1. Ensuring crypto is ready...')
     await this.ensureCryptoReady()
@@ -166,36 +160,29 @@ class AuthService {
     const preloginResp = await this.prelogin(credentials.email)
     console.log('4. Prelogin response:', preloginResp)
 
-    console.log('5. Deriving keys from password...')
-    const { masterKey, authKey } = await deriveKeysFromPassword(
-      credentials.password,
-      preloginResp.salt,
-      preloginResp.argon2_params
-    )
-    console.log('6. Keys derived', {
-      hasMasterKey: !!masterKey,
-      masterKeyLength: masterKey.length,
-      authKeyLength: authKey.length,
-    })
+    let authKeyB64: string
+    let masterKey: Uint8Array | null = null
+
+    if (credentials.authKey) {
+      // Recovery flow: use the pre-derived auth key
+      console.log('5b. Using provided recovery auth key...')
+      authKeyB64 = credentials.authKey
+    } else {
+      // Normal flow: derive keys from password
+      console.log('5. Deriving keys from password...')
+      const { masterKey: mk, authKey } = await deriveKeysFromPassword(
+        credentials.password || '',
+        preloginResp.salt,
+        preloginResp.argon2_params
+      )
+      masterKey = mk
+      authKeyB64 = await bytesToBase64(authKey)
+      await zeroize(authKey)
+    }
 
     console.log('7. Generating device key pair...')
     const deviceKeyPair = await generateKeyPair()
-    console.log('8. Device key pair generated', {
-      publicKeyLength: deviceKeyPair.publicKey.length,
-      privateKeyLength: deviceKeyPair.privateKey.length,
-    })
-
-    console.log('9. Encoding auth key to Base64...')
-    const authKeyB64 = await bytesToBase64(authKey)
-    console.log('10. authKey encoded')
-
-    console.log('11. Encoding device public key to Base64...')
     const devicePubKeyB64 = await bytesToBase64(deviceKeyPair.publicKey)
-    console.log('12. Device public key encoded')
-
-    console.log('13. Zeroizing auth key...')
-    await zeroize(authKey)
-    console.log('14. Auth key zeroized')
 
     const loginReq: LoginRequest = {
       email: credentials.email,
@@ -205,45 +192,19 @@ class AuthService {
       device_id: tokenManager.getDeviceId() ?? undefined,
     }
 
-    console.log('15. Login request:', {
-      email: loginReq.email,
-      device_id: loginReq.device_id,
-      device_name: loginReq.device_name,
-      authKeyLength: loginReq.auth_key.length,
-      devicePubKeyLength: loginReq.device_pubkey.length,
-    })
-
     try {
       console.log('16. Sending login request...')
       const { data } = await apiClient.post('/api/v1/auth/login', loginReq)
-      console.log('17. Login successful:', data)
 
-      console.log('18. Storing access token...')
-      tokenManager.setAccessToken(data.access_token, data.expires_in)
-      console.log('19. Access token stored')
-
-      console.log('20. Storing refresh token...')
+      await tokenManager.setAccessToken(data.access_token, data.expires_in)
       await tokenManager.setRefreshToken(data.refresh_token)
-      console.log('21. Refresh token stored')
-
-      console.log('22. Storing user email...')
       tokenManager.setUserEmail(credentials.email)
-
-      console.log('23. Decoding JWT...')
+      tokenManager.setHasSession(true)
       const claims = decodeJwt(data.access_token)
-      console.log('24. JWT claims:', claims)
-
-      console.log('25. Saving device ID:', claims.did)
       tokenManager.setDeviceId(claims.did)
 
-      console.log('26. Returning login result')
-      return {
-        tokens: data,
-        masterKey,
-      }
+      return { tokens: data, masterKey }
     } catch (error: any) {
-      // Zeroize master key if login fails
-      await zeroize(masterKey)
       throw this._handleError(error)
     }
   }
@@ -268,22 +229,35 @@ class AuthService {
       return data
     } catch (error: any) {
       if (error?.response?.status === 401) {
-        await tokenManager.clearTokens()
+        await tokenManager.clearAll()
       }
       throw this._handleError(error)
     }
   }
 
   async logout(revokeDevice = false): Promise<void> {
+    console.log('[AuthService] Firing logout fetch request...')
     const refreshToken = await tokenManager.getRefreshToken()
+    const accessToken = tokenManager.getAccessToken()
+
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
 
     try {
-      await apiClient.post('/api/v1/auth/logout', {
-        revoke_device: revokeDevice,
-        refresh_token: refreshToken,
-      } as LogoutRequest)
-    } catch {
-      // ignore
+      // Using native fetch to bypass Axios interceptors completely
+      await fetch(`${API_BASE_URL}/api/v1/auth/logout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify({
+          revoke_device: revokeDevice,
+          refresh_token: refreshToken,
+        }),
+      })
+      console.log('[AuthService] Logout API call finished.')
+    } catch (error) {
+      console.warn('[AuthService] Logout fetch failed (network error), proceeding anyway.', error)
     } finally {
       await tokenManager.clearAll()
     }
@@ -294,7 +268,7 @@ class AuthService {
     currentSalt: string,
     currentArgonParams: Argon2Params,
     dek: Uint8Array
-  ): Promise<void> {
+  ): Promise<{ wrapped_dek: string; wrapped_dek_nonce: string }> {
     await this.ensureCryptoReady()
 
     const { masterKey: newMasterKey, authKey: newAuthKey } = await deriveKeysFromPassword(
@@ -308,7 +282,6 @@ class AuthService {
     const newWrappedDekB64 = await bytesToBase64(newWrappedDek.ciphertext)
     const newWrappedDekNonceB64 = await bytesToBase64(newWrappedDek.nonce)
 
-    // Zeroize sensitive keys
     await zeroize(newMasterKey, newAuthKey, newWrappedDek.ciphertext)
 
     try {
@@ -317,6 +290,9 @@ class AuthService {
         new_wrapped_dek: newWrappedDekB64,
         new_wrapped_dek_nonce: newWrappedDekNonceB64,
       })
+
+      // RETURN THE NEW KEYS
+      return { wrapped_dek: newWrappedDekB64, wrapped_dek_nonce: newWrappedDekNonceB64 }
     } catch (error: any) {
       throw this._handleError(error)
     }
@@ -370,9 +346,15 @@ class AuthService {
   }
 
   async tryRestoreSession(): Promise<boolean> {
+    // 1. If we already have a valid access token in memory (e.g. HMR reload),
+    // we don't need to call the API at all!
+    if (tokenManager.getAccessToken() && !tokenManager.isAccessTokenExpired()) {
+      return true
+    }
+
+    // 2. Otherwise, check if we have a refresh token to get a new access token
     const hasSession = await this.hasValidSession()
     if (!hasSession) {
-      await tokenManager.clearAll()
       return false
     }
 
@@ -380,7 +362,6 @@ class AuthService {
       await this.refresh()
       return true
     } catch {
-      await tokenManager.clearAll()
       return false
     }
   }
@@ -400,6 +381,105 @@ class AuthService {
     const errorMessage = data?.error?.message
 
     return createAuthErrorFromResponse(status, errorCode, errorMessage)
+  }
+
+  async getKeys(): Promise<{
+    wrapped_dek: string
+    wrapped_dek_nonce: string
+    recovery_wrapped_dek: string
+    recovery_wrapped_dek_nonce: string
+  }> {
+    try {
+      const { data } = await apiClient.get('/api/v1/auth/keys')
+      return data
+    } catch (error: any) {
+      throw this._handleError(error)
+    }
+  }
+
+  // STEP 1: Verify Recovery Key (In-Memory Only)
+  async verifyRecoveryKey(
+    email: string,
+    recoveryKey: Uint8Array
+  ): Promise<{ dek: Uint8Array; tokens: AuthResponse }> {
+    await this.ensureCryptoReady()
+
+    const recoveryAuthKey = await deriveRecoveryAuthKey(recoveryKey)
+    const authKeyB64 = await bytesToBase64(recoveryAuthKey)
+
+    const deviceKeyPair = await generateKeyPair()
+    const devicePubKeyB64 = await bytesToBase64(deviceKeyPair.publicKey)
+
+    const loginReq: LoginRequest = {
+      email,
+      auth_key: authKeyB64,
+      device_pubkey: devicePubKeyB64,
+      device_name: 'Web Browser (Recovery)',
+    }
+
+    try {
+      // 1. Login to verify the key mathematically
+      const { data: tokens } = await apiClient.post('/api/v1/auth/login', loginReq)
+
+      // DO NOT call tokenManager.setRefreshToken or setHasSession(true).
+      tokenManager.setAccessToken(tokens.access_token, tokens.expires_in)
+
+      // 2. Fetch the encrypted keys
+      const keys = await this.getKeys()
+
+      // 3. Attempt to decrypt the DEK with the provided Recovery Key
+      const wrappedDek = {
+        ciphertext: await base64ToBytes(keys.recovery_wrapped_dek),
+        nonce: await base64ToBytes(keys.recovery_wrapped_dek_nonce),
+      }
+      const dek = await unwrapDek(wrappedDek, recoveryKey)
+
+      if (!dek) {
+        throw new AuthError(AUTH_ERROR_CODES.INVALID_CREDENTIALS, 401, {
+          message: 'Failed to decrypt vault. The recovery key is invalid.',
+        })
+      }
+
+      return { dek, tokens }
+    } catch (error: any) {
+      throw this._handleError(error)
+    }
+  }
+  // STEP 2: Complete Recovery (Persist Session & Update Password)
+  async completeRecovery(
+    email: string,
+    newPassword: string,
+    salt: string,
+    params: Argon2Params,
+    dek: Uint8Array,
+    tokens: AuthResponse
+  ): Promise<{ masterKey: Uint8Array; dek: Uint8Array }> {
+    await this.ensureCryptoReady()
+
+    const { masterKey: newMasterKey, authKey: newAuthKey } = await deriveKeysFromPassword(
+      newPassword,
+      salt,
+      params
+    )
+
+    const newWrappedDek = await wrapDek(dek, newMasterKey)
+    const newAuthKeyB64 = await bytesToBase64(newAuthKey)
+    const newWrappedDekB64 = await bytesToBase64(newWrappedDek.ciphertext)
+    const newWrappedDekNonceB64 = await bytesToBase64(newWrappedDek.nonce)
+
+    // 1. Tell the server to update the password and the wrapped DEK
+    await apiClient.post('/api/v1/auth/password', {
+      new_auth_key: newAuthKeyB64,
+      new_wrapped_dek: newWrappedDekB64,
+      new_wrapped_dek_nonce: newWrappedDekNonceB64,
+    })
+
+    // 2. NOW it is safe to persist the session permanently
+    await tokenManager.setRefreshToken(tokens.refresh_token)
+    tokenManager.setUserEmail(email)
+    tokenManager.setHasSession(true)
+
+    return { masterKey: newMasterKey, dek }
   }
 }
 

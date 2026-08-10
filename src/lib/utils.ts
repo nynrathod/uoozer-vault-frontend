@@ -142,6 +142,9 @@ export function arrayBufferToHex(buffer: ArrayBuffer): string {
 }
 
 export function hexToUint8Array(hex: string): Uint8Array {
+  if (!/^[0-9a-fA-F]{64}$/.test(hex)) {
+    throw new Error('Invalid recovery key format.')
+  }
   const bytes = new Uint8Array(hex.length / 2)
   for (let i = 0; i < hex.length; i += 2) {
     bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16)
