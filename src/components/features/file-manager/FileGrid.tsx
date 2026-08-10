@@ -21,6 +21,7 @@ interface FileGridProps {
   onMoveItem?: (itemId: string, targetFolderId: string, isFolder: boolean) => void
   editingId?: string | null
   folderCounts?: Record<string, number>
+  onVersions?: (file: FileItem) => void
 }
 
 export function FileGrid({
@@ -36,6 +37,7 @@ export function FileGrid({
   onMoveItem,
   editingId,
   folderCounts,
+  onVersions,
 }: FileGridProps) {
   const allItems = [...folders, ...files]
   const [shareItem, setShareItem] = useState<{
@@ -200,6 +202,7 @@ export function FileGrid({
                 onShare={() => setShareItem({ id: item.id, name, isFolder, itemCount })}
                 copied={isCopied}
                 onCopyLink={() => handleCopyLink(item.id)}
+                onVersions={() => !isFolder && onVersions?.(item as FileItem)}
                 trigger={
                   <button
                     className={cn(

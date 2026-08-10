@@ -25,7 +25,6 @@ function DropdownMenu({
   const [internalOpen, setInternalOpen] = React.useState(false)
   const isControlled = controlledOpen !== undefined
   const isOpen = isControlled ? controlledOpen : internalOpen
-  const ref = React.useRef<HTMLDivElement>(null)
 
   const toggle = (value: boolean) => {
     if (isControlled) onOpenChange?.(value)
@@ -34,17 +33,10 @@ function DropdownMenu({
 
   const close = React.useCallback(() => toggle(false), [isControlled, onOpenChange])
 
-  React.useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (ref.current && !ref.current.contains(event.target as Node)) close()
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [close])
-
   return (
     <DropdownContext.Provider value={{ close }}>
-      <div ref={ref} className={cn('relative inline-block', containerClassName)}>
+      <div className={cn('relative inline-block', containerClassName)}>
+        {/* Trigger Wrapper */}
         <div
           onClick={(e) => {
             e.stopPropagation()
@@ -54,18 +46,31 @@ function DropdownMenu({
         >
           {trigger}
         </div>
+
         {isOpen && (
-          <div
-            className={cn(
-              'border-border absolute z-50 min-w-[12rem] rounded-xl border p-1.5 shadow-lg',
-              'bg-popover text-popover-foreground',
-              align === 'end' ? 'right-0' : 'left-0',
-              'top-full mt-1.5',
-              className
-            )}
-          >
-            {children}
-          </div>
+          <>
+            {/* Invisible Overlay to catch outside clicks */}
+            <div
+              className="fixed inset-0 z-40"
+              onClick={(e) => {
+                e.stopPropagation() // Prevents row click from firing when clicking outside
+                close()
+              }}
+            />
+
+            {/* Dropdown Menu Content */}
+            <div
+              className={cn(
+                'border-border bg-popover text-popover-foreground absolute z-50 min-w-[12rem] rounded-xl border p-1.5 shadow-lg',
+                align === 'end' ? 'right-0' : 'left-0',
+                'top-full mt-1.5',
+                className
+              )}
+              onClick={(e) => e.stopPropagation()} // Prevents row click from firing when clicking inside
+            >
+              {children}
+            </div>
+          </>
         )}
       </div>
     </DropdownContext.Provider>
@@ -97,9 +102,9 @@ function DropdownItem({
         className
       )}
       onClick={(e) => {
-        e.stopPropagation()
-        onClick?.(e)
-        if (!preventClose) ctx?.close()
+        e.stopPropagation() // Prevents row click from firing
+        onClick?.(e) // Performs the action (e.g., opens delete dialog)
+        if (!preventClose) ctx?.close() // Closes the menu
       }}
       {...props}
     >

@@ -26,6 +26,9 @@ interface FileActionsMenuProps {
   trigger: React.ReactNode
   copied: boolean
   onCopyLink: () => void
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  onVersions?: () => void
 }
 
 export function FileActionsMenu({
@@ -37,12 +40,15 @@ export function FileActionsMenu({
   trigger,
   copied,
   onCopyLink,
+  open,
+  onOpenChange,
+  onVersions,
 }: FileActionsMenuProps) {
   const [deleteOpen, setDeleteOpen] = useState(false)
 
   return (
     <>
-      <DropdownMenu trigger={trigger}>
+      <DropdownMenu trigger={trigger} open={open} onOpenChange={onOpenChange}>
         {!isFolder && <DropdownItem icon={<Eye className="h-4 w-4" />}>Preview</DropdownItem>}
         {!isFolder && <DropdownItem icon={<Download className="h-4 w-4" />}>Download</DropdownItem>}
         <DropdownItem icon={<Edit3 className="h-4 w-4" />} onClick={() => onRenameRequest(item.id)}>
@@ -62,7 +68,9 @@ export function FileActionsMenu({
         {!isFolder && (
           <>
             <DropdownSeparator />
-            <DropdownItem icon={<History className="h-4 w-4" />}>Version history</DropdownItem>
+            <DropdownItem icon={<History className="h-4 w-4" />} onClick={onVersions}>
+              Version history
+            </DropdownItem>
           </>
         )}
         <DropdownSeparator />
@@ -79,7 +87,6 @@ export function FileActionsMenu({
         </DropdownItem>
       </DropdownMenu>
 
-      {/* Unified Delete Dialog */}
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogHeader>
           <DialogTitle>Delete {isFolder ? 'folder' : 'file'}</DialogTitle>

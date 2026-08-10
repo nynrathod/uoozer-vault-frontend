@@ -8,8 +8,8 @@ interface UIState {
   uploadPanelOpen: boolean
   selectedFileIds: Set<string>
   viewMode: 'list' | 'grid'
-  sortField: 'name' | 'size' | 'modified' | 'created'
-  sortOrder: 'asc' | 'desc'
+  sortField: 'name' | 'size' | 'modified' | 'created' | null
+  sortOrder: 'asc' | 'desc' | null
   toggleSidebar: () => void
   setSidebarOpen: (open: boolean) => void
   setMobileMenuOpen: (open: boolean) => void
@@ -33,8 +33,8 @@ export const useUIStore = create<UIState>((set, get) => ({
   uploadPanelOpen: false,
   selectedFileIds: new Set(),
   viewMode: 'list',
-  sortField: 'modified',
-  sortOrder: 'desc',
+  sortField: null,
+  sortOrder: null,
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
   setMobileMenuOpen: (mobileMenuOpen) => set({ mobileMenuOpen }),

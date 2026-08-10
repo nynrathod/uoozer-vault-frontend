@@ -1,5 +1,5 @@
 import { cn } from '@lib/utils'
-import { Check } from 'lucide-react'
+import { Check, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
 import { FileRow } from './FileRow'
 import type { FileItem } from '@/types/filtes'
 import type { Folder } from '@/types/folders'
@@ -20,6 +20,13 @@ interface FileListProps {
   folderCounts?: Record<string, number>
   onSelectAll?: () => void
   isAllSelected?: boolean
+  sortField?: 'name' | 'size' | 'modified' | 'created' | null
+  sortOrder?: 'asc' | 'desc' | null
+  onSortChange?: (field: 'name' | 'size' | 'modified') => void
+  activeMenuId?: string | null // <-- RESTORED
+  setActiveMenuId?: (id: string | null) => void // <-- RESTORED
+  onVersions?: (file: FileItem) => void // <-- RESTORED
+  removingIds?: Set<string>
 }
 
 export function FileList({
@@ -38,11 +45,19 @@ export function FileList({
   folderCounts,
   onSelectAll,
   isAllSelected,
+  sortField,
+  sortOrder,
+  onSortChange,
+  activeMenuId,
+  setActiveMenuId,
+  onVersions,
+  removingIds,
 }: FileListProps) {
   return (
-    <div className="h-full overflow-auto">
-      <div className="space-y-0.5 p-1">
-        <div className="border-border/40 text-muted-foreground/50 mb-1 flex items-center gap-3 border-b px-3 py-2 text-[11px] font-semibold tracking-wider uppercase">
+    <div className="h-full overflow-auto px-4 sm:px-6">
+      <div className="pb-4">
+        {/* HEADER ROW */}
+        <div className="border-border/40 text-muted-foreground/50 bg-background sticky top-0 z-10 mb-2 grid grid-cols-[24px_2.5rem_1fr_9.5rem] items-center gap-3 border-b px-3 py-2 text-[11px] font-semibold tracking-wider uppercase md:grid-cols-[24px_2.5rem_1fr_9.5rem_8rem_6rem]">
           <div
             className={cn(
               'flex h-[18px] w-[18px] shrink-0 cursor-pointer items-center justify-center rounded-[5px] border transition-all duration-150',
@@ -57,45 +72,88 @@ export function FileList({
           >
             {isAllSelected && <Check className="h-3 w-3" strokeWidth={3} />}
           </div>
-          <span className="flex-1">Name</span>
-          <div className="hidden w-32 md:block">Modified</div>
-          <div className="hidden w-24 text-right sm:block">Size</div>
-          <div className="w-[152px]"></div>
+          <span></span>
+
+          {/* NAME COLUMN */}
+          <button
+            className="hover:text-foreground flex cursor-pointer items-center gap-1 truncate transition-colors"
+            onClick={() => onSortChange?.('name')}
+          >
+            Name
+            {sortField === 'name' ? (
+              sortOrder === 'asc' ? (
+                <ChevronUp className="h-3 w-3" />
+              ) : (
+                <ChevronDown className="h-3 w-3" />
+              )
+            ) : (
+              <ChevronsUpDown className="h-3 w-3 opacity-40" />
+            )}
+          </button>
+
+          <span></span>
+          <span className="hidden md:block">Modified</span>
+
+          {/* SIZE COLUMN */}
+          <button
+            className="hover:text-foreground ml-auto flex cursor-pointer items-center gap-1 transition-colors"
+            onClick={() => onSortChange?.('size')}
+          >
+            Size
+            {sortField === 'size' ? (
+              sortOrder === 'asc' ? (
+                <ChevronUp className="h-3 w-3" />
+              ) : (
+                <ChevronDown className="h-3 w-3" />
+              )
+            ) : (
+              <ChevronsUpDown className="h-3 w-3 opacity-40" />
+            )}
+          </button>
         </div>
 
-        {folders.map((folder) => (
-          <FileRow
-            key={`folder-${folder.id}`}
-            item={folder}
-            isFolder={true}
-            isSelected={selectedIds.has(folder.id)}
-            onClick={() => onFolderClick(folder)}
-            onSelect={() => onFileSelect(folder.id)}
-            onRename={onRename}
-            onRenameRequest={onRenameRequest}
-            onDelete={onDelete}
-            onMoveItem={onMoveItem}
-            editingId={editingId}
-            itemCount={folderCounts?.[folder.id] || 0}
-          />
-        ))}
+        <div className="space-y-0.5">
+          {folders.map((folder) => (
+            <FileRow
+              key={`folder-${folder.id}`}
+              item={folder}
+              isFolder={true}
+              isSelected={selectedIds.has(folder.id)}
+              onClick={() => onFolderClick(folder)}
+              onSelect={() => onFileSelect(folder.id)}
+              onRename={onRename}
+              onRenameRequest={onRenameRequest}
+              onDelete={onDelete}
+              onMoveItem={onMoveItem}
+              editingId={editingId}
+              itemCount={folderCounts?.[folder.id] || 0}
+              activeMenuId={activeMenuId}
+              setActiveMenuId={setActiveMenuId}
+              isRemoving={removingIds?.has(folder.id)}
+            />
+          ))}
 
-        {files.map((file) => (
-          <FileRow
-            key={`file-${file.id}`}
-            item={file}
-            isFolder={false}
-            isSelected={selectedIds.has(file.id)}
-            onClick={() => onFileClick(file)}
-            onDoubleClick={() => onFileDoubleClick?.(file)}
-            onSelect={() => onFileSelect(file.id)}
-            onRename={onRename}
-            onRenameRequest={onRenameRequest}
-            onDelete={onDelete}
-            onMoveItem={onMoveItem}
-            editingId={editingId}
-          />
-        ))}
+          {files.map((file) => (
+            <FileRow
+              key={`file-${file.id}`}
+              item={file}
+              isFolder={false}
+              isSelected={selectedIds.has(file.id)}
+              onClick={() => onFileClick(file)}
+              onDoubleClick={() => onFileDoubleClick?.(file)}
+              onSelect={() => onFileSelect(file.id)}
+              onRename={onRename}
+              onRenameRequest={onRenameRequest}
+              onDelete={onDelete}
+              onMoveItem={onMoveItem}
+              editingId={editingId}
+              activeMenuId={activeMenuId}
+              setActiveMenuId={setActiveMenuId}
+              onVersions={() => onVersions?.(file)}
+              isRemoving={removingIds?.has(file.id)}
+            />
+          ))}
+        </div>
       </div>
     </div>
   )
