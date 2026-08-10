@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import { useUploadStore } from '@stores/uploadStore'
 import { useUIStore } from '@stores/uiStore'
-import { cn, formatBytes } from '@lib/utils'
+import { formatBytes } from '@lib/utils'
 import { Button } from '@ui/Button'
 import { Progress } from '@ui/Progress'
 

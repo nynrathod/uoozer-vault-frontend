@@ -91,7 +91,7 @@ export function SettingsPage() {
 
       {/* Content */}
       <ScrollArea className="flex-1">
-        <div className="mx-auto max-w-2xl px-4 py-6 lg:px-8 lg:py-8">
+        <div className="max-w-2xl px-4 py-6 lg:px-8 lg:py-8">
           {activeTab === 'general' && <GeneralTab user={user} onSave={handleSave} saved={saved} />}
           {activeTab === 'security' && <SecurityTab />}
           {activeTab === 'notifications' && <NotificationsTab onSave={handleSave} saved={saved} />}

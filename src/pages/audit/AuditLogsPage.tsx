@@ -15,7 +15,6 @@ import {
 } from 'lucide-react'
 import { cn, formatRelativeDate } from '@lib/utils'
 import { Button } from '@ui/Button'
-import { Separator } from '@ui/Separator'
 
 type LogAction =
   'upload' | 'download' | 'delete' | 'share' | 'login' | 'logout' | 'edit' | 'preview'
