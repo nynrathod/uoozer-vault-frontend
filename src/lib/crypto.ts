@@ -5,13 +5,7 @@
  */
 
 import * as Comlink from 'comlink'
-import type {
-  Argon2Params,
-  CryptoApi,
-  DerivedKeys,
-  SignupCryptoBundle,
-  WrappedKey,
-} from '../lib/crypto-types'
+import type { Argon2Params, CryptoApi, SignupCryptoBundle, WrappedKey } from '../lib/crypto-types'
 
 console.log('[Main] Creating worker...')
 
@@ -116,3 +110,5 @@ export const generateSignupBundle = (p: string, s: string, params: Argon2Params)
   cryptoApi.generateSignupBundle(p, s, params)
 export const bundleForSignupRequest = (bundle: SignupCryptoBundle, deviceName: string) =>
   cryptoApi.bundleForSignupRequest(bundle, deviceName)
+export const deriveRecoveryAuthKey = (recoveryKey: Uint8Array) =>
+  cryptoApi.deriveRecoveryAuthKey(recoveryKey)

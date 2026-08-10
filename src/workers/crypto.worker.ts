@@ -123,7 +123,7 @@ const api: CryptoApi = {
     assertReady()
     const key = sodium.randombytes_buf(32)
     const hex = Array.from(key)
-      .map((b) => b.toString(16).padStart(2, '0'))
+      .map((b) => (b as number).toString(16).padStart(2, '0'))
       .join('')
     const display = hex.match(/.{1,8}/g)?.join('-') ?? hex
     return { key, display }
