@@ -592,6 +592,42 @@ body.theme-switching *::after {
   }
 }
 
+/* High-Speed Vault Loader Animation */
+@keyframes vault-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+/* Chunk Stream Animation */
+@keyframes chunk-scale {
+  0%,
+  100% {
+    transform: scaleY(0.4);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+/* Pulse Grid Animation */
+@keyframes grid-pulse {
+  0%,
+  100% {
+    transform: scale(0.8);
+    opacity: 0.3;
+  }
+  50% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
 /* ----------------------------------------------------------------------------
    4. BASE STYLES
    ---------------------------------------------------------------------------- */

@@ -14,6 +14,7 @@ import {
   Palette,
   ChevronRight,
   Check,
+  HardDrive,
 } from 'lucide-react'
 import { Button } from '@ui/Button'
 import { useUIStore } from '@stores/uiStore'
@@ -21,6 +22,7 @@ import { useAuthStore } from '@stores/authStore'
 import { useTheme } from '@hooks/useTheme'
 import { cn } from '@lib/utils'
 import { ROUTES } from '@lib/constants'
+import { SearchCommand } from '@features/file-manager/SearchCommand'
 
 const THEMES = [
   { id: 'default' as const, label: 'Uoozer Blue' },
@@ -35,6 +37,7 @@ export function Header() {
   const navigate = useNavigate()
   const setSearchOpen = useUIStore((s) => s.setSearchOpen)
   const setUploadPanelOpen = useUIStore((s) => s.setUploadPanelOpen)
+
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
 
@@ -61,19 +64,23 @@ export function Header() {
     <header className="border-border/60 bg-background/80 z-50 flex h-[60px] shrink-0 items-center justify-between border-b px-4 backdrop-blur-xl lg:px-5">
       {/* Left: Search */}
       <div className="flex min-w-0 flex-1 items-center">
-        <button
-          onClick={() => setSearchOpen(true)}
-          className={cn(
-            'bg-secondary/70 flex h-10 w-full max-w-[440px] items-center gap-2.5 rounded-lg border border-transparent px-3.5 text-sm transition-all duration-150',
-            'hover:bg-secondary focus-visible:border-primary/40 focus-visible:outline-none'
-          )}
-        >
-          <Search className="text-muted-foreground/60 h-4 w-4 shrink-0" />
-          <span className="text-muted-foreground/70 flex-1 text-left">Search files...</span>
-          <kbd className="border-border/70 bg-background text-muted-foreground/50 hidden h-[22px] items-center rounded border px-1.5 text-[11px] font-medium shadow-sm sm:inline-flex">
-            ⌘K
-          </kbd>
-        </button>
+        <div className="relative w-full max-w-[440px]">
+          <button
+            onClick={() => setSearchOpen(true)}
+            className={cn(
+              'bg-secondary/70 flex h-10 w-full max-w-[440px] items-center gap-2.5 rounded-lg border border-transparent px-3.5 text-sm transition-all duration-150',
+              'hover:bg-secondary focus-visible:border-primary/40 focus-visible:outline-none'
+            )}
+          >
+            <Search className="text-muted-foreground/60 h-4 w-4 shrink-0" />
+            <span className="text-muted-foreground/70 flex-1 text-left">Search files...</span>
+            <kbd className="border-border/70 bg-background text-muted-foreground/50 hidden h-[22px] items-center rounded border px-1.5 text-[11px] font-medium shadow-sm sm:inline-flex">
+              ⌘K
+            </kbd>
+          </button>
+
+          <SearchCommand />
+        </div>
       </div>
 
       {/* Right: Actions */}
@@ -127,6 +134,7 @@ export function Header() {
 
         {/* Profile Dropdown */}
         <div className="relative" ref={profileRef}>
+          {/* 1. Trigger Button (The Avatar) */}
           <button
             onClick={() => {
               setProfileOpen(!profileOpen)
@@ -141,37 +149,74 @@ export function Header() {
             )}
           </button>
 
+          {/* 2. Dropdown Menu */}
           {profileOpen && (
-            <div className="border-border/60 bg-popover absolute top-full right-0 z-50 mt-2 w-[280px] overflow-hidden rounded-xl border shadow-xl">
-              {/* User Info */}
-              <div className="flex items-center gap-3 p-4">
-                <div className="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold">
-                  {user?.email ? user.email.charAt(0).toUpperCase() : 'U'}
+            <div className="bg-popover border-border/60 animate-scale-in absolute top-full right-0 z-50 mt-2 w-[300px] origin-top-right overflow-hidden rounded-2xl border shadow-2xl">
+              {/* User Info & Upgrade Card */}
+              <div className="border-border/60 border-b p-4">
+                <div className="flex items-center gap-3">
+                  <div className="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[14px] font-semibold">
+                    {user?.email ? user.email.charAt(0).toUpperCase() : 'U'}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-foreground truncate text-[13px] font-medium">
+                      {user?.email?.split('@')[0].replace(/^\w/, (c) => c.toUpperCase()) ||
+                        'Guest User'}
+                    </p>
+                    <p className="text-muted-foreground/80 truncate text-[11px]">
+                      {user?.email || 'No email'}
+                    </p>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <p className="truncate text-[13px] font-medium">{user?.email || 'Guest User'}</p>
-                  <p className="text-muted-foreground/60 text-[11px]">Free Plan — 2 GB storage</p>
+
+                {/* Storage Card */}
+                <div className="border-border/50 bg-muted/30 mt-4 rounded-xl border p-3">
+                  <div className="mb-1.5 flex items-center justify-between text-[11px]">
+                    <span className="text-muted-foreground font-medium">
+                      Free Plan · 5.18 MB / 2 GB
+                    </span>
+                  </div>
+                  <div className="bg-border h-1.5 w-full overflow-hidden rounded-full">
+                    <div className="bg-primary h-full w-[1%] rounded-full"></div>
+                  </div>
+                  <button className="bg-primary text-primary-foreground hover:bg-primary/90 mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-[12px] font-medium transition-colors">
+                    Upgrade to Pro
+                  </button>
                 </div>
               </div>
 
-              <div className="border-border/60 border-t px-2 py-1.5">
+              {/* Main Menu Items */}
+              <div className="p-2">
                 <button
-                  onClick={() => navigate(ROUTES.SETTINGS)}
+                  onClick={() => {
+                    setProfileOpen(false)
+                    navigate(ROUTES.SETTINGS)
+                  }}
                   className="text-foreground hover:bg-accent flex w-full items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[13px] transition-colors"
                 >
                   <Settings className="text-muted-foreground/70 h-4 w-4" />
                   Settings
                 </button>
+                <button
+                  onClick={() => {
+                    setProfileOpen(false)
+                    navigate(ROUTES.DEVICES)
+                  }}
+                  className="text-foreground hover:bg-accent flex w-full items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[13px] transition-colors"
+                >
+                  <HardDrive className="text-muted-foreground/70 h-4 w-4" />
+                  Manage Devices
+                </button>
 
-                {/* Theme submenu */}
-                <div className="relative">
+                {/* Theme Submenu */}
+                <div className="relative mt-0.5">
                   <button
                     onClick={() => setThemeSubmenu(!themeSubmenu)}
                     className="text-foreground hover:bg-accent flex w-full items-center justify-between rounded-lg px-2.5 py-[7px] text-[13px] transition-colors"
                   >
                     <span className="flex items-center gap-2.5">
                       <Palette className="text-muted-foreground/70 h-4 w-4" />
-                      Theme
+                      Appearance
                     </span>
                     <ChevronRight
                       className={cn(
@@ -182,26 +227,24 @@ export function Header() {
                   </button>
 
                   {themeSubmenu && (
-                    <div className="mt-0.5 space-y-0.5 pl-4">
-                      {/* Color scheme */}
-                      <div className="px-2.5 pt-1 pb-1">
-                        <p className="text-muted-foreground/50 text-[10px] font-semibold tracking-wider uppercase">
-                          Appearance
-                        </p>
+                    <div className="border-border/60 mt-1 ml-4 space-y-1 border-l pl-2">
+                      {/* Mode Selection */}
+                      <div className="text-muted-foreground/50 px-2.5 pt-1.5 pb-1 text-[10px] font-semibold tracking-wider uppercase">
+                        Mode
                       </div>
                       {(
                         [
-                          { id: 'light' as const, label: 'Light', icon: Sun },
-                          { id: 'dark' as const, label: 'Dark', icon: Moon },
-                          { id: 'system' as const, label: 'System', icon: Monitor },
+                          { id: 'light', label: 'Light', icon: Sun },
+                          { id: 'dark', label: 'Dark', icon: Moon },
+                          { id: 'system', label: 'System', icon: Monitor },
                         ] as const
                       ).map((s) => (
                         <button
                           key={s.id}
                           onClick={() => setScheme(s.id)}
-                          className="hover:bg-accent flex w-full items-center justify-between rounded-lg px-2.5 py-[6px] text-[13px] transition-colors"
+                          className="text-foreground hover:bg-accent flex w-full items-center justify-between rounded-lg px-2.5 py-[6px] text-[13px] transition-colors"
                         >
-                          <span className="text-foreground flex items-center gap-2.5">
+                          <span className="flex items-center gap-2.5">
                             <s.icon className="text-muted-foreground/60 h-4 w-4" />
                             {s.label}
                           </span>
@@ -211,18 +254,15 @@ export function Header() {
                         </button>
                       ))}
 
-                      <div className="bg-border/60 my-1 h-px" />
-
-                      <div className="px-2.5 pt-1 pb-1">
-                        <p className="text-muted-foreground/50 text-[10px] font-semibold tracking-wider uppercase">
-                          Color
-                        </p>
+                      {/* Color Selection */}
+                      <div className="text-muted-foreground/50 px-2.5 pt-2 pb-1 text-[10px] font-semibold tracking-wider uppercase">
+                        Color
                       </div>
                       {THEMES.map((t) => (
                         <button
                           key={t.id}
                           onClick={() => setVariant(t.id)}
-                          className="hover:bg-accent flex w-full items-center justify-between rounded-lg px-2.5 py-[6px] text-[13px] transition-colors"
+                          className="text-foreground hover:bg-accent flex w-full items-center justify-between rounded-lg px-2.5 py-[6px] text-[13px] transition-colors"
                         >
                           <span className="flex items-center gap-2.5">
                             <span
@@ -240,7 +280,7 @@ export function Header() {
                                           : '#2F855A',
                               }}
                             />
-                            <span className="text-foreground">{t.label}</span>
+                            <span>{t.label}</span>
                           </span>
                           {variant === t.id && (
                             <Check className="text-primary h-3.5 w-3.5" strokeWidth={3} />
@@ -252,9 +292,11 @@ export function Header() {
                 </div>
               </div>
 
-              <div className="border-border/60 border-t px-2 py-1.5">
+              {/* Logout Footer */}
+              <div className="border-border/60 border-t p-2">
                 <button
                   onClick={() => {
+                    setProfileOpen(false)
                     logout()
                     navigate(ROUTES.LOGIN)
                   }}

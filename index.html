@@ -8,8 +8,47 @@
     <meta name="color-scheme" content="light dark" />
     <meta name="description" content="Uoozer Vault — Zero-knowledge encrypted file storage" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>Uoozer Vault</title>
+
+    <!-- THEME FLASH FIX: Apply theme before React loads -->
+    <script>
+      ;(function () {
+        try {
+          const stored = localStorage.getItem('uoozer-theme')
+          let scheme = 'system'
+          let variant = 'default'
+
+          if (stored) {
+            const parsed = JSON.parse(stored)
+            scheme = parsed.scheme || 'system'
+            variant = parsed.variant || 'default'
+          }
+
+          let isDark = false
+          if (scheme === 'dark') {
+            isDark = true
+          } else if (scheme === 'light') {
+            isDark = false
+          } else {
+            // system
+            isDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+          }
+
+          const root = document.documentElement
+          root.setAttribute('data-theme', variant)
+          if (isDark) {
+            root.classList.add('dark')
+          } else {
+            root.classList.remove('dark')
+          }
+        } catch (e) {
+          console.error('Theme init error:', e)
+        }
+      })()
+    </script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

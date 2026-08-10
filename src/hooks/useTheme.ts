@@ -11,31 +11,34 @@ interface ThemeState {
 
 const STORAGE_KEY = 'uoozer-theme'
 
+function getSystemTheme(): 'light' | 'dark' {
+  if (typeof window === 'undefined') return 'light'
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+}
+
 function getInitialState(): ThemeState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
       const parsed = JSON.parse(raw)
-      return {
-        variant: parsed.variant || 'default',
-        scheme: parsed.scheme || 'system',
-        resolvedTheme: 'light',
-      }
+      const scheme = parsed.scheme || 'system'
+      const variant = parsed.variant || 'default'
+      // The index.html script already applied this to the DOM,
+      // so we just sync our React state to match the DOM.
+      const resolvedTheme = scheme === 'system' ? getSystemTheme() : scheme
+      return { variant, scheme, resolvedTheme }
     }
   } catch {}
-  return { variant: 'default', scheme: 'system', resolvedTheme: 'light' }
+  return { variant: 'default', scheme: 'system', resolvedTheme: getSystemTheme() }
 }
 
-function getSystemTheme(): 'light' | 'dark' {
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-}
-
-function applyTheme(state: ThemeState) {
+function applyThemeToDOM(state: ThemeState, disableTransitions: boolean) {
   const html = document.documentElement
   const resolved = state.scheme === 'system' ? getSystemTheme() : state.scheme
 
-  /* Flicker fix: disable transitions during theme change */
-  html.classList.add('theme-switching')
+  if (disableTransitions) {
+    html.classList.add('theme-switching')
+  }
 
   html.setAttribute('data-theme', state.variant)
 
@@ -45,12 +48,13 @@ function applyTheme(state: ThemeState) {
     html.classList.remove('dark')
   }
 
-  /* Re-enable transitions after paint */
-  requestAnimationFrame(() => {
+  if (disableTransitions) {
     requestAnimationFrame(() => {
-      html.classList.remove('theme-switching')
+      requestAnimationFrame(() => {
+        html.classList.remove('theme-switching')
+      })
     })
-  })
+  }
 
   return { ...state, resolvedTheme: resolved }
 }
@@ -59,22 +63,17 @@ export function useTheme() {
   const [state, setState] = useState<ThemeState>(getInitialState)
 
   useEffect(() => {
-    const applied = applyTheme(state)
-    setState(applied)
+    const mql = window.matchMedia('(prefers-color-scheme: dark)')
 
     const listener = () => {
-      if (state.scheme === 'system') {
-        setState((prev) => {
-          const updated = applyTheme({ ...prev, scheme: 'system' })
-          return updated
-        })
-      }
+      setState((prev) => {
+        if (prev.scheme !== 'system') return prev
+        return applyThemeToDOM({ ...prev, scheme: 'system' }, false)
+      })
     }
 
-    const mql = window.matchMedia('(prefers-color-scheme: dark)')
     mql.addEventListener('change', listener)
     return () => mql.removeEventListener('change', listener)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const setVariant = useCallback((variant: ThemeVariant) => {
@@ -84,7 +83,8 @@ export function useTheme() {
         STORAGE_KEY,
         JSON.stringify({ variant: next.variant, scheme: next.scheme })
       )
-      return applyTheme(next)
+      // Only disable transitions on explicit user click
+      return applyThemeToDOM(next, true)
     })
   }, [])
 
@@ -95,7 +95,7 @@ export function useTheme() {
         STORAGE_KEY,
         JSON.stringify({ variant: next.variant, scheme: next.scheme })
       )
-      return applyTheme(next)
+      return applyThemeToDOM(next, true)
     })
   }, [])
 
@@ -107,7 +107,7 @@ export function useTheme() {
         STORAGE_KEY,
         JSON.stringify({ variant: next.variant, scheme: next.scheme })
       )
-      return applyTheme(next)
+      return applyThemeToDOM(next, true)
     })
   }, [])
 
