@@ -1,98 +1,116 @@
-/**
- * Centralized Auth Store — Single Source of Truth
- *
- * State:
- * - user: User info (null if not loaded)
- * - tokens: Access/refresh tokens (managed by tokenManager)
- * - cryptoState: Master Key + DEK (in-memory ONLY, never persisted)
- * - isAuthenticated: Boolean derived from token presence
- * - isCryptoReady: Whether vault is unlocked (Master Key available)
- * - isLoading: Initial session check in progress
- *
- * Persistence:
- * - Tokens → IndexedDB (via tokenManager)
- * - Master Key / DEK → Memory only (zeroized on logout)
- * - User email → localStorage (for prelogin)
- */
-
+// src/stores/authStore.ts
 import { create } from 'zustand'
 import { tokenManager } from '@services/auth/tokenManager'
-import type { User } from '@/types/auth'
-
-// ─── Types ─────────────────────────────────────────────────────────────────
+import { authService } from '@services/auth/authService'
+import { base64ToBytes, unwrapDek } from '@lib/crypto'
+import type { AuthResponse, User } from '@/types/auth'
 
 interface CryptoState {
   masterKey: Uint8Array | null
   dek: Uint8Array | null
 }
-
 interface AuthState {
-  // ── State ──
   user: User | null
   isAuthenticated: boolean
   isCryptoReady: boolean
+  isInitializing: boolean
   isLoading: boolean
   cryptoState: CryptoState
 
-  // ── Actions ──
   setUser: (user: User | null) => void
   setAuthenticated: (value: boolean) => void
   setCryptoReady: (ready: boolean) => void
-  setLoading: (value: boolean) => void
   setCryptoState: (state: CryptoState) => void
-  setMasterKey: (key: Uint8Array | null) => void
   setDek: (dek: Uint8Array | null) => void
+
+  initialize: () => Promise<void>
   logout: () => Promise<void>
 
-  // ── Derived ──
-  hasMasterKey: () => boolean
+  recoveryTokens?: AuthResponse | null
 }
 
-// ─── Store ─────────────────────────────────────────────────────────────────
+// SYNCHRONOUS READ TO PREVENT FLICKER
+const hasSession = tokenManager.getHasSession()
+const userEmail = tokenManager.getUserEmail()
+
+// MODULE-LEVEL LOCK: Prevents React Strict Mode from running this twice concurrently.
+// This stops the backend from revoking your refresh token due to a "replay attack".
+let _initPromise: Promise<void> | null = null
 
 export const useAuthStore = create<AuthState>((set, get) => ({
-  user: null,
-  isAuthenticated: false,
+  user: hasSession && userEmail ? { id: '', email: userEmail, createdAt: '', updatedAt: '' } : null,
+  isAuthenticated: hasSession,
   isCryptoReady: false,
-  isLoading: true,
-  cryptoState: {
-    masterKey: null,
-    dek: null,
-  },
-
+  isInitializing: hasSession,
+  isLoading: false,
+  cryptoState: { masterKey: null, dek: null },
+  recoveryTokens: null,
   setUser: (user) => set({ user }),
   setAuthenticated: (isAuthenticated) => set({ isAuthenticated }),
   setCryptoReady: (isCryptoReady) => set({ isCryptoReady }),
-  setLoading: (isLoading) => set({ isLoading }),
-
-  setCryptoState: (cryptoState) => set({ cryptoState, isCryptoReady: !!cryptoState.masterKey }),
-
-  setMasterKey: (key) =>
-    set((state) => ({
-      cryptoState: { ...state.cryptoState, masterKey: key },
-      isCryptoReady: !!key,
-    })),
-
+  setCryptoState: (cryptoState) => set({ cryptoState, isCryptoReady: !!cryptoState.dek }),
   setDek: (dek) =>
-    set((state) => ({
-      cryptoState: { ...state.cryptoState, dek },
-    })),
+    set((state) => ({ cryptoState: { ...state.cryptoState, dek }, isCryptoReady: !!dek })),
+
+  initialize: async () => {
+    // If already initializing, return the existing promise so React Strict Mode doesn't double-fire
+    if (_initPromise) return _initPromise
+
+    if (!hasSession) {
+      set({ isInitializing: false })
+      return
+    }
+
+    _initPromise = (async () => {
+      try {
+        await authService.ensureCryptoReady()
+
+        // 1. Silent Unlock via IndexedDB Device Key
+        const deviceKeyB64 = await tokenManager.getDeviceKey()
+        const deviceWrappedDek = await tokenManager.getDeviceWrappedDek()
+
+        if (deviceKeyB64 && deviceWrappedDek) {
+          try {
+            const dk = await base64ToBytes(deviceKeyB64)
+            const wrappedDek = {
+              ciphertext: await base64ToBytes(deviceWrappedDek.wrappedDek),
+              nonce: await base64ToBytes(deviceWrappedDek.nonce),
+            }
+            const dek = await unwrapDek(wrappedDek, dk)
+            if (dek) {
+              set({ cryptoState: { masterKey: null, dek }, isCryptoReady: true })
+            }
+          } catch (e) {
+            console.error('Silent unlock failed', e)
+          }
+        }
+
+        // 2. Validate Refresh Token via API (This will now only run ONCE)
+        const restored = await authService.tryRestoreSession()
+        if (!restored) {
+          await get().logout()
+        }
+      } catch (error) {
+        console.error('Init error', error)
+        await get().logout()
+      } finally {
+        set({ isInitializing: false })
+        _initPromise = null // Clear lock when done
+      }
+    })()
+
+    return _initPromise
+  },
 
   logout: async () => {
-    // Zeroize crypto material before clearing
-    const { cryptoState } = get()
-    if (cryptoState.masterKey) cryptoState.masterKey.fill(0)
-    if (cryptoState.dek) cryptoState.dek.fill(0)
-
     await tokenManager.clearAll()
     set({
       user: null,
       isAuthenticated: false,
       isCryptoReady: false,
+      isInitializing: false,
       cryptoState: { masterKey: null, dek: null },
-      isLoading: false,
+      // DO NOT set isLoading: false here. Let useAuth control it.
     })
   },
-
-  hasMasterKey: () => get().cryptoState.masterKey !== null,
 }))

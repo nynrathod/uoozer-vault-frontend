@@ -1,18 +1,4 @@
-/**
- * Token Manager
- *
- * Storage strategy (industry best practice for SPAs):
- * - Access token:  Memory only (never persisted, never in localStorage)
- * - Refresh token: IndexedDB (survives page reload, isolated origin)
- * - Device ID:    localStorage (non-sensitive identifier)
- * - User email:   localStorage (for prelogin convenience on reload)
- *
- * On page reload:
- * 1. Check IndexedDB for refresh token
- * 2. If found, call /auth/refresh to get new access token
- * 3. Access token lives in memory for the session
- * 4. Master Key is NOT available (user must enter password to unlock vault)
- */
+// src/services/auth/tokenManager.ts
 
 const DB_NAME = 'uoozer-vault'
 const DB_VERSION = 1
@@ -20,35 +6,27 @@ const STORE_NAME = 'auth'
 const REFRESH_TOKEN_KEY = 'refresh_token'
 const WRAPPED_DEK_KEY = 'wrapped_dek'
 const WRAPPED_DEK_NONCE_KEY = 'wrapped_dek_nonce'
+const DEVICE_KEY = 'device_key'
+const DEVICE_WRAPPED_DEK_KEY = 'device_wrapped_dek'
+const DEVICE_WRAPPED_DEK_NONCE_KEY = 'device_wrapped_dek_nonce'
 
+// SAFE localStorage flags (No secrets here!)
+const LS_HAS_SESSION = 'vault:has_session'
 const LS_DEVICE_ID = 'vault:device_id'
 const LS_USER_EMAIL = 'vault:user_email'
 
-// ─── In-Memory State (never persisted) ─────────────────────────────────────
-
 let _accessToken: string | null = null
 let _accessTokenExpiry: number = 0
-let _refreshToken: string | null = null
-
-// ─── IndexedDB Helper ──────────────────────────────────────────────────────
 
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    if (typeof indexedDB === 'undefined') {
-      reject(new Error('IndexedDB not available'))
-      return
-    }
-
+    if (typeof indexedDB === 'undefined') return reject(new Error('IndexedDB not available'))
     const request = indexedDB.open(DB_NAME, DB_VERSION)
-
     request.onerror = () => reject(request.error)
     request.onsuccess = () => resolve(request.result)
-
     request.onupgradeneeded = () => {
       const db = request.result
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME)
-      }
+      if (!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME)
     }
   })
 }
@@ -73,26 +51,19 @@ async function idbGet(key: string): Promise<string | null> {
       request.onerror = () => reject(request.error)
     })
   } catch {
-    // Fallback to localStorage if IndexedDB fails
-    return localStorage.getItem(`idb_fallback:${key}`)
+    return null
   }
 }
 
 async function idbDelete(key: string): Promise<void> {
-  try {
-    const db = await openDB()
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, 'readwrite')
-      tx.objectStore(STORE_NAME).delete(key)
-      tx.oncomplete = () => resolve()
-      tx.onerror = () => reject(tx.error)
-    })
-  } catch {
-    localStorage.removeItem(`idb_fallback:${key}`)
-  }
+  const db = await openDB()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite')
+    tx.objectStore(STORE_NAME).delete(key)
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error)
+  })
 }
-
-// ─── localStorage Helpers (non-sensitive data) ─────────────────────────────
 
 function lsGet(key: string): string | null {
   try {
@@ -101,114 +72,94 @@ function lsGet(key: string): string | null {
     return null
   }
 }
-
 function lsSet(key: string, value: string): void {
   try {
     localStorage.setItem(key, value)
   } catch {
-    // localStorage may be full or disabled
+    /* ignore */
   }
 }
-
 function lsDelete(key: string): void {
   try {
     localStorage.removeItem(key)
   } catch {
-    // ignore
+    /* ignore */
   }
 }
 
-// ─── Public API ────────────────────────────────────────────────────────────
-
 export const tokenManager = {
   // ── Access Token (memory only) ──
-
   getAccessToken(): string | null {
     return _accessToken
   },
-
   setAccessToken(token: string, expiresIn: number): void {
     _accessToken = token
     _accessTokenExpiry = Date.now() + expiresIn * 1000
   },
-
-  getAccessTokenExpiry(): number {
-    return _accessTokenExpiry
-  },
-
   isAccessTokenExpired(): boolean {
     if (!_accessToken) return true
-    // Refresh 30 seconds before actual expiry
     return Date.now() >= _accessTokenExpiry - 30_000
   },
 
-  // ── Refresh Token (IndexedDB) ──
+  // ── IndexedDB for Secrets ──
+  setRefreshToken: (token: string) => idbSet(REFRESH_TOKEN_KEY, token),
+  getRefreshToken: () => idbGet(REFRESH_TOKEN_KEY),
 
-  async setRefreshToken(token: string): Promise<void> {
-    _refreshToken = token
-    await idbSet(REFRESH_TOKEN_KEY, token)
+  setWrappedDek: (wrappedDek: string, nonce: string) =>
+    Promise.all([idbSet(WRAPPED_DEK_KEY, wrappedDek), idbSet(WRAPPED_DEK_NONCE_KEY, nonce)]),
+  getWrappedDek: async () => {
+    const w = await idbGet(WRAPPED_DEK_KEY)
+    const n = await idbGet(WRAPPED_DEK_NONCE_KEY)
+    return w && n ? { wrappedDek: w, nonce: n } : null
   },
 
-  async getRefreshToken(): Promise<string | null> {
-    if (_refreshToken) return _refreshToken
-    _refreshToken = await idbGet(REFRESH_TOKEN_KEY)
-    return _refreshToken
+  setDeviceKey: (key: string) => idbSet(DEVICE_KEY, key),
+  getDeviceKey: () => idbGet(DEVICE_KEY),
+
+  setDeviceWrappedDek: (wrappedDek: string, nonce: string) =>
+    Promise.all([
+      idbSet(DEVICE_WRAPPED_DEK_KEY, wrappedDek),
+      idbSet(DEVICE_WRAPPED_DEK_NONCE_KEY, nonce),
+    ]),
+  getDeviceWrappedDek: async () => {
+    const w = await idbGet(DEVICE_WRAPPED_DEK_KEY)
+    const n = await idbGet(DEVICE_WRAPPED_DEK_NONCE_KEY)
+    return w && n ? { wrappedDek: w, nonce: n } : null
   },
 
-  // ── Wrapped DEK (IndexedDB — needed to unlock vault on same device) ──
+  // ── localStorage for UI Flags ──
+  setHasSession: (val: boolean) => lsSet(LS_HAS_SESSION, val ? 'true' : 'false'),
+  getHasSession: () => lsGet(LS_HAS_SESSION) === 'true',
 
-  async setWrappedDek(wrappedDek: string, nonce: string): Promise<void> {
-    await idbSet(WRAPPED_DEK_KEY, wrappedDek)
-    await idbSet(WRAPPED_DEK_NONCE_KEY, nonce)
-  },
+  getDeviceId: () => lsGet(LS_DEVICE_ID),
+  setDeviceId: (id: string) => lsSet(LS_DEVICE_ID, id),
 
-  async getWrappedDek(): Promise<{ wrappedDek: string; nonce: string } | null> {
-    const wrappedDek = await idbGet(WRAPPED_DEK_KEY)
-    const nonce = await idbGet(WRAPPED_DEK_NONCE_KEY)
-    if (!wrappedDek || !nonce) return null
-    return { wrappedDek, nonce }
-  },
+  getUserEmail: () => lsGet(LS_USER_EMAIL),
+  setUserEmail: (email: string) => lsSet(LS_USER_EMAIL, email),
 
-  // ── Device ID (localStorage) ──
-
-  getDeviceId(): string | null {
-    return lsGet(LS_DEVICE_ID)
-  },
-
-  setDeviceId(deviceId: string): void {
-    lsSet(LS_DEVICE_ID, deviceId)
-  },
-
-  // ── User Email (localStorage — for prelogin on reload) ──
-
-  getUserEmail(): string | null {
-    return lsGet(LS_USER_EMAIL)
-  },
-
-  setUserEmail(email: string): void {
-    lsSet(LS_USER_EMAIL, email)
-  },
-
-  // ── Clear All ──
-
-  async clearAll(): Promise<void> {
+  // ── Cleanup & Clear ──
+  clearAll: async () => {
     _accessToken = null
     _accessTokenExpiry = 0
-    _refreshToken = null
 
     await idbDelete(REFRESH_TOKEN_KEY)
     await idbDelete(WRAPPED_DEK_KEY)
     await idbDelete(WRAPPED_DEK_NONCE_KEY)
+    await idbDelete(DEVICE_KEY)
+    await idbDelete(DEVICE_WRAPPED_DEK_KEY)
+    await idbDelete(DEVICE_WRAPPED_DEK_NONCE_KEY)
 
+    lsDelete(LS_HAS_SESSION)
     lsDelete(LS_DEVICE_ID)
     lsDelete(LS_USER_EMAIL)
-  },
 
-  /** Clear only tokens (keep email + device for convenience). */
-  async clearTokens(): Promise<void> {
-    _accessToken = null
-    _accessTokenExpiry = 0
-    _refreshToken = null
-    await idbDelete(REFRESH_TOKEN_KEY)
+    // SECURITY CLEANUP: Remove any sensitive keys that were accidentally saved
+    // to localStorage in previous versions of the code.
+    lsDelete('vault:device_key')
+    lsDelete('vault:device_wrapped_dek')
+    lsDelete('vault:device_wrapped_dek_nonce')
+    lsDelete('vault:wrapped_dek')
+    lsDelete('vault:wrapped_dek_nonce')
+    lsDelete('vault:refresh_token')
   },
 }

@@ -1,3 +1,4 @@
+// src/services/api/client.ts
 import axios, {
   type AxiosInstance,
   type AxiosRequestConfig,
@@ -58,9 +59,14 @@ apiClient.interceptors.response.use(
     }
 
     if (error.response?.status === 401) {
-      if (originalRequest.url?.includes('/auth/refresh')) {
-        await tokenManager.clearAll()
-        window.location.href = '/login'
+      const url = originalRequest.url || ''
+      const isAuthRoute =
+        url.includes('/auth/login') ||
+        url.includes('/auth/signup') ||
+        url.includes('/auth/prelogin') ||
+        url.includes('/auth/refresh')
+
+      if (isAuthRoute) {
         return Promise.reject(error)
       }
 
