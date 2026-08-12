@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import { Download, Edit3, Copy, Move, Trash2, History, Eye, Star } from 'lucide-react'
 import { DropdownMenu, DropdownItem, DropdownSeparator } from '@ui/DropdownMenu'
-import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@ui/Dialog'
-import { Button } from '@ui/Button'
 import type { FileItem } from '@/types/files'
 import type { Folder } from '@/types/folders'
+import { DeleteConfirmDialog } from '@/components/ui/overlays/DeleteConfirmDialog'
 
 interface FileContextMenuProps {
   children: React.ReactNode
@@ -70,31 +69,16 @@ export function FileContextMenu({
         </DropdownItem>
       </DropdownMenu>
 
-      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <DialogHeader>
-          <DialogTitle>Delete {isFolder ? 'folder' : 'file'}</DialogTitle>
-          <DialogDescription>
-            Are you sure you want to delete "
-            {isFolder ? (item as Folder).encryptedName : (item as FileItem).encryptedName}"? This
-            action cannot be undone.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button variant="ghost" className="rounded-lg" onClick={() => setDeleteOpen(false)}>
-            Cancel
-          </Button>
-          <Button
-            variant="destructive"
-            className="rounded-lg"
-            onClick={() => {
-              onDelete?.()
-              setDeleteOpen(false)
-            }}
-          >
-            Delete
-          </Button>
-        </DialogFooter>
-      </Dialog>
+      <DeleteConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        itemName={item.encryptedName}
+        isFolder={isFolder}
+        onConfirm={() => {
+          onDelete?.()
+          setDeleteOpen(false)
+        }}
+      />
     </>
   )
 }

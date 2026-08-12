@@ -1,7 +1,5 @@
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import { DropdownMenu, DropdownItem, DropdownSeparator } from '@ui/DropdownMenu'
-import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@ui/Dialog'
-import { Button } from '@ui/Button'
 import {
   Download,
   Share2,
@@ -16,6 +14,7 @@ import {
 } from 'lucide-react'
 import type { FileItem } from '@/types/files'
 import type { Folder } from '@/types/folders'
+import { DeleteConfirmDialog } from '@/components/ui/overlays/DeleteConfirmDialog'
 
 interface FileActionsMenuProps {
   item: FileItem | Folder
@@ -31,7 +30,7 @@ interface FileActionsMenuProps {
   onVersions?: () => void
 }
 
-export function FileActionsMenu({
+export const FileActionsMenu = memo(function FileActionsMenu({
   item,
   isFolder,
   onRenameRequest,
@@ -87,31 +86,16 @@ export function FileActionsMenu({
         </DropdownItem>
       </DropdownMenu>
 
-      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <DialogHeader>
-          <DialogTitle>Delete {isFolder ? 'folder' : 'file'}</DialogTitle>
-          <DialogDescription>
-            Are you sure you want to delete &ldquo;
-            {isFolder ? item.encryptedName : (item as FileItem).encryptedName}&rdquo;? This action
-            cannot be undone.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button variant="ghost" className="rounded-lg" onClick={() => setDeleteOpen(false)}>
-            Cancel
-          </Button>
-          <Button
-            variant="destructive"
-            className="rounded-lg"
-            onClick={() => {
-              onDelete(item.id, isFolder)
-              setDeleteOpen(false)
-            }}
-          >
-            Delete
-          </Button>
-        </DialogFooter>
-      </Dialog>
+      <DeleteConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        itemName={item.encryptedName}
+        isFolder={isFolder}
+        onConfirm={() => {
+          onDelete(item.id, isFolder)
+          setDeleteOpen(false)
+        }}
+      />
     </>
   )
-}
+})

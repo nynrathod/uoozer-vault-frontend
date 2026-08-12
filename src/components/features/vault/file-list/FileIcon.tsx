@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import {
   FileText,
   Image,
@@ -20,7 +21,12 @@ interface FileIconProps {
   className?: string
 }
 
-export function FileIcon({ mimeType, isFolder, size = 'default', className }: FileIconProps) {
+export const FileIcon = memo(function FileIcon({
+  mimeType,
+  isFolder,
+  size = 'default',
+  className,
+}: FileIconProps) {
   const sizeClasses = {
     sm: 'h-8 w-8 p-1.5 rounded-md',
     default: 'h-10 w-10 p-2 rounded-lg',
@@ -42,7 +48,6 @@ export function FileIcon({ mimeType, isFolder, size = 'default', className }: Fi
   }
 
   const ext = mimeType?.split('/').pop() || ''
-
   const type = mimeType?.startsWith('image/')
     ? 'image'
     : mimeType?.startsWith('video/')
@@ -104,4 +109,4 @@ export function FileIcon({ mimeType, isFolder, size = 'default', className }: Fi
       <Icon className="h-full w-full" strokeWidth={1.8} />
     </div>
   )
-}
+})

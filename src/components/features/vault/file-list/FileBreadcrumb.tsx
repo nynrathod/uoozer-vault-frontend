@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { ChevronRight, Home } from 'lucide-react'
 import { cn } from '@lib/utils'
 import type { Folder } from '@/types/folders'
@@ -7,7 +8,10 @@ interface FileBreadcrumbProps {
   onNavigate: (folderId: string | null) => void
 }
 
-export function FileBreadcrumb({ path, onNavigate }: FileBreadcrumbProps) {
+export const FileBreadcrumb = memo(function FileBreadcrumb({
+  path,
+  onNavigate,
+}: FileBreadcrumbProps) {
   return (
     <nav className="no-scrollbar flex items-center gap-0.5 overflow-x-auto px-4 py-2.5 text-[13px]">
       <button
@@ -22,7 +26,6 @@ export function FileBreadcrumb({ path, onNavigate }: FileBreadcrumbProps) {
         <Home className="h-3.5 w-3.5" strokeWidth={2} />
         <span>Vault</span>
       </button>
-
       {path.map((folder, index) => (
         <div key={folder.id} className="flex items-center gap-0.5">
           <ChevronRight className="text-muted-foreground/30 h-3.5 w-3.5 shrink-0" strokeWidth={2} />
@@ -41,4 +44,4 @@ export function FileBreadcrumb({ path, onNavigate }: FileBreadcrumbProps) {
       ))}
     </nav>
   )
-}
+})

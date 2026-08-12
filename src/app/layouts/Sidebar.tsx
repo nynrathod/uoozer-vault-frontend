@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
 import {
   FolderOpen,
   StickyNote,
@@ -85,15 +84,10 @@ export function Sidebar() {
   const handleOpenChange = (open: boolean) => {
     if (open && triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect()
-      if (sidebarOpen) {
-        setMenuPos({ top: rect.bottom + 8, left: rect.left })
-      } else {
-        setMenuPos({ top: rect.top, left: rect.right + 8 })
-      }
+      if (sidebarOpen) setMenuPos({ top: rect.bottom + 8, left: rect.left })
+      else setMenuPos({ top: rect.top, left: rect.right + 8 })
       setIsSwitcherOpen(true)
-    } else {
-      setIsSwitcherOpen(false)
-    }
+    } else setIsSwitcherOpen(false)
   }
 
   const handleSwitchApp = (path: string) => {
@@ -110,11 +104,10 @@ export function Sidebar() {
   }, [])
 
   return (
-    <motion.aside
-      initial={false}
-      animate={{ width: sidebarOpen ? 256 : 72 }}
-      transition={{ type: 'spring', stiffness: 400, damping: 32 }}
-      className="border-border/60 bg-sidebar relative flex h-full flex-col overflow-hidden border-r"
+    // Replaced framer-motion.aside with standard aside + CSS transitions
+    <aside
+      className="border-border/60 bg-sidebar relative flex h-full flex-col overflow-hidden border-r transition-all duration-300 ease-out"
+      style={{ width: sidebarOpen ? 256 : 72 }}
     >
       <div className="flex h-[60px] shrink-0 items-center justify-between overflow-hidden px-3 pt-2">
         <div className="relative w-full">
@@ -284,6 +277,6 @@ export function Sidebar() {
           )}
         </div>
       </div>
-    </motion.aside>
+    </aside>
   )
 }
