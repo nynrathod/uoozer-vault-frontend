@@ -85,7 +85,6 @@ export function Sidebar() {
   const handleOpenChange = (open: boolean) => {
     if (open && triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect()
-      // If sidebar is expanded, open downwards. If collapsed, open to the right.
       if (sidebarOpen) {
         setMenuPos({ top: rect.bottom + 8, left: rect.left })
       } else {
@@ -102,7 +101,6 @@ export function Sidebar() {
     setIsSwitcherOpen(false)
   }
 
-  // Close on Escape key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setIsSwitcherOpen(false)
@@ -120,7 +118,6 @@ export function Sidebar() {
     >
       <div className="flex h-[60px] shrink-0 items-center justify-between overflow-hidden px-3 pt-2">
         <div className="relative w-full">
-          {/* Trigger Button */}
           <button
             ref={triggerRef}
             onClick={() => handleOpenChange(!isSwitcherOpen)}
@@ -142,14 +139,10 @@ export function Sidebar() {
             </div>
           </button>
 
-          {/* Custom Popover Menu rendered via Portal to escape overflow-hidden */}
           {isSwitcherOpen &&
             createPortal(
               <>
-                {/* Invisible Backdrop for outside click */}
                 <div className="fixed inset-0 z-[9998]" onClick={() => setIsSwitcherOpen(false)} />
-
-                {/* Popover Content */}
                 <div
                   className="bg-popover border-border/60 animate-scale-in fixed z-[9999] w-[240px] overflow-hidden rounded-xl border shadow-xl"
                   style={{ top: `${menuPos.top}px`, left: `${menuPos.left}px` }}
@@ -186,7 +179,6 @@ export function Sidebar() {
             )}
         </div>
 
-        {/* Collapse Button */}
         {sidebarOpen && (
           <Button
             variant="ghost"
@@ -199,7 +191,6 @@ export function Sidebar() {
         )}
       </div>
 
-      {/* Expand Button when collapsed */}
       {!sidebarOpen && (
         <div className="mb-2 flex shrink-0 justify-center px-4">
           <Button
@@ -213,9 +204,7 @@ export function Sidebar() {
         </div>
       )}
 
-      {/* 2. NAVIGATION AREA */}
       <div className="flex-1 overflow-x-hidden overflow-y-auto px-3 py-2">
-        {/* PRIMARY APP PAGES */}
         {sidebarOpen && (
           <p className="text-sidebar-foreground/40 mb-2 px-3 text-[10px] font-bold tracking-wider uppercase">
             {currentApp.name}
@@ -245,7 +234,6 @@ export function Sidebar() {
           ))}
         </nav>
 
-        {/* SYSTEM SECTION */}
         {sidebarOpen && (
           <p className="text-sidebar-foreground/40 mb-2 px-3 text-[10px] font-bold tracking-wider uppercase">
             System
@@ -276,7 +264,6 @@ export function Sidebar() {
         </nav>
       </div>
 
-      {/* 3. BOTTOM SECTION: Storage & Profile */}
       <div className="border-sidebar-border/70 space-y-3 border-t p-3">
         <div
           className={cn(
