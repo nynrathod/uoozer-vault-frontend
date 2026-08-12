@@ -1,4 +1,4 @@
-import type { FileItem, FileVersion } from '@/types/filtes'
+import type { FileItem, FileVersion } from '@/types/files'
 import type { PresignedUrlResponse } from '@/types/upload'
 import { apiClient } from '@services/api'
 

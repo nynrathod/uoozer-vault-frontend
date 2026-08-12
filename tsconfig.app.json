@@ -13,9 +13,9 @@
     "paths": {
       "@/*": ["./src/*"],
       "@components/*": ["./src/components/*"],
-      "@ui/*": ["./src/components/ui/*"],
+      "@ui/*": ["./src/components/ui/primitives/*", "./src/components/ui/overlays/*", "./src/components/ui/feedback/*"],
       "@features/*": ["./src/components/features/*"],
-      "@layout/*": ["./src/components/layout/*"],
+      "@layout/*": ["./src/app/layouts/*"],
       "@pages/*": ["./src/pages/*"],
       "@hooks/*": ["./src/hooks/*"],
       "@stores/*": ["./src/stores/*"],

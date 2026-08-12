@@ -48,7 +48,7 @@ export function UploadDropzone({ isOpen, onClose, onDrop }: UploadDropzoneProps)
               variant="ghost"
               size="icon"
               className="text-muted-foreground hover:bg-accent absolute top-4 right-4 h-8 w-8 rounded-lg"
-              onClick={(e) => {
+              onClick={(e: React.MouseEvent) => {
                 e.stopPropagation()
                 onClose()
               }}

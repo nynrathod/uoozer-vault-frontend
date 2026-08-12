@@ -36,7 +36,7 @@ export function useAuth() {
   const [signupError, setSignupError] = useState<string | null>(null)
   const [isLoggingIn, setIsLoggingIn] = useState(false)
   const [isSigningUp, setIsSigningUp] = useState(false)
-  const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [isLoggingOut] = useState(false)
 
   const login = useCallback(
     async (credentials: LoginCredentials) => {

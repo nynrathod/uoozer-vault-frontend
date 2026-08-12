@@ -22,7 +22,7 @@ import { useAuthStore } from '@stores/authStore'
 import { useTheme } from '@hooks/useTheme'
 import { cn } from '@lib/utils'
 import { ROUTES } from '@lib/constants'
-import { SearchCommand } from '@features/file-manager/SearchCommand'
+import { SearchCommand } from '@/components/ui/overlays/SearchCommand'
 
 const THEMES = [
   { id: 'default' as const, label: 'Uoozer Blue' },

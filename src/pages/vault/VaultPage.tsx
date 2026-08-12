@@ -25,17 +25,17 @@ import { cn } from '@lib/utils'
 import { Button } from '@ui/Button'
 import { DropdownMenu, DropdownItem, DropdownSeparator, DropdownLabel } from '@ui/DropdownMenu'
 
-import { FileGrid } from '@features/file-manager/FileGrid'
-import { FileBreadcrumb } from '@features/file-manager/FileBreadcrumb'
-import { EmptyState } from '@features/file-manager/EmptyState'
-import { UploadDropzone } from '@features/file-manager/UploadDropzone'
-import { UploadQueue } from '@features/file-manager/UploadQueue'
-import { FilePreviewDialog } from '@features/file-manager/FilePreviewDialog'
-import type { FileItem } from '@/types/filtes'
+import { FileGrid } from '@/components/features/vault/file-list/FileGrid'
+import { FileBreadcrumb } from '@/components/features/vault/file-list/FileBreadcrumb'
+import { EmptyState } from '@/components/features/vault/file-list/EmptyState'
+import { UploadDropzone } from '@/components/features/vault/upload/UploadDropzone'
+import { UploadQueue } from '@/components/features/vault/upload/UploadQueue'
+import { FilePreviewDialog } from '@/components/ui/overlays/FilePreviewDialog'
+import type { FileItem } from '@/types/files'
 import type { Folder } from '@/types/folders'
-import { FileList } from '@features/file-manager/FileList'
-import { VersionHistoryDialog } from '@/components/features/file-manager/VersionHistoryDialog'
-import { VaultLoader } from '@/components/ui/VaultLoader'
+import { FileList } from '@/components/features/vault/file-list/FileList'
+import { VersionHistoryDialog } from '@/components/ui/overlays/VersionHistoryDialog'
+import { VaultLoader } from '@/components/ui/feedback/VaultLoader'
 
 const initialFolders: Folder[] = [
   {
@@ -700,7 +700,7 @@ export function VaultPage() {
                   onSortChange={handleColumnSort}
                   activeMenuId={activeMenuId}
                   setActiveMenuId={setActiveMenuId}
-                  onVersions={(file) => setVersionFile(file)}
+                  onVersions={(file: FileItem) => setVersionFile(file)}
                   removingIds={removingIds} // <-- ADD THIS PROP
                 />
               </div>
@@ -719,7 +719,7 @@ export function VaultPage() {
                 onMoveItem={handleMoveItem}
                 editingId={editingId}
                 folderCounts={folderCounts}
-                onVersions={(file) => setVersionFile(file)}
+                onVersions={(file: FileItem) => setVersionFile(file)}
               />
             )}
           </div>
@@ -730,7 +730,7 @@ export function VaultPage() {
           <div className="bg-muted/30 flex h-full w-full flex-col overflow-hidden md:w-1/2">
             <FilePreviewDialog
               open={true}
-              onOpenChange={(open) => !open && setPreviewFile(null)}
+              onOpenChange={(open: boolean) => !open && setPreviewFile(null)}
               file={previewFile}
               isFullscreen={isPreviewFullscreen}
               setIsFullscreen={setIsPreviewFullscreen}

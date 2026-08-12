@@ -3,12 +3,6 @@ import { useEffect } from 'react'
 import { Router } from './router'
 import { useAuthStore } from '@stores/authStore'
 import { Loader2 } from 'lucide-react'
-import {
-  ChunkStreamLoader,
-  OrbitCoreLoader,
-  PulseGridLoader,
-  VaultLoader,
-} from './components/ui/VaultLoader'
 
 function App() {
   const isInitializing = useAuthStore((s) => s.isInitializing)

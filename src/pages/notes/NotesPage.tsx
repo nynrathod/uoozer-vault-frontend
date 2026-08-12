@@ -47,7 +47,7 @@ export function NotesPage() {
   const [notes, setNotes] = useState<Note[]>(mockNotes)
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [isEditing, setIsEditing] = useState(false)
+  const [, setIsEditing] = useState(false)
 
   const selectedNote = notes.find((n) => n.id === selectedNoteId)
   const filteredNotes = notes.filter(
@@ -103,7 +103,9 @@ export function NotesPage() {
               placeholder="Search notes..."
               className="border-border/60 bg-secondary/50 placeholder:text-muted-foreground/50 focus-visible:bg-background h-9 rounded-lg pl-9 text-[13px]"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+                setSearchQuery(e.target.value)
+              }
             />
           </div>
         </div>
@@ -165,7 +167,7 @@ export function NotesPage() {
                 </Button>
                 <Input
                   value={selectedNote.title}
-                  onChange={(e) => {
+                  onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
                     setNotes(
                       notes.map((n) =>
                         n.id === selectedNote.id ? { ...n, title: e.target.value } : n
@@ -215,7 +217,7 @@ export function NotesPage() {
             <div className="flex-1 p-6">
               <textarea
                 value={selectedNote.content}
-                onChange={(e) => {
+                onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
                   setNotes(
                     notes.map((n) =>
                       n.id === selectedNote.id

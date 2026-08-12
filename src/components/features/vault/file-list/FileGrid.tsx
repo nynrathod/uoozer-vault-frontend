@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
-import { FileIcon } from './FileIcon'
+import { FileIcon } from '@/components/features/vault/file-list/FileIcon'
 import { cn, formatBytes } from '@lib/utils'
-import { FileActionsMenu } from './FileActionsMenu'
-import { ShareDialog } from './ShareDialog'
+import { FileActionsMenu } from '@/components/features/vault/file-actions/FileActionsMenu'
+import { ShareDialog } from '@/components/ui/overlays/ShareDialog'
 import { MoreHorizontal, Share2, Loader2, Check } from 'lucide-react'
-import type { FileItem } from '@/types/filtes'
+import type { FileItem } from '@/types/files'
 import type { Folder } from '@/types/folders'
 
 interface FileGridProps {

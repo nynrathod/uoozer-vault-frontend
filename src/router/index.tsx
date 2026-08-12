@@ -3,8 +3,8 @@ import { useAuthStore } from '@stores/authStore'
 import { ROUTES } from '@lib/constants'
 
 // Layouts
-import { AppLayout } from '@components/layout/AppLayout'
-import { AuthLayout } from '@components/layout/AuthLayout'
+import { AppLayout } from '@/app/layouts/AppLayout'
+import { AuthLayout } from '@/app/layouts/AuthLayout'
 
 // Pages
 import { LoginPage } from '@pages/auth/LoginPage'

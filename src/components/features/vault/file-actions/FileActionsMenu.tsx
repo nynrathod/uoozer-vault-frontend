@@ -1,58 +1,71 @@
 import { useState } from 'react'
-import { Download, Edit3, Copy, Move, Trash2, History, Eye, Star } from 'lucide-react'
 import { DropdownMenu, DropdownItem, DropdownSeparator } from '@ui/DropdownMenu'
 import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@ui/Dialog'
 import { Button } from '@ui/Button'
-import type { FileItem } from '@/types/filtes'
+import {
+  Download,
+  Share2,
+  Edit3,
+  Copy,
+  Move,
+  Trash2,
+  History,
+  Eye,
+  Star,
+  Check,
+} from 'lucide-react'
+import type { FileItem } from '@/types/files'
 import type { Folder } from '@/types/folders'
 
-interface FileContextMenuProps {
-  children: React.ReactNode
+interface FileActionsMenuProps {
   item: FileItem | Folder
   isFolder: boolean
-  onDownload?: () => void
-  onRename?: () => void
-  onDelete?: () => void
-  onMove?: () => void
-  onPreview?: () => void
+  onRenameRequest: (id: string) => void
+  onDelete: (id: string, isFolder: boolean) => void
+  onShare: () => void
+  trigger: React.ReactNode
+  copied: boolean
+  onCopyLink: () => void
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
   onVersions?: () => void
 }
 
-export function FileContextMenu({
-  children,
+export function FileActionsMenu({
   item,
   isFolder,
-  onDownload,
-  onRename,
+  onRenameRequest,
   onDelete,
-  onMove,
-  onPreview,
+  onShare,
+  trigger,
+  copied,
+  onCopyLink,
+  open,
+  onOpenChange,
   onVersions,
-}: FileContextMenuProps) {
+}: FileActionsMenuProps) {
   const [deleteOpen, setDeleteOpen] = useState(false)
 
   return (
     <>
-      <DropdownMenu trigger={children}>
-        {!isFolder && onPreview && (
-          <DropdownItem icon={<Eye className="h-4 w-4" />} onClick={onPreview}>
-            Preview
-          </DropdownItem>
-        )}
-        {!isFolder && onDownload && (
-          <DropdownItem icon={<Download className="h-4 w-4" />} onClick={onDownload}>
-            Download
-          </DropdownItem>
-        )}
-        <DropdownItem icon={<Edit3 className="h-4 w-4" />} onClick={onRename}>
+      <DropdownMenu trigger={trigger} open={open} onOpenChange={onOpenChange}>
+        {!isFolder && <DropdownItem icon={<Eye className="h-4 w-4" />}>Preview</DropdownItem>}
+        {!isFolder && <DropdownItem icon={<Download className="h-4 w-4" />}>Download</DropdownItem>}
+        <DropdownItem icon={<Edit3 className="h-4 w-4" />} onClick={() => onRenameRequest(item.id)}>
           Rename
         </DropdownItem>
-        <DropdownItem icon={<Copy className="h-4 w-4" />}>Copy</DropdownItem>
-        <DropdownItem icon={<Move className="h-4 w-4" />} onClick={onMove}>
-          Move to
+        <DropdownItem
+          icon={
+            copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />
+          }
+          preventClose
+          onClick={onCopyLink}
+        >
+          {copied ? 'Copied!' : 'Copy link'}
         </DropdownItem>
+        <DropdownItem icon={<Move className="h-4 w-4" />}>Move to</DropdownItem>
         <DropdownItem icon={<Star className="h-4 w-4" />}>Add to starred</DropdownItem>
-        {!isFolder && onVersions && (
+        {!isFolder && (
           <>
             <DropdownSeparator />
             <DropdownItem icon={<History className="h-4 w-4" />} onClick={onVersions}>
@@ -60,6 +73,10 @@ export function FileContextMenu({
             </DropdownItem>
           </>
         )}
+        <DropdownSeparator />
+        <DropdownItem icon={<Share2 className="h-4 w-4" />} onClick={onShare}>
+          Manage permissions
+        </DropdownItem>
         <DropdownSeparator />
         <DropdownItem
           icon={<Trash2 className="h-4 w-4" />}
@@ -74,9 +91,9 @@ export function FileContextMenu({
         <DialogHeader>
           <DialogTitle>Delete {isFolder ? 'folder' : 'file'}</DialogTitle>
           <DialogDescription>
-            Are you sure you want to delete "
-            {isFolder ? (item as Folder).encryptedName : (item as FileItem).encryptedName}"? This
-            action cannot be undone.
+            Are you sure you want to delete &ldquo;
+            {isFolder ? item.encryptedName : (item as FileItem).encryptedName}&rdquo;? This action
+            cannot be undone.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
@@ -87,7 +104,7 @@ export function FileContextMenu({
             variant="destructive"
             className="rounded-lg"
             onClick={() => {
-              onDelete?.()
+              onDelete(item.id, isFolder)
               setDeleteOpen(false)
             }}
           >

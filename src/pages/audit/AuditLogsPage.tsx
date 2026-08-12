@@ -134,7 +134,7 @@ const mockLogs: AuditLog[] = [
 ]
 
 export function AuditLogsPage() {
-  const [filter, setFilter] = useState<LogAction | 'all'>('all')
+  const [filter] = useState<LogAction | 'all'>('all')
   const [logs] = useState<AuditLog[]>(mockLogs)
 
   const filtered = filter === 'all' ? logs : logs.filter((l) => l.action === filter)

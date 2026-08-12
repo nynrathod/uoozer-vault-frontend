@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Button } from '@ui/Button'
-import { FileIcon } from './FileIcon'
-import { ShareDialog } from './ShareDialog'
-import { FileActionsMenu } from './FileActionsMenu'
+import { FileIcon } from '@/components/features/vault/file-list/FileIcon'
+import { ShareDialog } from '@/components/ui/overlays/ShareDialog'
+import { FileActionsMenu } from '@/components/features/vault/file-actions/FileActionsMenu'
 import {
   X,
   Download,
@@ -19,7 +19,7 @@ import {
   Check,
 } from 'lucide-react'
 import { cn, formatBytes, formatRelativeDate } from '@lib/utils'
-import type { FileItem } from '@/types/filtes'
+import type { FileItem } from '@/types/files'
 
 interface FilePreviewDialogProps {
   open: boolean

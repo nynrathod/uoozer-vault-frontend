@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
 import { Check, Clock, MoreHorizontal, Download, Share2, Link2, Loader2 } from 'lucide-react'
 import { cn, formatBytes, formatRelativeDate } from '@lib/utils'
-import { FileIcon } from './FileIcon'
-import { FileActionsMenu } from './FileActionsMenu'
-import { ShareDialog } from './ShareDialog'
-import type { FileItem } from '@/types/filtes'
+import { FileIcon } from '@/components/features/vault/file-list/FileIcon'
+import { FileActionsMenu } from '@/components/features/vault/file-actions/FileActionsMenu'
+import { ShareDialog } from '@/components/ui/overlays/ShareDialog'
+import type { FileItem } from '@/types/files'
 import type { Folder } from '@/types/folders'
 
 interface FileRowProps {
@@ -284,7 +284,7 @@ export function FileRow({
             onCopyLink={handleCopyLink}
             onVersions={onVersions}
             open={isMenuActive}
-            onOpenChange={(open) => setActiveMenuId?.(open ? item.id : null)}
+            onOpenChange={(open: boolean) => setActiveMenuId?.(open ? item.id : null)}
             trigger={
               <button
                 className="text-muted-foreground hover:bg-accent hover:text-foreground flex h-8 w-8 cursor-pointer items-center justify-center rounded-md"

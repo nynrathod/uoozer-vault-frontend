@@ -60,7 +60,7 @@ export function UploadQueue() {
               variant="ghost"
               size="icon-sm"
               className="text-muted-foreground hover:bg-accent h-7 w-7 rounded-lg"
-              onClick={(e) => {
+              onClick={(e: React.MouseEvent) => {
                 e.stopPropagation()
                 clearCompleted()
               }}
@@ -72,7 +72,7 @@ export function UploadQueue() {
             variant="ghost"
             size="icon-sm"
             className="text-muted-foreground hover:bg-accent h-7 w-7 rounded-lg"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e: React.MouseEvent) => e.stopPropagation()}
           >
             {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
           </Button>
@@ -80,7 +80,7 @@ export function UploadQueue() {
             variant="ghost"
             size="icon-sm"
             className="text-muted-foreground hover:bg-accent h-7 w-7 rounded-lg"
-            onClick={(e) => {
+            onClick={(e: React.MouseEvent) => {
               e.stopPropagation()
               setUploadPanelOpen(false)
             }}

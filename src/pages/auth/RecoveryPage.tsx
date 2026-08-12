@@ -39,7 +39,6 @@ export function RecoveryPage() {
   const [email, setEmail] = useState('')
   // const [recoveryKey, setRecoveryKey] = useState('') <-- REMOVE THIS LINE
   const [showPassword, setShowPassword] = useState(false)
-  const [recoveryKey, setRecoveryKey] = useState('')
 
   const { verifyRecoveryKey, completeRecovery, isSigningUp } = useAuth()
 

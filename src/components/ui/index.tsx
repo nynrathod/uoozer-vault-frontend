@@ -1,11 +1,11 @@
-export { Button, buttonVariants } from './Button'
-export { Input } from './Input'
-export { Label } from './Label'
-export { Progress } from './Progress'
-export { Avatar } from './Avatar'
-export { Skeleton } from './Skeleton'
-export { ScrollArea } from './ScrollArea'
-export { Separator } from './Separator'
+export { Button, buttonVariants } from './primitives/Button'
+export { Input } from './primitives/Input'
+export { Label } from './primitives/Label'
+export { Progress } from './primitives/Progress'
+export { Avatar } from './primitives/Avatar'
+export { Skeleton } from './primitives/Skeleton'
+export { ScrollArea } from './primitives/ScrollArea'
+export { Separator } from './primitives/Separator'
 export {
   Dialog,
   DialogHeader,
@@ -13,5 +13,10 @@ export {
   DialogDescription,
   DialogFooter,
   DialogClose,
-} from './Dialog'
-export { DropdownMenu, DropdownItem, DropdownSeparator, DropdownLabel } from './DropdownMenu'
+} from './primitives/Dialog'
+export {
+  DropdownMenu,
+  DropdownItem,
+  DropdownSeparator,
+  DropdownLabel,
+} from './primitives/DropdownMenu'

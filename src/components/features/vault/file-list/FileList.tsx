@@ -1,7 +1,7 @@
 import { cn } from '@lib/utils'
 import { Check, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
 import { FileRow } from './FileRow'
-import type { FileItem } from '@/types/filtes'
+import type { FileItem } from '@/types/files'
 import type { Folder } from '@/types/folders'
 
 interface FileListProps {
