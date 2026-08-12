@@ -5,24 +5,35 @@ export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localho
 export const SSE_BASE_URL = import.meta.env.VITE_SSE_BASE_URL || 'http://localhost:8080'
 
 export const STORAGE_KEYS = {
-  THEME: 'vault:theme',
+  THEME: 'uoozer-theme',
   ACCESS_TOKEN: 'vault:access_token',
   REFRESH_TOKEN: 'vault:refresh_token',
   DEVICE_ID: 'vault:device_id',
   USER_EMAIL: 'vault:user_email',
+  HAS_SESSION: 'vault:has_session',
 } as const
 
-export const CHUNK_SIZE = 4 * 1024 * 1024 // 4MB chunks
-export const MAX_CONCURRENT_UPLOADS = 6
-export const UPLOAD_RETRY_ATTEMPTS = 3
-export const UPLOAD_RETRY_DELAY_MS = 2000
+export const UI_CONFIG = {
+  COPY_FEEDBACK_MS: 2000,
+  RENAME_SAVE_DELAY_MS: 600,
+  DOUBLE_CLICK_THRESHOLD_MS: 220,
+  PREVIEW_LOAD_DELAY_MS: 1500,
+  REMOVE_ANIMATION_MS: 150,
+  SEARCH_FOCUS_DELAY_MS: 50,
+} as const
 
-export const ACCEPTED_FILE_TYPES = {
-  'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp'],
-  'video/*': ['.mp4', '.mov', '.avi', '.mkv', '.webm'],
-  'audio/*': ['.mp3', '.wav', '.flac', '.aac', '.ogg'],
-  'application/pdf': ['.pdf'],
-  'application/zip': ['.zip', '.rar', '.7z'],
+export const UPLOAD_CONFIG = {
+  CHUNK_SIZE: 4 * 1024 * 1024, // 4MB
+  MAX_CONCURRENT_UPLOADS: 6,
+  RETRY_ATTEMPTS: 3,
+  RETRY_DELAY_MS: 2000,
+} as const
+
+export const MOCK_URLS = {
+  UNSPLASH_IMAGE:
+    'https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=2400&auto=format&fit=crop',
+  DUMMY_PDF: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+  SHARE_LINK_BASE: 'https://uoozer.app/s/',
 } as const
 
 export const FILE_TYPE_COLORS: Record<string, string> = {
@@ -44,49 +55,27 @@ export const ROUTES = {
   SIGNUP: '/signup',
   RECOVERY: '/recovery',
   UNLOCK: '/unlock',
-
-  // Vault App
   VAULT: '/vault',
   VAULT_STARRED: '/vault/starred',
   VAULT_PRIVATE: '/vault/private',
   VAULT_TRASH: '/vault/trash',
   VAULT_FOLDER: '/vault/folder/:folderId',
-
-  // Notes App
   NOTES: '/notes',
   NOTES_PINNED: '/notes/pinned',
   NOTES_TRASH: '/notes/trash',
-
-  // Passwords App (New)
   PASSWORDS: '/passwords',
   PASSWORDS_FAVORITES: '/passwords/favorites',
   PASSWORDS_TRASH: '/passwords/trash',
-
-  // System
   SETTINGS: '/settings',
   DEVICES: '/devices',
   AUDIT_LOGS: '/audit-logs',
 } as const
 
 export const QUERY_KEYS = {
-  AUTH: {
-    ME: 'auth:me',
-    SESSIONS: 'auth:sessions',
-    DEVICES: 'auth:devices',
-  },
-  FILES: {
-    LIST: 'files:list',
-    DETAIL: 'files:detail',
-    VERSIONS: 'files:versions',
-  },
-  FOLDERS: {
-    LIST: 'folders:list',
-    TREE: 'folders:tree',
-    DETAIL: 'folders:detail',
-  },
-  UPLOAD: {
-    PRESIGNED: 'upload:presigned',
-  },
+  AUTH: { ME: 'auth:me', SESSIONS: 'auth:sessions', DEVICES: 'auth:devices' },
+  FILES: { LIST: 'files:list', DETAIL: 'files:detail', VERSIONS: 'files:versions' },
+  FOLDERS: { LIST: 'folders:list', TREE: 'folders:tree', DETAIL: 'folders:detail' },
+  UPLOAD: { PRESIGNED: 'upload:presigned' },
 } as const
 
 export const SSE_EVENTS = {
@@ -102,7 +91,6 @@ export const SSE_EVENTS = {
 } as const
 
 export const TOAST_DURATION = 4000
-
 export const API_V1 = '/api/v1'
 
 export const AUTH_ENDPOINTS = {
@@ -119,5 +107,3 @@ export const AUTH_ENDPOINTS = {
   OAUTH_INIT: (provider: string) => `/api/v1/auth/oauth/${provider}/init`,
   OAUTH_CALLBACK: (provider: string) => `/api/v1/auth/oauth/${provider}/callback`,
 } as const
-
-export const OAUTH_REDIRECT_PATH = '/auth/oauth/callback'

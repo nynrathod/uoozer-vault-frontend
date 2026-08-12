@@ -23,10 +23,11 @@ interface FileListProps {
   sortField?: 'name' | 'size' | 'modified' | 'created' | null
   sortOrder?: 'asc' | 'desc' | null
   onSortChange?: (field: 'name' | 'size' | 'modified') => void
-  activeMenuId?: string | null // <-- RESTORED
-  setActiveMenuId?: (id: string | null) => void // <-- RESTORED
-  onVersions?: (file: FileItem) => void // <-- RESTORED
+  activeMenuId?: string | null
+  setActiveMenuId?: (id: string | null) => void
+  onVersions?: (file: FileItem) => void
   removingIds?: Set<string>
+  onShare: (item: FileItem | Folder, isFolder: boolean) => void
 }
 
 export function FileList({
@@ -52,11 +53,11 @@ export function FileList({
   setActiveMenuId,
   onVersions,
   removingIds,
+  onShare,
 }: FileListProps) {
   return (
     <div className="h-full overflow-auto px-4 sm:px-6">
       <div className="pb-4">
-        {/* HEADER ROW */}
         <div className="border-border/40 text-muted-foreground/50 bg-background sticky top-0 z-10 mb-2 grid grid-cols-[24px_2.5rem_1fr_9.5rem] items-center gap-3 border-b px-3 py-2 text-[11px] font-semibold tracking-wider uppercase md:grid-cols-[24px_2.5rem_1fr_9.5rem_8rem_6rem]">
           <div
             className={cn(
@@ -73,8 +74,6 @@ export function FileList({
             {isAllSelected && <Check className="h-3 w-3" strokeWidth={3} />}
           </div>
           <span></span>
-
-          {/* NAME COLUMN */}
           <button
             className="hover:text-foreground flex cursor-pointer items-center gap-1 truncate transition-colors"
             onClick={() => onSortChange?.('name')}
@@ -90,11 +89,8 @@ export function FileList({
               <ChevronsUpDown className="h-3 w-3 opacity-40" />
             )}
           </button>
-
           <span></span>
           <span className="hidden md:block">Modified</span>
-
-          {/* SIZE COLUMN */}
           <button
             className="hover:text-foreground ml-auto flex cursor-pointer items-center gap-1 transition-colors"
             onClick={() => onSortChange?.('size')}
@@ -130,6 +126,7 @@ export function FileList({
               activeMenuId={activeMenuId}
               setActiveMenuId={setActiveMenuId}
               isRemoving={removingIds?.has(folder.id)}
+              onShare={onShare}
             />
           ))}
 
@@ -151,6 +148,7 @@ export function FileList({
               setActiveMenuId={setActiveMenuId}
               onVersions={() => onVersions?.(file)}
               isRemoving={removingIds?.has(file.id)}
+              onShare={onShare}
             />
           ))}
         </div>

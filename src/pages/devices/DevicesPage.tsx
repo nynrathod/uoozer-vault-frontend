@@ -11,95 +11,20 @@ import {
 } from 'lucide-react'
 import { cn } from '@lib/utils'
 import { Button } from '@ui/Button'
+import { mockDevices } from '@/test/mocks/devices'
 
-interface Device {
-  id: string
-  name: string
-  type: 'desktop' | 'mobile' | 'tablet'
-  os: string
-  browser: string
-  location: string
-  ip: string
-  lastActive: string
-  isCurrent: boolean
-  isTrusted: boolean
-}
-
-const mockDevices: Device[] = [
-  {
-    id: '1',
-    name: 'MacBook Pro',
-    type: 'desktop',
-    os: 'macOS Sonoma 14.5',
-    browser: 'Chrome 126',
-    location: 'Mumbai, India',
-    ip: '103.21.45.***',
-    lastActive: 'Active now',
-    isCurrent: true,
-    isTrusted: true,
-  },
-  {
-    id: '2',
-    name: 'iPhone 15 Pro',
-    type: 'mobile',
-    os: 'iOS 17.5',
-    browser: 'Safari',
-    location: 'Mumbai, India',
-    ip: '103.21.45.***',
-    lastActive: '2 hours ago',
-    isCurrent: false,
-    isTrusted: true,
-  },
-  {
-    id: '3',
-    name: 'Windows PC',
-    type: 'desktop',
-    os: 'Windows 11',
-    browser: 'Edge 125',
-    location: 'Pune, India',
-    ip: '49.36.112.***',
-    lastActive: '3 days ago',
-    isCurrent: false,
-    isTrusted: false,
-  },
-  {
-    id: '4',
-    name: 'iPad Air',
-    type: 'tablet',
-    os: 'iPadOS 17',
-    browser: 'Safari',
-    location: 'Delhi, India',
-    ip: '182.64.89.***',
-    lastActive: '1 week ago',
-    isCurrent: false,
-    isTrusted: true,
-  },
-]
-
-const iconMap = {
-  desktop: Monitor,
-  mobile: Smartphone,
-  tablet: Tablet,
-}
+const iconMap = { desktop: Monitor, mobile: Smartphone, tablet: Tablet }
 
 export function DevicesPage() {
-  const [devices, setDevices] = useState<Device[]>(mockDevices)
+  const [devices, setDevices] = useState(mockDevices)
 
-  const revokeDevice = (id: string) => {
-    setDevices(devices.filter((d) => d.id !== id))
-  }
-
-  const revokeAll = () => {
-    setDevices(devices.filter((d) => d.isCurrent))
-  }
-
-  const toggleTrust = (id: string) => {
+  const revokeDevice = (id: string) => setDevices(devices.filter((d) => d.id !== id))
+  const revokeAll = () => setDevices(devices.filter((d) => d.isCurrent))
+  const toggleTrust = (id: string) =>
     setDevices(devices.map((d) => (d.id === id ? { ...d, isTrusted: !d.isTrusted } : d)))
-  }
 
   return (
     <div className="bg-background flex h-full flex-col">
-      {/* Header */}
       <div className="border-border/60 flex h-[60px] items-center justify-between border-b px-6">
         <div className="flex items-center gap-3">
           <Shield className="text-primary h-5 w-5" strokeWidth={1.8} />
@@ -117,12 +42,10 @@ export function DevicesPage() {
           onClick={revokeAll}
           disabled={devices.length <= 1}
         >
-          <XCircle className="h-3.5 w-3.5" />
-          Revoke all
+          <XCircle className="h-3.5 w-3.5" /> Revoke all
         </Button>
       </div>
 
-      {/* Stats */}
       <div className="border-border/60 grid grid-cols-3 gap-4 border-b px-6 py-4">
         <div className="border-border/60 rounded-xl border p-4">
           <p className="text-muted-foreground/50 text-[11px] font-medium tracking-wide uppercase">
@@ -146,7 +69,6 @@ export function DevicesPage() {
         </div>
       </div>
 
-      {/* Device list */}
       <div className="flex-1 overflow-auto px-6 py-4">
         <div className="space-y-2">
           {devices.map((device) => {
@@ -171,7 +93,6 @@ export function DevicesPage() {
                 >
                   <Icon className="h-5 w-5" strokeWidth={1.8} />
                 </div>
-
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="text-[13px] font-medium">{device.name}</p>
@@ -195,7 +116,6 @@ export function DevicesPage() {
                     <span>{device.ip}</span>
                   </div>
                 </div>
-
                 <div className="flex items-center gap-3">
                   <div className="text-right">
                     <p className="text-muted-foreground/60 flex items-center justify-end gap-1 text-[11px]">

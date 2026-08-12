@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   Search,
@@ -20,6 +20,7 @@ import { Button } from '@ui/Button'
 import { useUIStore } from '@stores/uiStore'
 import { useAuthStore } from '@stores/authStore'
 import { useTheme } from '@hooks/useTheme'
+import { useClickOutside } from '@hooks/useClickOutside'
 import { cn } from '@lib/utils'
 import { ROUTES } from '@lib/constants'
 import { SearchCommand } from '@/components/ui/overlays/SearchCommand'
@@ -47,22 +48,15 @@ export function Header() {
   const [themeSubmenu, setThemeSubmenu] = useState(false)
   const profileRef = useRef<HTMLDivElement>(null)
 
-  const isVault = location.pathname.startsWith('/vault')
+  useClickOutside(profileRef, () => {
+    setProfileOpen(false)
+    setThemeSubmenu(false)
+  })
 
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
-        setProfileOpen(false)
-        setThemeSubmenu(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
+  const isVault = location.pathname.startsWith('/vault')
 
   return (
     <header className="border-border/60 bg-background/80 z-50 flex h-[60px] shrink-0 items-center justify-between border-b px-4 backdrop-blur-xl lg:px-5">
-      {/* Left: Search */}
       <div className="flex min-w-0 flex-1 items-center">
         <div className="relative w-full max-w-[440px]">
           <button
@@ -78,12 +72,10 @@ export function Header() {
               ⌘K
             </kbd>
           </button>
-
           <SearchCommand />
         </div>
       </div>
 
-      {/* Right: Actions */}
       <div className="ml-4 flex items-center gap-1.5">
         {isVault && (
           <>
@@ -92,8 +84,7 @@ export function Header() {
               size="sm"
               className="bg-foreground text-background hover:bg-foreground/90 hidden h-[34px] gap-1.5 rounded-lg px-3.5 text-[13px] font-medium shadow-none sm:flex"
             >
-              <Plus className="h-4 w-4" strokeWidth={2.5} />
-              New
+              <Plus className="h-4 w-4" strokeWidth={2.5} /> New
             </Button>
             <Button
               variant="outline"
@@ -101,8 +92,7 @@ export function Header() {
               className="border-border hover:bg-secondary hidden h-[34px] gap-1.5 rounded-lg px-3 text-[13px] font-medium shadow-none sm:flex"
               onClick={() => setUploadPanelOpen(true)}
             >
-              <Upload className="h-4 w-4" />
-              Upload
+              <Upload className="h-4 w-4" /> Upload
             </Button>
           </>
         )}
@@ -132,9 +122,7 @@ export function Header() {
           <span className="bg-primary ring-background absolute top-2 right-2 h-2 w-2 rounded-full ring-2" />
         </Button>
 
-        {/* Profile Dropdown */}
         <div className="relative" ref={profileRef}>
-          {/* 1. Trigger Button (The Avatar) */}
           <button
             onClick={() => {
               setProfileOpen(!profileOpen)
@@ -149,10 +137,8 @@ export function Header() {
             )}
           </button>
 
-          {/* 2. Dropdown Menu */}
           {profileOpen && (
             <div className="bg-popover border-border/60 animate-scale-in absolute top-full right-0 z-50 mt-2 w-[300px] origin-top-right overflow-hidden rounded-2xl border shadow-2xl">
-              {/* User Info & Upgrade Card */}
               <div className="border-border/60 border-b p-4">
                 <div className="flex items-center gap-3">
                   <div className="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[14px] font-semibold">
@@ -168,8 +154,6 @@ export function Header() {
                     </p>
                   </div>
                 </div>
-
-                {/* Storage Card */}
                 <div className="border-border/50 bg-muted/30 mt-4 rounded-xl border p-3">
                   <div className="mb-1.5 flex items-center justify-between text-[11px]">
                     <span className="text-muted-foreground font-medium">
@@ -185,7 +169,6 @@ export function Header() {
                 </div>
               </div>
 
-              {/* Main Menu Items */}
               <div className="p-2">
                 <button
                   onClick={() => {
@@ -194,8 +177,7 @@ export function Header() {
                   }}
                   className="text-foreground hover:bg-accent flex w-full items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[13px] transition-colors"
                 >
-                  <Settings className="text-muted-foreground/70 h-4 w-4" />
-                  Settings
+                  <Settings className="text-muted-foreground/70 h-4 w-4" /> Settings
                 </button>
                 <button
                   onClick={() => {
@@ -204,19 +186,16 @@ export function Header() {
                   }}
                   className="text-foreground hover:bg-accent flex w-full items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[13px] transition-colors"
                 >
-                  <HardDrive className="text-muted-foreground/70 h-4 w-4" />
-                  Manage Devices
+                  <HardDrive className="text-muted-foreground/70 h-4 w-4" /> Manage Devices
                 </button>
 
-                {/* Theme Submenu */}
                 <div className="relative mt-0.5">
                   <button
                     onClick={() => setThemeSubmenu(!themeSubmenu)}
                     className="text-foreground hover:bg-accent flex w-full items-center justify-between rounded-lg px-2.5 py-[7px] text-[13px] transition-colors"
                   >
                     <span className="flex items-center gap-2.5">
-                      <Palette className="text-muted-foreground/70 h-4 w-4" />
-                      Appearance
+                      <Palette className="text-muted-foreground/70 h-4 w-4" /> Appearance
                     </span>
                     <ChevronRight
                       className={cn(
@@ -228,7 +207,6 @@ export function Header() {
 
                   {themeSubmenu && (
                     <div className="border-border/60 mt-1 ml-4 space-y-1 border-l pl-2">
-                      {/* Mode Selection */}
                       <div className="text-muted-foreground/50 px-2.5 pt-1.5 pb-1 text-[10px] font-semibold tracking-wider uppercase">
                         Mode
                       </div>
@@ -245,16 +223,13 @@ export function Header() {
                           className="text-foreground hover:bg-accent flex w-full items-center justify-between rounded-lg px-2.5 py-[6px] text-[13px] transition-colors"
                         >
                           <span className="flex items-center gap-2.5">
-                            <s.icon className="text-muted-foreground/60 h-4 w-4" />
-                            {s.label}
+                            <s.icon className="text-muted-foreground/60 h-4 w-4" /> {s.label}
                           </span>
                           {scheme === s.id && (
                             <Check className="text-primary h-3.5 w-3.5" strokeWidth={3} />
                           )}
                         </button>
                       ))}
-
-                      {/* Color Selection */}
                       <div className="text-muted-foreground/50 px-2.5 pt-2 pb-1 text-[10px] font-semibold tracking-wider uppercase">
                         Color
                       </div>
@@ -292,7 +267,6 @@ export function Header() {
                 </div>
               </div>
 
-              {/* Logout Footer */}
               <div className="border-border/60 border-t p-2">
                 <button
                   onClick={() => {
@@ -302,8 +276,7 @@ export function Header() {
                   }}
                   className="text-foreground hover:bg-accent flex w-full items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[13px] transition-colors"
                 >
-                  <LogOut className="text-muted-foreground/70 h-4 w-4" />
-                  Log out
+                  <LogOut className="text-muted-foreground/70 h-4 w-4" /> Log out
                 </button>
               </div>
             </div>

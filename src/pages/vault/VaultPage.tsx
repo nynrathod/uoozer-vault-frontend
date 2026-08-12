@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef } from 'react'
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -19,7 +19,7 @@ import {
 } from 'lucide-react'
 import { useUIStore } from '@stores/uiStore'
 import { useUploadStore } from '@stores/uploadStore'
-import { QUERY_KEYS, ROUTES } from '@lib/constants'
+import { QUERY_KEYS, ROUTES, UI_CONFIG, UPLOAD_CONFIG } from '@lib/constants'
 import { cn } from '@lib/utils'
 
 import { Button } from '@ui/Button'
@@ -31,148 +31,15 @@ import { EmptyState } from '@/components/features/vault/file-list/EmptyState'
 import { UploadDropzone } from '@/components/features/vault/upload/UploadDropzone'
 import { UploadQueue } from '@/components/features/vault/upload/UploadQueue'
 import { FilePreviewDialog } from '@/components/ui/overlays/FilePreviewDialog'
-import type { FileItem } from '@/types/files'
-import type { Folder } from '@/types/folders'
-import { FileList } from '@/components/features/vault/file-list/FileList'
+import { ShareDialog } from '@/components/ui/overlays/ShareDialog'
 import { VersionHistoryDialog } from '@/components/ui/overlays/VersionHistoryDialog'
 import { VaultLoader } from '@/components/ui/feedback/VaultLoader'
 
-const initialFolders: Folder[] = [
-  {
-    id: '1',
-    userId: '1',
-    parentId: null,
-    encryptedName: 'Documents',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: '2',
-    userId: '1',
-    parentId: null,
-    encryptedName: 'Images',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: '3',
-    userId: '1',
-    parentId: null,
-    encryptedName: 'Videos',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: '4',
-    userId: '1',
-    parentId: null,
-    encryptedName: 'Work Projects',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: '5',
-    userId: '1',
-    parentId: '1',
-    encryptedName: 'Invoices',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-]
-
-const initialFiles: FileItem[] = [
-  {
-    id: 'f1',
-    userId: '1',
-    folderId: null,
-    encryptedName: 'Annual Report.pdf',
-    encryptedMimeType: 'application/pdf',
-    size: 2456789,
-    blake3Hash: 'hash',
-    version: 1,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    chunks: [],
-  },
-  {
-    id: 'f2',
-    userId: '1',
-    folderId: null,
-    encryptedName: 'Vacation.png',
-    encryptedMimeType: 'image/png',
-    size: 4567891,
-    blake3Hash: 'hash',
-    version: 1,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    chunks: [],
-  },
-  {
-    id: 'f3',
-    userId: '1',
-    folderId: null,
-    encryptedName: 'Meeting Notes.docx',
-    encryptedMimeType: 'application/document',
-    size: 12345,
-    blake3Hash: 'hash',
-    version: 1,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    chunks: [],
-  },
-  {
-    id: 'f4',
-    userId: '1',
-    folderId: null,
-    encryptedName: 'Budget.xlsx',
-    encryptedMimeType: 'application/spreadsheet',
-    size: 98765,
-    blake3Hash: 'hash',
-    version: 1,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    chunks: [],
-  },
-  {
-    id: 'f5',
-    userId: '1',
-    folderId: null,
-    encryptedName: 'Presentation.pptx',
-    encryptedMimeType: 'application/presentation',
-    size: 5432100,
-    blake3Hash: 'hash',
-    version: 1,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    chunks: [],
-  },
-  {
-    id: 'f6',
-    userId: '1',
-    folderId: null,
-    encryptedName: 'archive.zip',
-    encryptedMimeType: 'application/zip',
-    size: 12345678,
-    blake3Hash: 'hash',
-    version: 1,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    chunks: [],
-  },
-  {
-    id: 'f7',
-    userId: '1',
-    folderId: null,
-    encryptedName: 'Readme.txt',
-    encryptedMimeType: 'text/plain',
-    size: 1024,
-    blake3Hash: 'hash',
-    version: 1,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    chunks: [],
-  },
-]
+import type { FileItem } from '@/types/files'
+import type { Folder } from '@/types/folders'
+import { FileList } from '@/components/features/vault/file-list/FileList'
+import { mockFolders } from '@/test/mocks/folders'
+import { mockFiles } from '@/test/mocks/files'
 
 export function VaultPage() {
   const { folderId } = useParams<{ folderId?: string }>()
@@ -190,17 +57,31 @@ export function VaultPage() {
   const uploadPanelOpen = useUIStore((s) => s.uploadPanelOpen)
   const setUploadPanelOpen = useUIStore((s) => s.setUploadPanelOpen)
 
-  const [folders, setFolders] = useState<Folder[]>(initialFolders)
-  const [files, setFiles] = useState<FileItem[]>(initialFiles)
+  const [folders, setFolders] = useState<Folder[]>(mockFolders)
+  const [files, setFiles] = useState<FileItem[]>(mockFiles)
   const [isDragOver, setIsDragOver] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [previewFile, setPreviewFile] = useState<FileItem | null>(null)
   const [isPreviewFullscreen, setIsPreviewFullscreen] = useState(false)
-
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null)
   const [versionFile, setVersionFile] = useState<FileItem | null>(null)
-  const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [removingIds, setRemovingIds] = useState<Set<string>>(new Set())
+  const [shareTarget, setShareTarget] = useState<{
+    item: FileItem | Folder
+    isFolder: boolean
+    itemCount: number
+  } | null>(null)
+
+  const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const removeTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+
+  useEffect(() => {
+    return () => {
+      if (clickTimer.current) clearTimeout(clickTimer.current)
+      removeTimers.current.forEach((t) => clearTimeout(t))
+      removeTimers.current.clear()
+    }
+  }, [])
 
   const { isLoading } = useQuery({
     queryKey: [QUERY_KEYS.FILES.LIST, folderId],
@@ -210,8 +91,14 @@ export function VaultPage() {
     },
   })
 
-  const currentFolders = folders.filter((f) => f.parentId === currentFolderId)
-  const currentFiles = files.filter((f) => f.folderId === currentFolderId)
+  const currentFolders = useMemo(
+    () => folders.filter((f) => f.parentId === currentFolderId),
+    [folders, currentFolderId]
+  )
+  const currentFiles = useMemo(
+    () => files.filter((f) => f.folderId === currentFolderId),
+    [files, currentFolderId]
+  )
 
   const folderCounts = useMemo(() => {
     const counts: Record<string, number> = {}
@@ -223,15 +110,18 @@ export function VaultPage() {
     return counts
   }, [folders, files])
 
-  const breadcrumbPath: Folder[] = []
-  let parentId = currentFolderId
-  while (parentId) {
-    const parentFolder = folders.find((f) => f.id === parentId)
-    if (parentFolder) {
-      breadcrumbPath.unshift(parentFolder)
-      parentId = parentFolder.parentId
-    } else break
-  }
+  const breadcrumbPath = useMemo(() => {
+    const path: Folder[] = []
+    let parentId = currentFolderId
+    while (parentId) {
+      const parentFolder = folders.find((f) => f.id === parentId)
+      if (parentFolder) {
+        path.unshift(parentFolder)
+        parentId = parentFolder.parentId
+      } else break
+    }
+    return path
+  }, [currentFolderId, folders])
 
   const handleFolderClick = useCallback(
     (folder: Folder) => {
@@ -261,7 +151,7 @@ export function VaultPage() {
       setPreviewFile(file)
       setIsPreviewFullscreen(false)
       clickTimer.current = null
-    }, 220)
+    }, UI_CONFIG.DOUBLE_CLICK_THRESHOLD_MS)
   }, [])
 
   const handleFileDoubleClick = useCallback((file: FileItem) => {
@@ -277,7 +167,7 @@ export function VaultPage() {
     (droppedFiles: File[]) => {
       droppedFiles.forEach((file) => {
         const uploadId = crypto.randomUUID()
-        const totalChunks = Math.ceil(file.size / (4 * 1024 * 1024))
+        const totalChunks = Math.ceil(file.size / UPLOAD_CONFIG.CHUNK_SIZE)
         const chunks = Array.from({ length: totalChunks }, (_, i) => ({
           id: crypto.randomUUID(),
           fileId: uploadId,
@@ -285,7 +175,7 @@ export function VaultPage() {
           totalChunks,
           status: 'pending' as const,
           progress: 0,
-          size: Math.min(4 * 1024 * 1024, file.size - i * 4 * 1024 * 1024),
+          size: Math.min(UPLOAD_CONFIG.CHUNK_SIZE, file.size - i * UPLOAD_CONFIG.CHUNK_SIZE),
           blake3Hash: null,
           retries: 0,
         }))
@@ -307,22 +197,30 @@ export function VaultPage() {
     [currentFolderId, setUploadPanelOpen]
   )
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault()
-    if (e.dataTransfer.types.includes('Files') && !isDragOver) setIsDragOver(true)
-  }
-  const handleDragLeave = (e: React.DragEvent) => {
-    if (e.relatedTarget === null) setIsDragOver(false)
-  }
-  const handleDropUpload = (e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragOver(false)
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      handleUploadFiles(Array.from(e.dataTransfer.files))
-    }
-  }
+  const handleDragOver = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault()
+      if (e.dataTransfer.types.includes('Files') && !isDragOver) setIsDragOver(true)
+    },
+    [isDragOver]
+  )
 
-  const handleCreateFolder = () => {
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    if (e.relatedTarget === null) setIsDragOver(false)
+  }, [])
+
+  const handleDropUpload = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault()
+      setIsDragOver(false)
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        handleUploadFiles(Array.from(e.dataTransfer.files))
+      }
+    },
+    [handleUploadFiles]
+  )
+
+  const handleCreateFolder = useCallback(() => {
     const newId = crypto.randomUUID()
     const newFolder: Folder = {
       id: newId,
@@ -332,13 +230,11 @@ export function VaultPage() {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }
-    setFolders([...folders, newFolder])
+    setFolders((prev) => [...prev, newFolder])
     setEditingId(newId)
-  }
+  }, [currentFolderId])
 
-  const handleRenameRequest = useCallback((id: string | null) => {
-    setEditingId(id)
-  }, [])
+  const handleRenameRequest = useCallback((id: string | null) => setEditingId(id), [])
 
   const handleRename = useCallback((id: string, isFolder: boolean, newName: string) => {
     if (isFolder)
@@ -347,150 +243,133 @@ export function VaultPage() {
     setEditingId(null)
   }, [])
 
-  const handleDelete = (id: string, isFolder: boolean) => {
+  const handleDelete = useCallback((id: string, isFolder: boolean) => {
     if (isFolder) setFolders((prev) => prev.filter((f) => f.id !== id))
     else setFiles((prev) => prev.filter((f) => f.id !== id))
     setPreviewFile(null)
-  }
+  }, [])
 
-  const handleMoveItem = (itemId: string, targetFolderId: string, isFolder: boolean) => {
-    if (itemId === targetFolderId) return
-    if (isFolder) {
-      let currentParent: string | null = targetFolderId
-      while (currentParent) {
-        if (currentParent === itemId) return
-        const p = folders.find((f) => f.id === currentParent)
-        currentParent = p?.parentId || null
-      }
-    }
-
-    // 1. Add to removingIds to trigger the CSS collapse animation
-    setRemovingIds((prev) => new Set(prev).add(itemId))
-
-    // 2. Wait 150ms for the animation to finish, THEN update the state array
-    setTimeout(() => {
+  const handleMoveItem = useCallback(
+    (itemId: string, targetFolderId: string, isFolder: boolean) => {
+      if (itemId === targetFolderId) return
       if (isFolder) {
-        setFolders((prev) =>
-          prev.map((f) => (f.id === itemId ? { ...f, parentId: targetFolderId } : f))
+        let currentParent: string | null = targetFolderId
+        while (currentParent) {
+          if (currentParent === itemId) return
+          const p = folders.find((f) => f.id === currentParent)
+          currentParent = p?.parentId || null
+        }
+      }
+
+      setRemovingIds((prev) => new Set(prev).add(itemId))
+
+      const timer = setTimeout(() => {
+        if (isFolder) {
+          setFolders((prev) =>
+            prev.map((f) => (f.id === itemId ? { ...f, parentId: targetFolderId } : f))
+          )
+        } else {
+          setFiles((prev) =>
+            prev.map((f) => (f.id === itemId ? { ...f, folderId: targetFolderId } : f))
+          )
+        }
+        setRemovingIds((prev) => {
+          const next = new Set(prev)
+          next.delete(itemId)
+          return next
+        })
+        removeTimers.current.delete(itemId)
+      }, UI_CONFIG.REMOVE_ANIMATION_MS)
+
+      removeTimers.current.set(itemId, timer)
+    },
+    [folders]
+  )
+
+  const applySort = useCallback(
+    (field: 'name' | 'size' | 'modified', order: 'asc' | 'desc') => {
+      setSort(field, order)
+      const mult = order === 'asc' ? 1 : -1
+      setFolders((prev) =>
+        [...prev].sort((a, b) =>
+          field === 'name'
+            ? mult * a.encryptedName.localeCompare(b.encryptedName)
+            : field === 'modified'
+              ? mult * (new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime())
+              : 0
         )
+      )
+      setFiles((prev) =>
+        [...prev].sort((a, b) =>
+          field === 'name'
+            ? mult * a.encryptedName.localeCompare(b.encryptedName)
+            : field === 'size'
+              ? mult * (a.size - b.size)
+              : field === 'modified'
+                ? mult * (new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime())
+                : 0
+        )
+      )
+    },
+    [setSort]
+  )
+
+  const handleColumnSort = useCallback(
+    (field: 'name' | 'size' | 'modified') => {
+      let newField: 'name' | 'size' | 'modified' | null = field
+      let newOrder: 'asc' | 'desc' | null = 'asc'
+
+      if (sortField === field) {
+        if (sortOrder === 'asc') {
+          newOrder = 'desc'
+        } else if (sortOrder === 'desc') {
+          newField = null
+          newOrder = null
+        }
+      }
+
+      setSort(newField, newOrder)
+
+      if (newField && newOrder) {
+        applySort(newField, newOrder)
       } else {
+        setFolders((prev) =>
+          [...prev].sort(
+            (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+          )
+        )
         setFiles((prev) =>
-          prev.map((f) => (f.id === itemId ? { ...f, folderId: targetFolderId } : f))
+          [...prev].sort(
+            (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+          )
         )
       }
-      // 3. Remove from removingIds
-      setRemovingIds((prev) => {
-        const next = new Set(prev)
-        next.delete(itemId)
-        return next
-      })
-    }, 150)
-  }
+    },
+    [sortField, sortOrder, setSort, applySort]
+  )
 
-  // Unified sort function that sorts BOTH folders and files
-  const applySort = (field: 'name' | 'size' | 'modified', order: 'asc' | 'desc') => {
-    setSort(field, order)
-    const mult = order === 'asc' ? 1 : -1
+  const handleSelectAll = useCallback(() => {
+    const isAllSelected =
+      currentFiles.length + currentFolders.length > 0 &&
+      [...currentFolders, ...currentFiles].every((item) => selectedIds.has(item.id))
+    if (isAllSelected) clearSelection()
+    else
+      useUIStore
+        .getState()
+        .selectAll([...currentFolders.map((f) => f.id), ...currentFiles.map((f) => f.id)])
+  }, [currentFiles, currentFolders, selectedIds, clearSelection])
 
-    // Sort Folders (Folders don't have a size, so we fall back to name)
-    setFolders((prev) =>
-      [...prev].sort((a, b) => {
-        if (field === 'name') return mult * a.encryptedName.localeCompare(b.encryptedName)
-        if (field === 'modified')
-          return mult * (new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime())
-        return 0 // Keep folder order for size sorting
-      })
-    )
-
-    // Sort Files
-    setFiles((prev) =>
-      [...prev].sort((a, b) => {
-        if (field === 'name') return mult * a.encryptedName.localeCompare(b.encryptedName)
-        if (field === 'size') return mult * (a.size - b.size)
-        if (field === 'modified')
-          return mult * (new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime())
-        return 0
-      })
-    )
-  }
-
-  const handleSort = (field: 'name' | 'size' | 'modified', order: 'asc' | 'desc') => {
-    applySort(field, order)
-  }
-
-  const handleColumnSort = (field: 'name' | 'size' | 'modified') => {
-    let newField: 'name' | 'size' | 'modified' | null = field
-    let newOrder: 'asc' | 'desc' | null = 'asc'
-
-    // Cycle logic:
-    // 1. If clicking a new field, start with Asc.
-    // 2. If clicking the same field and it's Asc, switch to Desc.
-    // 3. If clicking the same field and it's Desc, reset to Default (null).
-    if (sortField === field) {
-      if (sortOrder === 'asc') {
-        newOrder = 'desc'
-      } else if (sortOrder === 'desc') {
-        newField = null
-        newOrder = null
-      }
-    }
-
-    setSort(newField as any, newOrder as any)
-
-    if (newField && newOrder) {
-      // Apply the actual sorting
-      const mult = newOrder === 'asc' ? 1 : -1
-      setFolders((prev) =>
-        [...prev].sort((a, b) => {
-          if (newField === 'name') return mult * a.encryptedName.localeCompare(b.encryptedName)
-          if (newField === 'modified')
-            return mult * (new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime())
-          return 0
-        })
-      )
-      setFiles((prev) =>
-        [...prev].sort((a, b) => {
-          if (newField === 'name') return mult * a.encryptedName.localeCompare(b.encryptedName)
-          if (newField === 'size') return mult * (a.size - b.size)
-          if (newField === 'modified')
-            return mult * (new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime())
-          return 0
-        })
-      )
-    } else {
-      // Reset to default view (e.g., by modified desc)
-      setFolders((prev) =>
-        [...prev].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-      )
-      setFiles((prev) =>
-        [...prev].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-      )
-    }
-  }
-
-  const isEmpty = currentFiles.length === 0 && currentFolders.length === 0
-  const hasSelection = selectedIds.size > 0
-  // Update isAllSelected to check both files AND folders
-  const isAllSelected =
-    currentFiles.length + currentFolders.length > 0 &&
-    [...currentFolders, ...currentFiles].every((item) => selectedIds.has(item.id))
-
-  // Update handleSelectAll to select both files AND folders
-  const handleSelectAll = () => {
-    if (isAllSelected) {
-      clearSelection()
-    } else {
-      const allIds = [...currentFolders.map((f) => f.id), ...currentFiles.map((f) => f.id)]
-      useUIStore.getState().selectAll(allIds)
-    }
-  }
-
-  // Update handleBulkDelete to delete both files AND folders
-  const handleBulkDelete = () => {
+  const handleBulkDelete = useCallback(() => {
     setFolders((prev) => prev.filter((f) => !selectedIds.has(f.id)))
     setFiles((prev) => prev.filter((f) => !selectedIds.has(f.id)))
     clearSelection()
-  }
+  }, [selectedIds, clearSelection])
+
+  const isEmpty = currentFiles.length === 0 && currentFolders.length === 0
+  const hasSelection = selectedIds.size > 0
+  const isAllSelected =
+    currentFiles.length + currentFolders.length > 0 &&
+    [...currentFolders, ...currentFiles].every((item) => selectedIds.has(item.id))
 
   return (
     <div
@@ -510,7 +389,6 @@ export function VaultPage() {
           </div>
         )}
 
-        {/* File List Container - Hidden on mobile when preview is open */}
         <div
           className={cn(
             'flex h-full flex-col overflow-hidden',
@@ -566,39 +444,39 @@ export function VaultPage() {
                     }
                   >
                     <DropdownLabel>Sort by</DropdownLabel>
-                    <DropdownItem onClick={() => handleSort('name', 'asc')}>
+                    <DropdownItem onClick={() => applySort('name', 'asc')}>
                       Name (A → Z){' '}
                       {sortField === 'name' && sortOrder === 'asc' && (
                         <Check className="ml-auto h-3.5 w-3.5" />
                       )}
                     </DropdownItem>
-                    <DropdownItem onClick={() => handleSort('name', 'desc')}>
+                    <DropdownItem onClick={() => applySort('name', 'desc')}>
                       Name (Z → A){' '}
                       {sortField === 'name' && sortOrder === 'desc' && (
                         <Check className="ml-auto h-3.5 w-3.5" />
                       )}
                     </DropdownItem>
                     <DropdownSeparator />
-                    <DropdownItem onClick={() => handleSort('modified', 'desc')}>
+                    <DropdownItem onClick={() => applySort('modified', 'desc')}>
                       Newest first{' '}
                       {sortField === 'modified' && sortOrder === 'desc' && (
                         <Check className="ml-auto h-3.5 w-3.5" />
                       )}
                     </DropdownItem>
-                    <DropdownItem onClick={() => handleSort('modified', 'asc')}>
+                    <DropdownItem onClick={() => applySort('modified', 'asc')}>
                       Oldest first{' '}
                       {sortField === 'modified' && sortOrder === 'asc' && (
                         <Check className="ml-auto h-3.5 w-3.5" />
                       )}
                     </DropdownItem>
                     <DropdownSeparator />
-                    <DropdownItem onClick={() => handleSort('size', 'desc')}>
+                    <DropdownItem onClick={() => applySort('size', 'desc')}>
                       Largest first{' '}
                       {sortField === 'size' && sortOrder === 'desc' && (
                         <Check className="ml-auto h-3.5 w-3.5" />
                       )}
                     </DropdownItem>
-                    <DropdownItem onClick={() => handleSort('size', 'asc')}>
+                    <DropdownItem onClick={() => applySort('size', 'asc')}>
                       Smallest first{' '}
                       {sortField === 'size' && sortOrder === 'asc' && (
                         <Check className="ml-auto h-3.5 w-3.5" />
@@ -671,9 +549,6 @@ export function VaultPage() {
             {isLoading ? (
               <div className="flex h-full items-center justify-center">
                 <VaultLoader size={48} />
-
-                {/* <ChunkStreamLoader size={40} /> */}
-                {/* <OrbitCoreLoader size={40} /> */}
               </div>
             ) : isEmpty ? (
               <EmptyState onUpload={() => setUploadPanelOpen(true)} />
@@ -701,7 +576,14 @@ export function VaultPage() {
                   activeMenuId={activeMenuId}
                   setActiveMenuId={setActiveMenuId}
                   onVersions={(file: FileItem) => setVersionFile(file)}
-                  removingIds={removingIds} // <-- ADD THIS PROP
+                  onShare={(item: FileItem | Folder, isFolder: boolean) =>
+                    setShareTarget({
+                      item,
+                      isFolder,
+                      itemCount: isFolder ? folderCounts[item.id] || 0 : 0,
+                    })
+                  }
+                  removingIds={removingIds}
                 />
               </div>
             ) : (
@@ -720,12 +602,18 @@ export function VaultPage() {
                 editingId={editingId}
                 folderCounts={folderCounts}
                 onVersions={(file: FileItem) => setVersionFile(file)}
+                onShare={(item, isFolder) =>
+                  setShareTarget({
+                    item,
+                    isFolder,
+                    itemCount: isFolder ? folderCounts[item.id] || 0 : 0,
+                  })
+                }
               />
             )}
           </div>
         </div>
 
-        {/* Preview Pane - Full width on mobile */}
         {previewFile && (
           <div className="bg-muted/30 flex h-full w-full flex-col overflow-hidden md:w-1/2">
             <FilePreviewDialog
@@ -736,6 +624,9 @@ export function VaultPage() {
               setIsFullscreen={setIsPreviewFullscreen}
               onRename={handleRename}
               onDelete={handleDelete}
+              onShare={(file: FileItem) =>
+                setShareTarget({ item: file, isFolder: false, itemCount: 0 })
+              }
             />
           </div>
         )}
@@ -745,11 +636,26 @@ export function VaultPage() {
           onClose={() => setUploadPanelOpen(false)}
           onDrop={handleUploadFiles}
         />
-        <VersionHistoryDialog
-          open={!!versionFile}
-          onOpenChange={() => setVersionFile(null)}
-          fileName={versionFile?.encryptedName || ''}
-        />
+
+        {versionFile && (
+          <VersionHistoryDialog
+            open={!!versionFile}
+            onOpenChange={() => setVersionFile(null)}
+            fileName={versionFile.encryptedName}
+          />
+        )}
+
+        {/* SINGLE INSTANCE OF SHARE DIALOG */}
+        {shareTarget && (
+          <ShareDialog
+            open={!!shareTarget}
+            onOpenChange={() => setShareTarget(null)}
+            itemName={shareTarget.item.encryptedName}
+            isFolder={shareTarget.isFolder}
+            itemCount={shareTarget.itemCount}
+          />
+        )}
+
         <UploadQueue />
       </div>
     </div>

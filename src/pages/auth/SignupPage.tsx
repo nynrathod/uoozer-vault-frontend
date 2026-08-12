@@ -25,23 +25,21 @@ import { cn } from '@lib/utils'
 import { type SignupInput, signupSchema } from '@/lib/validator'
 import { AuthError } from '@/services/auth/error'
 import { mapErrorToAlert, type ApiErrorAlert } from '@/lib/errors'
+import { useClipboard } from '@hooks/useClipboard'
 
 export function SignupPage() {
   const navigate = useNavigate()
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
-
-  // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [recoveryKey, setRecoveryKey] = useState('')
   const [cryptoBundle, setCryptoBundle] = useState<any>(null)
   const [userEmail, setUserEmail] = useState('')
-
-  const [copied, setCopied] = useState(false)
   const [downloaded, setDownloaded] = useState(false)
   const [acknowledged, setAcknowledged] = useState(false)
-
   const [apiError, setApiError] = useState<ApiErrorAlert | null>(null)
+
+  const { copied, copy } = useClipboard()
   const { signup, completeSignup, isSigningUp } = useAuth()
 
   const {
@@ -51,21 +49,10 @@ export function SignupPage() {
     watch,
   } = useForm<SignupInput>({
     resolver: zodResolver(signupSchema),
-    defaultValues: {
-      email: '',
-      password: '',
-      confirmPassword: '',
-      acceptTerms: false,
-    },
+    defaultValues: { email: '', password: '', confirmPassword: '', acceptTerms: false },
   })
 
   const password = watch('password')
-
-  const copyRecoveryKey = () => {
-    navigator.clipboard.writeText(recoveryKey)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
 
   const downloadRecoveryKey = () => {
     const blob = new Blob([recoveryKey], { type: 'text/plain' })
@@ -78,36 +65,29 @@ export function SignupPage() {
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
     setDownloaded(true)
-    setTimeout(() => setDownloaded(false), 2000)
+    setTimeout(() => setDownloaded(false), 2000) // Keeping this simple timeout as it's not state dependent on component unmount
   }
 
   const onSubmit = async (data: SignupInput) => {
     setApiError(null)
     try {
-      // Step 1: Create account (does NOT change global auth state)
       const result = await signup({
         email: data.email,
         password: data.password,
         deviceName: 'Web Browser',
         acceptTerms: data.acceptTerms,
       })
-
-      // Step 2: Store result in local state and open modal
       setRecoveryKey(result.recoveryKey)
       setCryptoBundle(result.cryptoBundle)
       setUserEmail(data.email)
       setIsModalOpen(true)
     } catch (error) {
-      if (error instanceof AuthError || error instanceof Error) {
-        setApiError(mapErrorToAlert(error))
-      } else {
-        setApiError({ title: 'Unknown Error', message: 'Something went wrong.' })
-      }
+      if (error instanceof AuthError || error instanceof Error) setApiError(mapErrorToAlert(error))
+      else setApiError({ title: 'Unknown Error', message: 'Something went wrong.' })
     }
   }
 
   const handleEnterVault = async () => {
-    // Step 3: Set global auth state and navigate
     await completeSignup(cryptoBundle, userEmail)
     setIsModalOpen(false)
     navigate(ROUTES.VAULT)
@@ -169,7 +149,6 @@ export function SignupPage() {
             </button>
           </div>
           {errors.password && <p className="text-destructive text-xs">{errors.password.message}</p>}
-
           {password && password.length > 0 && (
             <div className="mt-2 flex gap-1">
               {[1, 2, 3, 4].map((i) => (
@@ -234,13 +213,11 @@ export function SignupPage() {
         <Button type="submit" className="h-10 w-full rounded-lg" disabled={isSigningUp}>
           {isSigningUp ? (
             <span className="flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Creating vault...
+              <Loader2 className="h-4 w-4 animate-spin" /> Creating vault...
             </span>
           ) : (
             <span className="flex items-center gap-2">
-              Create vault
-              <ArrowRight className="h-4 w-4" />
+              Create vault <ArrowRight className="h-4 w-4" />
             </span>
           )}
         </Button>
@@ -253,12 +230,10 @@ export function SignupPage() {
         </Link>
       </p>
 
-      {/* Recovery Key Modal */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen} className="sm:max-w-[480px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-left">
-            <Key className="h-5 w-5 text-amber-500" />
-            Save your recovery key
+            <Key className="h-5 w-5 text-amber-500" /> Save your recovery key
           </DialogTitle>
           <DialogDescription className="text-left text-[13px]">
             This is the only way to recover your account if you forget your password. Save it
@@ -275,7 +250,7 @@ export function SignupPage() {
             <Button
               variant="secondary"
               size="sm"
-              onClick={copyRecoveryKey}
+              onClick={() => copy(recoveryKey)}
               className={cn('gap-1.5', copied && 'text-emerald-500')}
             >
               {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
@@ -316,8 +291,7 @@ export function SignupPage() {
             disabled={!acknowledged}
             className="h-10 w-full gap-2 rounded-lg"
           >
-            Enter my vault
-            <ArrowRight className="h-4 w-4" />
+            Enter my vault <ArrowRight className="h-4 w-4" />
           </Button>
         </div>
       </Dialog>

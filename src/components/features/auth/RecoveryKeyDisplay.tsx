@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Check, Copy, Key, AlertTriangle, ArrowRight } from 'lucide-react'
 import { Button } from '@ui/Button'
 import { cn } from '@lib/utils'
+import { useClipboard } from '@hooks/useClipboard'
 
 interface RecoveryKeyDisplayProps {
   recoveryKey: string
@@ -9,18 +10,11 @@ interface RecoveryKeyDisplayProps {
 }
 
 export function RecoveryKeyDisplay({ recoveryKey, onContinue }: RecoveryKeyDisplayProps) {
-  const [copied, setCopied] = useState(false)
   const [acknowledged, setAcknowledged] = useState(false)
-
-  const copyKey = () => {
-    navigator.clipboard.writeText(recoveryKey)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
+  const { copied, copy } = useClipboard()
 
   return (
     <div className="animate-fade-in space-y-5">
-      {/* Recovery Key Box */}
       <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
         <div className="mb-2 flex items-center gap-2 text-amber-600 dark:text-amber-400">
           <Key className="h-4 w-4" />
@@ -37,7 +31,7 @@ export function RecoveryKeyDisplay({ recoveryKey, onContinue }: RecoveryKeyDispl
           <Button
             variant="secondary"
             size="icon"
-            onClick={copyKey}
+            onClick={() => copy(recoveryKey)}
             className={cn('h-10 w-10 shrink-0', copied && 'text-emerald-500')}
           >
             {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
@@ -45,7 +39,6 @@ export function RecoveryKeyDisplay({ recoveryKey, onContinue }: RecoveryKeyDispl
         </div>
       </div>
 
-      {/* Warning */}
       <div className="border-destructive/20 bg-destructive/5 flex gap-3 rounded-xl border p-4">
         <AlertTriangle className="text-destructive mt-0.5 h-4 w-4 shrink-0" />
         <div className="space-y-1">
@@ -61,7 +54,6 @@ export function RecoveryKeyDisplay({ recoveryKey, onContinue }: RecoveryKeyDispl
         </div>
       </div>
 
-      {/* Acknowledgment */}
       <label className="flex cursor-pointer items-start gap-2.5 text-[13px]">
         <input
           type="checkbox"
@@ -75,7 +67,6 @@ export function RecoveryKeyDisplay({ recoveryKey, onContinue }: RecoveryKeyDispl
         </span>
       </label>
 
-      {/* Continue Button */}
       <Button onClick={onContinue} disabled={!acknowledged} className="h-10 w-full rounded-lg">
         I've saved it — go to my vault
         <ArrowRight className="h-4 w-4" />

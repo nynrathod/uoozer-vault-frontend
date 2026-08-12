@@ -47,7 +47,6 @@ export function NotesPage() {
   const [notes, setNotes] = useState<Note[]>(mockNotes)
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [, setIsEditing] = useState(false)
 
   const selectedNote = notes.find((n) => n.id === selectedNoteId)
   const filteredNotes = notes.filter(
@@ -66,20 +65,15 @@ export function NotesPage() {
     }
     setNotes([newNote, ...notes])
     setSelectedNoteId(newNote.id)
-    setIsEditing(true)
   }
 
   const deleteNote = (id: string) => {
     setNotes(notes.filter((n) => n.id !== id))
-    if (selectedNoteId === id) {
-      setSelectedNoteId(null)
-      setIsEditing(false)
-    }
+    if (selectedNoteId === id) setSelectedNoteId(null)
   }
 
   return (
     <div className="bg-background flex h-full">
-      {/* Sidebar */}
       <div
         className={cn(
           'border-border/60 bg-card flex w-80 flex-col border-r',
@@ -95,7 +89,6 @@ export function NotesPage() {
             <Plus className="h-4 w-4" strokeWidth={2.5} />
           </Button>
         </div>
-
         <div className="p-3">
           <div className="relative">
             <Search className="text-muted-foreground/50 absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
@@ -103,22 +96,16 @@ export function NotesPage() {
               placeholder="Search notes..."
               className="border-border/60 bg-secondary/50 placeholder:text-muted-foreground/50 focus-visible:bg-background h-9 rounded-lg pl-9 text-[13px]"
               value={searchQuery}
-              onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-                setSearchQuery(e.target.value)
-              }
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
         </div>
-
         <ScrollArea className="flex-1">
           <div className="space-y-0.5 p-2">
             {filteredNotes.map((note) => (
               <button
                 key={note.id}
-                onClick={() => {
-                  setSelectedNoteId(note.id)
-                  setIsEditing(false)
-                }}
+                onClick={() => setSelectedNoteId(note.id)}
                 className={cn(
                   'group flex w-full flex-col gap-1 rounded-lg px-3 py-2.5 text-left transition-colors duration-150',
                   selectedNoteId === note.id
@@ -151,7 +138,6 @@ export function NotesPage() {
         </ScrollArea>
       </div>
 
-      {/* Editor */}
       <div className={cn('flex flex-1 flex-col', !selectedNoteId && 'hidden lg:flex')}>
         {selectedNote ? (
           <>
@@ -167,13 +153,13 @@ export function NotesPage() {
                 </Button>
                 <Input
                   value={selectedNote.title}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+                  onChange={(e) =>
                     setNotes(
                       notes.map((n) =>
                         n.id === selectedNote.id ? { ...n, title: e.target.value } : n
                       )
                     )
-                  }}
+                  }
                   className="border-0 bg-transparent px-0 text-lg font-semibold focus-visible:ring-0"
                 />
               </div>
@@ -208,16 +194,14 @@ export function NotesPage() {
                 </Button>
                 <Separator orientation="vertical" className="mx-1 h-5" />
                 <Button size="sm" className="h-8 gap-1.5 rounded-lg px-3 text-[13px]">
-                  <Save className="h-3.5 w-3.5" />
-                  Save
+                  <Save className="h-3.5 w-3.5" /> Save
                 </Button>
               </div>
             </div>
-
             <div className="flex-1 p-6">
               <textarea
                 value={selectedNote.content}
-                onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+                onChange={(e) =>
                   setNotes(
                     notes.map((n) =>
                       n.id === selectedNote.id
@@ -225,17 +209,15 @@ export function NotesPage() {
                         : n
                     )
                   )
-                }}
+                }
                 placeholder="Start typing your encrypted note..."
                 className="text-foreground placeholder:text-muted-foreground/40 h-full w-full resize-none bg-transparent text-[15px] leading-relaxed outline-none"
               />
             </div>
-
             <div className="border-border/60 text-muted-foreground/60 flex items-center justify-between border-t px-4 py-2.5 text-[11px]">
               <span>{selectedNote.content.length} characters</span>
               <span className="flex items-center gap-1.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                End-to-end encrypted
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> End-to-end encrypted
               </span>
             </div>
           </>
@@ -249,8 +231,7 @@ export function NotesPage() {
               Choose a note from the sidebar or create a new one to get started
             </p>
             <Button onClick={createNote} className="mt-6 gap-2 rounded-lg px-4">
-              <Plus className="h-4 w-4" />
-              New note
+              <Plus className="h-4 w-4" /> New note
             </Button>
           </div>
         )}
