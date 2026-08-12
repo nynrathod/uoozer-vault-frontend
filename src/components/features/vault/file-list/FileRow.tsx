@@ -5,51 +5,40 @@ import { FileIcon } from './FileIcon'
 import { FileActionsMenu } from '../file-actions/FileActionsMenu'
 import { useClipboard } from '@hooks/useClipboard'
 import { useInlineRename } from '@hooks/useInlineRename'
+import { useFileStore } from '@stores/fileStore'
 import { MOCK_URLS } from '@lib/constants'
+import { isFolder } from '@/lib/type-guards'
 import type { FileItem } from '@/types/files'
 import type { Folder } from '@/types/folders'
 
 interface FileRowProps {
   item: FileItem | Folder
-  isFolder: boolean
   isSelected: boolean
   onClick: () => void
-  onDoubleClick?: () => void
   onSelect: () => void
-  onRename?: (id: string, isFolder: boolean, newName: string) => void
-  onRenameRequest?: (id: string | null) => void
-  onDelete?: (id: string, isFolder: boolean) => void
-  onMoveItem?: (itemId: string, targetFolderId: string, isFolder: boolean) => void
   onShare: (item: FileItem | Folder, isFolder: boolean) => void
-  editingId?: string | null
-  itemCount?: number
-  activeMenuId?: string | null
-  setActiveMenuId?: (id: string | null) => void
-  onVersions?: () => void
-  isRemoving?: boolean
 }
 
 export const FileRow = memo(function FileRow({
   item,
-  isFolder,
   isSelected,
   onClick,
-  onDoubleClick,
   onSelect,
-  onRename,
-  onRenameRequest,
-  onDelete,
-  onMoveItem,
   onShare,
-  editingId,
-  itemCount = 0,
-  activeMenuId,
-  setActiveMenuId,
-  onVersions,
-  isRemoving,
 }: FileRowProps) {
   const { copied, copy } = useClipboard()
-  const name = isFolder ? (item as Folder).encryptedName : (item as FileItem).encryptedName
+  const folderCheck = isFolder(item)
+
+  const deleteItem = useFileStore((s) => s.deleteItem)
+  const moveItem = useFileStore((s) => s.moveItem)
+  const renameItem = useFileStore((s) => s.renameItem)
+  const setShareTarget = useFileStore((s) => s.setShareTarget)
+  const setVersionFileId = useFileStore((s) => s.setVersionFileId)
+  const activeMenuId = useFileStore((s) => s.activeMenuId)
+  const setActiveMenuId = useFileStore((s) => s.setActiveMenuId)
+  const editingId = useFileStore((s) => s.editingId)
+  const setEditingId = useFileStore((s) => s.setEditingId)
+
   const isMenuActive = activeMenuId === item.id
   const isOtherMenuActive = !!activeMenuId && activeMenuId !== item.id
 
@@ -59,12 +48,12 @@ export const FileRow = memo(function FileRow({
     isSaving,
     handleSubmit,
   } = useInlineRename(
-    name,
+    item.encryptedName,
     (newName) => {
-      if (onRename) onRename(item.id, isFolder, newName)
-      onRenameRequest?.(null)
+      renameItem(item.id, folderCheck, newName)
+      setEditingId(null)
     },
-    () => onRenameRequest?.(null)
+    () => setEditingId(null)
   )
 
   const handleCopyLink = () => copy(`${MOCK_URLS.SHARE_LINK_BASE}${item.id}`)
@@ -73,18 +62,29 @@ export const FileRow = memo(function FileRow({
     <div
       className={cn(
         'group grid grid-cols-[24px_2.5rem_1fr_9.5rem] items-stretch gap-3 overflow-hidden rounded-lg border px-3 transition-all duration-150 md:grid-cols-[24px_2.5rem_1fr_9.5rem_8rem_6rem]',
-        isRemoving
-          ? 'pointer-events-none !mt-0 h-0 scale-95 border-transparent opacity-0'
-          : cn(
-              'h-[52px]',
-              false ? '' : '' // dragover state removed for brevity, keep existing if needed
-            ),
+        'hover:bg-accent/60 hover:border-border/40 h-[52px] border-transparent',
         'cursor-grab active:cursor-grabbing'
       )}
       onClick={onClick}
-      onDoubleClick={onDoubleClick}
+      draggable={true}
+      onDragStart={(e) => {
+        e.dataTransfer.setData('text/plain', item.id)
+        e.dataTransfer.setData('application/x-item-type', folderCheck ? 'folder' : 'file')
+        e.dataTransfer.effectAllowed = 'move'
+      }}
+      onDragOver={(e) => {
+        if (folderCheck) e.preventDefault()
+      }}
+      onDrop={(e) => {
+        if (folderCheck) {
+          e.preventDefault()
+          const draggedId = e.dataTransfer.getData('text/plain')
+          const draggedType = e.dataTransfer.getData('application/x-item-type') || 'file'
+          if (draggedId && draggedId !== item.id)
+            moveItem(draggedId, item.id, draggedType === 'folder')
+        }
+      }}
     >
-      {/* Checkbox */}
       <div
         className={cn(
           'flex shrink-0 cursor-pointer items-center justify-center',
@@ -107,16 +107,14 @@ export const FileRow = memo(function FileRow({
         </div>
       </div>
 
-      {/* Icon */}
       <div className="flex cursor-grab items-center justify-center active:cursor-grabbing">
         <FileIcon
-          mimeType={isFolder ? undefined : (item as FileItem).encryptedMimeType}
-          isFolder={isFolder}
+          mimeType={folderCheck ? undefined : (item as FileItem).encryptedMimeType}
+          isFolder={folderCheck}
           size="sm"
         />
       </div>
 
-      {/* Name & Rename */}
       <div className="flex min-w-0 items-center">
         {editingId === item.id ? (
           <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -128,7 +126,7 @@ export const FileRow = memo(function FileRow({
               onBlur={handleSubmit}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleSubmit()
-                if (e.key === 'Escape') onRenameRequest?.(null)
+                if (e.key === 'Escape') setEditingId(null)
               }}
               className="bg-background border-primary w-full rounded-md border px-1.5 py-0.5 text-[13px] font-medium outline-none"
             />
@@ -151,12 +149,11 @@ export const FileRow = memo(function FileRow({
               onClick()
             }}
           >
-            <p className="text-foreground truncate text-[13px] font-medium">{name}</p>
+            <p className="text-foreground truncate text-[13px] font-medium">{item.encryptedName}</p>
           </div>
         )}
       </div>
 
-      {/* Actions */}
       <div
         className={cn(
           'flex cursor-pointer items-center justify-end gap-0.5 transition-opacity duration-150',
@@ -167,7 +164,7 @@ export const FileRow = memo(function FileRow({
               : 'md:opacity-0 md:group-hover:opacity-100'
         )}
       >
-        {!isFolder && (
+        {!folderCheck && (
           <button
             onClick={(e) => e.stopPropagation()}
             className="text-muted-foreground hover:bg-accent hover:text-foreground hidden h-8 w-8 cursor-pointer items-center justify-center rounded-md md:flex"
@@ -189,7 +186,7 @@ export const FileRow = memo(function FileRow({
         <button
           onClick={(e) => {
             e.stopPropagation()
-            onShare(item, isFolder)
+            onShare(item, folderCheck)
           }}
           className="text-muted-foreground hover:bg-accent hover:text-foreground hidden h-8 w-8 cursor-pointer items-center justify-center rounded-md md:flex"
           title="Share"
@@ -199,15 +196,15 @@ export const FileRow = memo(function FileRow({
 
         <FileActionsMenu
           item={item}
-          isFolder={isFolder}
-          onRenameRequest={(id) => onRenameRequest?.(id)}
-          onDelete={onDelete || (() => {})}
-          onShare={() => onShare(item, isFolder)}
+          isFolder={folderCheck}
+          onRenameRequest={() => setEditingId(item.id)}
+          onDelete={deleteItem}
+          onShare={() => setShareTarget(item.id)}
           copied={copied}
           onCopyLink={handleCopyLink}
-          onVersions={onVersions}
+          onVersions={() => !folderCheck && setVersionFileId(item.id)}
           open={isMenuActive}
-          onOpenChange={(open) => setActiveMenuId?.(open ? item.id : null)}
+          onOpenChange={(open) => setActiveMenuId(open ? item.id : null)}
           trigger={
             <button
               className="text-muted-foreground hover:bg-accent hover:text-foreground flex h-8 w-8 cursor-pointer items-center justify-center rounded-md"
@@ -219,17 +216,13 @@ export const FileRow = memo(function FileRow({
         />
       </div>
 
-      {/* Modified */}
       <div className="text-muted-foreground/70 hidden w-full items-center gap-1.5 text-xs md:flex">
         <Clock className="h-3.5 w-3.5" />
         <span>{formatRelativeDate(item.updatedAt)}</span>
       </div>
 
-      {/* Size */}
       <div className="text-muted-foreground/70 hidden w-full items-center justify-end text-right text-xs tabular-nums md:block">
-        {isFolder
-          ? `${itemCount} item${itemCount !== 1 ? 's' : ''}`
-          : formatBytes((item as FileItem).size)}
+        {folderCheck ? `${0} items` : formatBytes((item as FileItem).size)}
       </div>
     </div>
   )

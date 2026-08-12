@@ -7,15 +7,14 @@ import { useClipboard } from '@hooks/useClipboard'
 import { useInlineRename } from '@hooks/useInlineRename'
 import { useFileStore } from '@stores/fileStore'
 import { MOCK_URLS } from '@lib/constants'
+import { isFolder } from '@/lib/type-guards'
 import type { FileItem } from '@/types/files'
 import type { Folder } from '@/types/folders'
 
 interface FileCardProps {
   item: FileItem | Folder
-  isFolder: boolean
   isSelected: boolean
   onClick: () => void
-  onDoubleClick?: () => void
   onSelect: () => void
   editingId?: string | null
   onRenameRequest?: (id: string | null) => void
@@ -24,10 +23,8 @@ interface FileCardProps {
 
 export const FileCard = memo(function FileCard({
   item,
-  isFolder,
   isSelected,
   onClick,
-  onDoubleClick,
   onSelect,
   editingId,
   onRenameRequest,
@@ -40,7 +37,8 @@ export const FileCard = memo(function FileCard({
   const setShareTarget = useFileStore((s) => s.setShareTarget)
   const setVersionFileId = useFileStore((s) => s.setVersionFileId)
 
-  const name = isFolder ? (item as Folder).encryptedName : (item as FileItem).encryptedName
+  const folderCheck = isFolder(item)
+  const name = item.encryptedName
   const isEditing = editingId === item.id
 
   const {
@@ -51,7 +49,7 @@ export const FileCard = memo(function FileCard({
   } = useInlineRename(
     name,
     (newName) => {
-      renameItem(item.id, isFolder, newName)
+      renameItem(item.id, folderCheck, newName)
       onRenameRequest?.(null)
     },
     () => onRenameRequest?.(null)
@@ -69,18 +67,17 @@ export const FileCard = memo(function FileCard({
         'cursor-grab active:cursor-grabbing'
       )}
       onClick={onClick}
-      onDoubleClick={onDoubleClick}
       draggable={true}
       onDragStart={(e) => {
         e.dataTransfer.setData('text/plain', item.id)
-        e.dataTransfer.setData('application/x-item-type', isFolder ? 'folder' : 'file')
+        e.dataTransfer.setData('application/x-item-type', folderCheck ? 'folder' : 'file')
         e.dataTransfer.effectAllowed = 'move'
       }}
       onDragOver={(e) => {
-        if (isFolder) e.preventDefault()
+        if (folderCheck) e.preventDefault()
       }}
       onDrop={(e) => {
-        if (isFolder) {
+        if (folderCheck) {
           e.preventDefault()
           const draggedId = e.dataTransfer.getData('text/plain')
           const draggedType = e.dataTransfer.getData('application/x-item-type') || 'file'
@@ -90,8 +87,8 @@ export const FileCard = memo(function FileCard({
       }}
     >
       <FileIcon
-        mimeType={isFolder ? undefined : (item as FileItem).encryptedMimeType}
-        isFolder={isFolder}
+        mimeType={folderCheck ? undefined : (item as FileItem).encryptedMimeType}
+        isFolder={folderCheck}
         size="lg"
         className="mb-0.5"
       />
@@ -125,7 +122,7 @@ export const FileCard = memo(function FileCard({
           <p className="text-foreground truncate text-[13px] font-medium">{name}</p>
         )}
         <p className="text-muted-foreground/70 mt-0.5 text-[11px]">
-          {isFolder
+          {folderCheck
             ? `${itemCount} item${itemCount !== 1 ? 's' : ''}`
             : formatBytes((item as FileItem).size)}
         </p>
@@ -147,13 +144,13 @@ export const FileCard = memo(function FileCard({
 
         <FileActionsMenu
           item={item}
-          isFolder={isFolder}
+          isFolder={folderCheck}
           onRenameRequest={(id) => onRenameRequest?.(id)}
           onDelete={deleteItem}
           onShare={() => setShareTarget(item.id)}
           copied={copied}
           onCopyLink={handleCopyLink}
-          onVersions={() => !isFolder && setVersionFileId(item.id)}
+          onVersions={() => !folderCheck && setVersionFileId(item.id)}
           trigger={
             <button
               className={cn(

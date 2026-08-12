@@ -28,6 +28,10 @@ interface FileStoreState {
   renameItem: (id: string, isFolder: boolean, newName: string) => void
   deleteItem: (id: string, isFolder: boolean) => void
   moveItem: (itemId: string, targetFolderId: string, isFolder: boolean) => void
+  sortItems: (
+    field: 'name' | 'size' | 'modified' | 'created' | null,
+    order: 'asc' | 'desc' | null
+  ) => void
 
   setEditingId: (id: string | null) => void
   setPreviewFile: (id: string | null) => void
@@ -50,7 +54,7 @@ interface FileStoreState {
 
 export const useFileStore = create<FileStoreState>()(
   devtools(
-    (set, get) => ({
+    (set) => ({
       files: new Map(),
       folders: new Map(),
       currentFolderId: null,
@@ -101,6 +105,32 @@ export const useFileStore = create<FileStoreState>()(
           return { folders: new Map(state.folders), files: new Map(state.files) }
         }),
 
+      sortItems: (field, order) =>
+        set((state) => {
+          const comparator = (a: FileItem | Folder, b: FileItem | Folder) => {
+            if (!field || !order)
+              return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+            const mult = order === 'asc' ? 1 : -1
+            if (field === 'name') return mult * a.encryptedName.localeCompare(b.encryptedName)
+            if (field === 'size' && 'size' in a && 'size' in b) return mult * (a.size - b.size)
+            if (field === 'modified')
+              return mult * (new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime())
+            return 0
+          }
+          return {
+            folders: new Map(
+              Array.from(state.folders.values())
+                .sort(comparator)
+                .map((f) => [f.id, f])
+            ),
+            files: new Map(
+              Array.from(state.files.values())
+                .sort(comparator)
+                .map((f) => [f.id, f])
+            ),
+          }
+        }),
+
       setEditingId: (id) => set({ editingId: id }),
       setPreviewFile: (id) => set({ previewFileId: id }),
       setIsPreviewFullscreen: (val) => set({ isPreviewFullscreen: val }),
@@ -137,7 +167,7 @@ export const useFileStore = create<FileStoreState>()(
   )
 )
 
-// Selectors for granular re-renders
+// Selectors
 export const selectCurrentFiles = (s: FileStoreState) =>
   Array.from(s.files.values()).filter((f) => f.folderId === s.currentFolderId)
 

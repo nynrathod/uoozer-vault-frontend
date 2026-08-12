@@ -139,7 +139,6 @@ export function VaultPage() {
                   onFolderClick={(folder) => navigate(`/vault/folder/${folder.id}`)}
                   onFileClick={(file) => setPreviewFile(file.id)}
                   onFileSelect={toggleFileSelection}
-                  selectedIds={selectedFileIds}
                   onShare={(item) => setShareTarget(item.id)}
                 />
               </div>
