@@ -46,10 +46,15 @@ export function useAuth() {
       try {
         const result = await authService.login(credentials)
 
-        // 1. Set the crypto state
         setCryptoState({ masterKey: result.masterKey, dek: null })
 
-        const wrappedDekData = await tokenManager.getWrappedDek()
+        const keys = await authService.getKeys()
+        const wrappedDekData = {
+          wrappedDek: keys.wrapped_dek,
+          nonce: keys.wrapped_dek_nonce,
+        }
+
+        await tokenManager.setWrappedDek(wrappedDekData.wrappedDek, wrappedDekData.nonce)
 
         if (wrappedDekData && result.masterKey) {
           const ciphertextBytes = await base64ToBytes(wrappedDekData.wrappedDek)
@@ -67,7 +72,6 @@ export function useAuth() {
 
           useAuthStore.getState().setDek(dek)
 
-          // Generate Device Key for silent unlock
           const deviceKey = await generateDek()
           const deviceWrappedDek = await wrapDek(dek, deviceKey)
           await tokenManager.setDeviceKey(await bytesToBase64(deviceKey))
