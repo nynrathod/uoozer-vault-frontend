@@ -130,7 +130,6 @@ export function useAuth() {
     [setAuthenticated, setCryptoState, setUser]
   )
 
-  // STEP 1: Verify the recovery key is correct
   const verifyRecoveryKey = useCallback(async (email: string, recoveryKeyDisplay: string) => {
     setSignupError(null)
     setIsSigningUp(true)
@@ -140,10 +139,8 @@ export function useAuth() {
       const hexClean = recoveryKeyDisplay.replace(/-/g, '')
       const recoveryKey = hexToUint8Array(hexClean) // Throws here if format is wrong
 
-      // Throws here if API login fails or DEK decryption fails
       const { dek, tokens } = await authService.verifyRecoveryKey(email, recoveryKey)
 
-      // Store in state to pass to Step 2
       setCryptoState({ masterKey: null, dek })
       useAuthStore.setState({ recoveryTokens: tokens })
     } finally {
@@ -151,7 +148,6 @@ export function useAuth() {
     }
   }, [])
 
-  // STEP 2: User verified, now reset the password
   const completeRecovery = useCallback(
     async (email: string, newPassword: string) => {
       setIsSigningUp(true)
@@ -249,22 +245,17 @@ export function useAuth() {
   )
 
   const logout = useCallback(async () => {
-    // 1. Instantly show global spinner to hide the Vault UI transitioning
     useAuthStore.setState({ isLoading: true })
 
     try {
-      // 2. Fire the API call (runs in background)
       await authService.logout(false)
     } catch {
       // Ignore errors
     } finally {
-      // 3. Clear all local crypto and session state
       await storeLogout()
 
-      // 4. Tell the router to go to login
       navigate(ROUTES.LOGIN, { replace: true })
 
-      // 5. Drop the spinner to reveal the perfectly clean Login page
       useAuthStore.setState({ isLoading: false })
       toast.success('Signed out successfully')
     }

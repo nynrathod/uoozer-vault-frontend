@@ -1,4 +1,3 @@
-// src/types/index.ts
 export type { ApiResponse, PaginatedResponse, ApiError, ApiRequestConfig } from './api'
 export type {
   LoginRequest,

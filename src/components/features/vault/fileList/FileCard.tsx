@@ -36,7 +36,6 @@ export const FileCard = memo(function FileCard({
   const setVersionFileId = useFileStore((s) => s.setVersionFileId)
   const activeMenuId = useFileStore((s) => s.activeMenuId)
 
-  // Drag state
   const dragOverId = useFileStore((s) => s.dragOverId)
   const setDragOverId = useFileStore((s) => s.setDragOverId)
   const isDragging = useFileStore((s) => s.isDragging)

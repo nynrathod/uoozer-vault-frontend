@@ -6,7 +6,6 @@ interface VaultLoaderProps {
   className?: string
 }
 
-// 1. The Original "Vault Core" (Spinning Square + Data Slider)
 export function VaultLoader({ size = 40, className }: VaultLoaderProps) {
   return (
     <div className={cn('flex flex-col items-center gap-3', className)}>

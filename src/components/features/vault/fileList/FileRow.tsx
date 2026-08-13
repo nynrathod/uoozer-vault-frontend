@@ -69,7 +69,6 @@ export const FileRow = memo(function FileRow({
 
   return (
     <div
-      // If isDragging is true, we don't apply hover classes (hover:bg-accent/60)
       className={cn(
         'group relative grid h-[52px] grid-cols-[40px_40px_1fr] items-center gap-2 rounded-lg border border-transparent px-0 transition-colors duration-150 ease-out md:grid-cols-[40px_40px_1fr_160px_140px_80px]',
         isDragOver
@@ -123,7 +122,6 @@ export const FileRow = memo(function FileRow({
         }
       }}
       onDragEnd={() => {
-        // Guarantee state is cleared when the drag operation finishes or is canceled
         setDragOverId(null)
         setIsDragging(false) // End global drag state
       }}

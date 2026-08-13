@@ -7,31 +7,13 @@
 import * as Comlink from 'comlink'
 import type { Argon2Params, CryptoApi, SignupCryptoBundle, WrappedKey } from '../lib/crypto-types'
 
-console.log('[Main] Creating worker...')
-
-console.log('Creating worker...')
-
 const worker = new Worker(new URL('../workers/crypto.worker.ts', import.meta.url), {
   type: 'module',
 })
 
-console.log('Worker created')
+worker.onerror = (e: ErrorEvent) => {}
 
-console.log('[Main] Worker created')
-
-worker.onerror = (e: ErrorEvent) => {
-  console.error('========== WORKER ERROR ==========')
-  console.error('message:', e.message)
-  console.error('filename:', e.filename)
-  console.error('line:', e.lineno)
-  console.error('column:', e.colno)
-  console.error('error:', e.error)
-  console.error(e)
-}
-
-worker.onmessageerror = (e) => {
-  console.error('[Main] Worker message error:', e)
-}
+worker.onmessageerror = (e) => {}
 const cryptoApi = Comlink.wrap<CryptoApi>(worker)
 
 // ─── JWT Helpers (Stay on main thread, they are pure JS and instant) ──────
@@ -78,19 +60,12 @@ export function getJwtExpiry(token: string): number {
 
 // ─── Proxy API ─────────────────────────────────────────────────────────────
 export const initCrypto = async () => {
-  console.log('[initCrypto] Starting cryptoApi.init()')
-
   try {
     const result = await cryptoApi.init()
-    console.log('[initCrypto] cryptoApi.init() completed successfully')
 
     return result
   } catch (err) {
-    console.error('[initCrypto] cryptoApi.init() failed:', err)
-
     if (err instanceof Error) {
-      console.error('[initCrypto] Message:', err.message)
-      console.error('[initCrypto] Stack:', err.stack)
     }
 
     throw err

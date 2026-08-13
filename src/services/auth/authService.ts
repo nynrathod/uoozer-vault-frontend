@@ -38,33 +38,19 @@ import type { SignupCryptoBundle } from '@/lib/crypto-types'
 class AuthService {
   private _cryptoInitialized = false
   async ensureCryptoReady(): Promise<void> {
-    console.log('[Crypto] ensureCryptoReady called')
-    console.log('[Crypto] _cryptoInitialized:', this._cryptoInitialized)
-
     if (!this._cryptoInitialized) {
-      console.log('[Crypto] Initializing crypto...')
-
       try {
         await initCrypto()
-        console.log('[Crypto] initCrypto() completed successfully')
 
         this._cryptoInitialized = true
-        console.log('[Crypto] _cryptoInitialized set to true')
       } catch (err) {
-        console.error('[Crypto] initCrypto() failed:', err)
-
         if (err instanceof Error) {
-          console.error('[Crypto] Error message:', err.message)
-          console.error('[Crypto] Stack:', err.stack)
         }
 
         throw err
       }
     } else {
-      console.log('[Crypto] Crypto already initialized, skipping')
     }
-
-    console.log('[Crypto] ensureCryptoReady finished')
   }
 
   async prelogin(email: string): Promise<PreloginResponse> {
@@ -152,24 +138,20 @@ class AuthService {
     tokens: AuthResponse
     masterKey: Uint8Array | null
   }> {
-    console.log('1. Ensuring crypto is ready...')
     await this.ensureCryptoReady()
-    console.log('2. Crypto ready')
 
-    console.log('3. Calling prelogin...', credentials.email)
     const preloginResp = await this.prelogin(credentials.email)
-    console.log('4. Prelogin response:', preloginResp)
 
     let authKeyB64: string
     let masterKey: Uint8Array | null = null
 
     if (credentials.authKey) {
       // Recovery flow: use the pre-derived auth key
-      console.log('5b. Using provided recovery auth key...')
+
       authKeyB64 = credentials.authKey
     } else {
       // Normal flow: derive keys from password
-      console.log('5. Deriving keys from password...')
+
       const { masterKey: mk, authKey } = await deriveKeysFromPassword(
         credentials.password || '',
         preloginResp.salt,
@@ -180,7 +162,6 @@ class AuthService {
       await zeroize(authKey)
     }
 
-    console.log('7. Generating device key pair...')
     const deviceKeyPair = await generateKeyPair()
     const devicePubKeyB64 = await bytesToBase64(deviceKeyPair.publicKey)
 
@@ -193,7 +174,6 @@ class AuthService {
     }
 
     try {
-      console.log('16. Sending login request...')
       const { data } = await apiClient.post('/api/v1/auth/login', loginReq)
 
       await tokenManager.setAccessToken(data.access_token, data.expires_in)
@@ -236,14 +216,12 @@ class AuthService {
   }
 
   async logout(revokeDevice = false): Promise<void> {
-    console.log('[AuthService] Firing logout fetch request...')
     const refreshToken = await tokenManager.getRefreshToken()
     const accessToken = tokenManager.getAccessToken()
 
     const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
 
     try {
-      // Using native fetch to bypass Axios interceptors completely
       await fetch(`${API_BASE_URL}/api/v1/auth/logout`, {
         method: 'POST',
         headers: {
@@ -255,7 +233,6 @@ class AuthService {
           refresh_token: refreshToken,
         }),
       })
-      console.log('[AuthService] Logout API call finished.')
     } catch (error) {
       console.warn('[AuthService] Logout fetch failed (network error), proceeding anyway.', error)
     } finally {
@@ -291,7 +268,6 @@ class AuthService {
         new_wrapped_dek_nonce: newWrappedDekNonceB64,
       })
 
-      // RETURN THE NEW KEYS
       return { wrapped_dek: newWrappedDekB64, wrapped_dek_nonce: newWrappedDekNonceB64 }
     } catch (error: any) {
       throw this._handleError(error)
@@ -397,7 +373,6 @@ class AuthService {
     }
   }
 
-  // STEP 1: Verify Recovery Key (In-Memory Only)
   async verifyRecoveryKey(
     email: string,
     recoveryKey: Uint8Array
@@ -421,7 +396,6 @@ class AuthService {
       // 1. Login to verify the key mathematically
       const { data: tokens } = await apiClient.post('/api/v1/auth/login', loginReq)
 
-      // DO NOT call tokenManager.setRefreshToken or setHasSession(true).
       tokenManager.setAccessToken(tokens.access_token, tokens.expires_in)
 
       // 2. Fetch the encrypted keys
@@ -445,7 +419,7 @@ class AuthService {
       throw this._handleError(error)
     }
   }
-  // STEP 2: Complete Recovery (Persist Session & Update Password)
+
   async completeRecovery(
     email: string,
     newPassword: string,
@@ -467,7 +441,6 @@ class AuthService {
     const newWrappedDekB64 = await bytesToBase64(newWrappedDek.ciphertext)
     const newWrappedDekNonceB64 = await bytesToBase64(newWrappedDek.nonce)
 
-    // 1. Tell the server to update the password and the wrapped DEK
     await apiClient.post('/api/v1/auth/password', {
       new_auth_key: newAuthKeyB64,
       new_wrapped_dek: newWrappedDekB64,

@@ -1,5 +1,3 @@
-// src/services/auth/tokenManager.ts
-
 const DB_NAME = 'uoozer-vault'
 const DB_VERSION = 1
 const STORE_NAME = 'auth'
@@ -10,7 +8,6 @@ const DEVICE_KEY = 'device_key'
 const DEVICE_WRAPPED_DEK_KEY = 'device_wrapped_dek'
 const DEVICE_WRAPPED_DEK_NONCE_KEY = 'device_wrapped_dek_nonce'
 
-// SAFE localStorage flags (No secrets here!)
 const LS_HAS_SESSION = 'vault:has_session'
 const LS_DEVICE_ID = 'vault:device_id'
 const LS_USER_EMAIL = 'vault:user_email'
@@ -153,7 +150,6 @@ export const tokenManager = {
     lsDelete(LS_DEVICE_ID)
     lsDelete(LS_USER_EMAIL)
 
-    // SECURITY CLEANUP: Remove any sensitive keys that were accidentally saved
     // to localStorage in previous versions of the code.
     lsDelete('vault:device_key')
     lsDelete('vault:device_wrapped_dek')

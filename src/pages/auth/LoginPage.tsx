@@ -30,7 +30,6 @@ export function LoginPage() {
   })
 
   const onSubmit = async (data: LoginInput) => {
-    console.log('Form submitted, calling API...')
     clearLoginError()
     await login({
       email: data.email,

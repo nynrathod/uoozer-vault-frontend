@@ -37,7 +37,7 @@ export function RecoveryPage() {
   const [step, setStep] = useState<1 | 2>(1)
   const [apiError, setApiError] = useState<ApiErrorAlert | null>(null)
   const [email, setEmail] = useState('')
-  // const [recoveryKey, setRecoveryKey] = useState('') <-- REMOVE THIS LINE
+
   const [showPassword, setShowPassword] = useState(false)
 
   const { verifyRecoveryKey, completeRecovery, isSigningUp } = useAuth()
@@ -57,7 +57,7 @@ export function RecoveryPage() {
     try {
       await verifyRecoveryKey(data.email, data.recoveryKey)
       setEmail(data.email)
-      // setRecoveryKey(data.recoveryKey) <-- REMOVE THIS LINE
+
       setStep(2)
     } catch (error) {
       setApiError(mapErrorToAlert(error))
@@ -67,7 +67,6 @@ export function RecoveryPage() {
   const onStepTwoSubmit = async (data: z.infer<typeof step2Schema>) => {
     setApiError(null)
     try {
-      // FIX: Removed `recoveryKey` from the arguments.
       // The recovery key was already verified in Step 1 and the DEK is stored in the auth store.
       // We only need to pass the new password here.
       await completeRecovery(email, data.password)

@@ -1,4 +1,3 @@
-// src/stores/authStore.ts
 import { create } from 'zustand'
 import { tokenManager } from '@services/auth/tokenManager'
 import { authService } from '@services/auth/authService'
@@ -29,12 +28,9 @@ interface AuthState {
   recoveryTokens?: AuthResponse | null
 }
 
-// SYNCHRONOUS READ TO PREVENT FLICKER
 const hasSession = tokenManager.getHasSession()
 const userEmail = tokenManager.getUserEmail()
 
-// MODULE-LEVEL LOCK: Prevents React Strict Mode from running this twice concurrently.
-// This stops the backend from revoking your refresh token due to a "replay attack".
 let _initPromise: Promise<void> | null = null
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -80,9 +76,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             if (dek) {
               set({ cryptoState: { masterKey: null, dek }, isCryptoReady: true })
             }
-          } catch (e) {
-            console.error('Silent unlock failed', e)
-          }
+          } catch (e) {}
         }
 
         // 2. Validate Refresh Token via API (This will now only run ONCE)
@@ -91,7 +85,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           await get().logout()
         }
       } catch (error) {
-        console.error('Init error', error)
         await get().logout()
       } finally {
         set({ isInitializing: false })
@@ -110,7 +103,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       isCryptoReady: false,
       isInitializing: false,
       cryptoState: { masterKey: null, dek: null },
-      // DO NOT set isLoading: false here. Let useAuth control it.
     })
   },
 }))

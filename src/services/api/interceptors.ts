@@ -20,7 +20,6 @@ function processFailedQueue(token: string | null, error: unknown): void {
 }
 
 export function setupInterceptors(apiClient: AxiosInstance): void {
-  // Request Interceptor: Inject Access Token
   apiClient.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
       const token = tokenManager.getAccessToken()
@@ -32,7 +31,6 @@ export function setupInterceptors(apiClient: AxiosInstance): void {
     (error) => Promise.reject(error)
   )
 
-  // Response Interceptor: Handle 401 (Refresh Token) & 429 (Rate Limit)
   apiClient.interceptors.response.use(
     (response) => response,
     async (error: AxiosError) => {

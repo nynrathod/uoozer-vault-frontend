@@ -20,7 +20,6 @@ import { useUIStore } from '@stores/uiStore'
 import { Button } from '@ui/Button'
 import { DropdownMenu, DropdownItem, DropdownSeparator, DropdownLabel } from '@ui/DropdownMenu'
 
-// Item 35: Module-level constants for icons
 const NEW_FOLDER_ICON = <FolderPlus className="h-4 w-4" />
 const UPLOAD_ICON = <Upload className="h-4 w-4" />
 const NEW_DOC_ICON = <FileText className="h-4 w-4" />
@@ -44,10 +43,8 @@ export function VaultToolbar() {
 
   const hasSelection = selectedFileIds.size > 0
 
-  // Item 33: useMemo for computed values
   const itemCount = useMemo(() => files.size + folders.size, [files, folders])
 
-  // Item 34: useCallback for event handlers
   const handleBulkDelete = useCallback(() => {
     selectedFileIds.forEach((id) => deleteItem(id, folders.has(id)))
     clearFileSelection()

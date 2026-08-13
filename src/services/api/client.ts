@@ -11,7 +11,6 @@ export const apiClient: AxiosInstance = axios.create({
   },
 })
 
-// Attach interceptors to the client instance
 setupInterceptors(apiClient)
 
 export function skipAuthRefresh(config: AxiosRequestConfig): AxiosRequestConfig {
