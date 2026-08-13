@@ -1,5 +1,4 @@
-// ─── Error Codes (mirror backend) ──────────────────────────────────────────
-
+/** Auth error codes that mirror the backend enum. */
 export const AUTH_ERROR_CODES = {
   BAD_REQUEST: 'BAD_REQUEST',
   VALIDATION_ERROR: 'VALIDATION_ERROR',
@@ -19,8 +18,6 @@ export const AUTH_ERROR_CODES = {
 
 export type AuthErrorCode = (typeof AUTH_ERROR_CODES)[keyof typeof AUTH_ERROR_CODES]
 
-// ─── User-Friendly Messages ────────────────────────────────────────────────
-
 const ERROR_MESSAGES: Record<string, string> = {
   BAD_REQUEST: 'The request was invalid. Please check your input.',
   VALIDATION_ERROR: 'Please check your input and try again.',
@@ -38,8 +35,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   SERVICE_UNAVAILABLE: 'The service is temporarily unavailable. Please try again later.',
 }
 
-// ─── Auth Error Class ──────────────────────────────────────────────────────
-
+/** Typed error for authentication failures with logout/redirect hints. */
 export class AuthError extends Error {
   readonly code: AuthErrorCode
   readonly statusCode: number
@@ -65,17 +61,11 @@ export class AuthError extends Error {
     this.shouldLogout = options?.shouldLogout ?? false
     this.shouldRedirect = options?.shouldRedirect ?? false
 
-    // Maintain proper prototype chain for instanceof checks
     Object.setPrototypeOf(this, AuthError.prototype)
   }
 }
 
-// ─── Error Factory ─────────────────────────────────────────────────────────
-
-/**
- * Create an AuthError from an Axios/Fetch error response.
- * Centralizes the mapping of HTTP responses to typed errors.
- */
+/** Maps an HTTP error response to a typed AuthError. */
 export function createAuthErrorFromResponse(
   statusCode: number,
   errorCode?: string,
@@ -99,9 +89,7 @@ export function createAuthErrorFromResponse(
   })
 }
 
-/**
- * Create an AuthError from a network error (no response from server).
- */
+/** Creates an AuthError for a network-level failure (no response received). */
 export function createNetworkError(error: Error): AuthError {
   return new AuthError(AUTH_ERROR_CODES.SERVICE_UNAVAILABLE, 0, {
     message: 'Cannot connect to the server. Please check your internet connection.',
@@ -109,9 +97,7 @@ export function createNetworkError(error: Error): AuthError {
   })
 }
 
-/**
- * Create an AuthError for crypto failures.
- */
+/** Creates an AuthError for unexpected cryptographic failures. */
 export function createCryptoError(message: string): AuthError {
   return new AuthError(AUTH_ERROR_CODES.INTERNAL_ERROR, 500, {
     message: 'A cryptographic operation failed. This should not happen — please report it.',

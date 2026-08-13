@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from 'react'
 
+/** Named theme variant applied as a data attribute. */
 export type ThemeVariant = 'default' | 'uoozer' | 'obsidian' | 'slate' | 'forest'
+/** Light/dark preference, with 'system' deferring to the OS. */
 export type ColorScheme = 'light' | 'dark' | 'system'
 
 interface ThemeState {
@@ -30,6 +32,9 @@ function getInitialState(): ThemeState {
   return { variant: 'default', scheme: 'system', resolvedTheme: getSystemTheme() }
 }
 
+// Applies the theme to <html> and returns updated state with the resolved dark/light value.
+// Double rAF removes the 'theme-switching' class after the browser has painted the new theme,
+// preventing a visible color transition flash.
 function applyThemeToDOM(state: ThemeState, disableTransitions: boolean) {
   const html = document.documentElement
   const resolved = state.scheme === 'system' ? getSystemTheme() : state.scheme
@@ -57,6 +62,7 @@ function applyThemeToDOM(state: ThemeState, disableTransitions: boolean) {
   return { ...state, resolvedTheme: resolved }
 }
 
+/** Manages theme variant, color scheme, and persists preferences to localStorage. */
 export function useTheme() {
   const [state, setState] = useState<ThemeState>(getInitialState)
 

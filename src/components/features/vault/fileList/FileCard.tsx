@@ -11,11 +11,11 @@ import { isFolder } from '@/lib/type-guards'
 import type { FileItem } from '@/types/files'
 import type { Folder } from '@/types/folders'
 
+/** Props for a single grid cell in the vault file browser. */
 interface FileCardProps {
   item: FileItem | Folder
   isSelected: boolean
   onClick: () => void
-  onSelect: () => void
   editingId?: string | null
   onRenameRequest?: (id: string | null) => void
   itemCount?: number
@@ -25,7 +25,6 @@ export const FileCard = memo(function FileCard({
   item,
   isSelected,
   onClick,
-  onSelect,
   editingId,
   onRenameRequest,
   itemCount = 0,

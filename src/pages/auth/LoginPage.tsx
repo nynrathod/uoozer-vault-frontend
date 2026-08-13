@@ -13,6 +13,7 @@ import { type LoginInput, loginSchema } from '@/lib/validator'
 import { PasswordInput } from '@/components/ui/primitives/PasswordInput'
 import { Checkbox } from '@/components/ui/primitives/Checkbox'
 
+/** Login page with email/password form and "remember me" option. */
 export function LoginPage() {
   const { login, isLoggingIn, loginError, clearLoginError } = useAuth()
 

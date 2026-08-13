@@ -5,6 +5,7 @@ interface ScrollAreaProps extends React.HTMLAttributes<HTMLDivElement> {
   orientation?: 'vertical' | 'horizontal' | 'both'
 }
 
+/** Lightweight scroll container with orientation-based overflow control. */
 const ScrollArea = React.forwardRef<HTMLDivElement, ScrollAreaProps>(
   ({ className, children, orientation = 'vertical', ...props }, ref) => {
     return (

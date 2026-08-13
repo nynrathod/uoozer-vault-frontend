@@ -5,6 +5,7 @@ import { Button } from '@ui/Button'
 import { Switch } from '@ui/Switch'
 import { SectionHeader } from '@/components/ui'
 
+/** Reusable settings row with a label, description, and toggle switch. */
 function ToggleRow({ title, description, checked, onChange }: any) {
   return (
     <div className="border-border/60 flex items-center justify-between border-b py-3 last:border-b-0">
@@ -17,6 +18,7 @@ function ToggleRow({ title, description, checked, onChange }: any) {
   )
 }
 
+/** Settings section for toggling email, product, and security notification preferences. */
 export function NotificationsSection() {
   const [emailNotifs, setEmailNotifs] = useState(true)
   const [productUpdates, setProductUpdates] = useState(false)

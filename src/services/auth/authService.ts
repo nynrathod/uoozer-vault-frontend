@@ -35,6 +35,7 @@ import {
 } from './error'
 import type { SignupCryptoBundle } from '@/lib/crypto-types'
 
+/** Handles authentication flows including signup, login, token refresh, and account recovery. */
 class AuthService {
   private _cryptoInitialized = false
   async ensureCryptoReady(): Promise<void> {
@@ -104,7 +105,7 @@ class AuthService {
       const claims = decodeJwt(data.access_token)
       tokenManager.setDeviceId(claims.did)
 
-      // Zeroize auth keys after sending to server, they are no longer needed client-side
+      // Zeroize auth keys — they are no longer needed client-side after being sent to the server
       await zeroize(bundle.authKey, bundle.recoveryAuthKey)
 
       return {
@@ -126,9 +127,8 @@ class AuthService {
 
     const initResp = await this.signupInit(credentials.email)
 
-    // Race the bundle generation against the timeout
     const bundle = await generateSignupBundle(
-      credentials.password || '', // <-- FIX: Add fallback
+      credentials.password || '',
       initResp.salt,
       initResp.argon2_params
     )
@@ -147,12 +147,10 @@ class AuthService {
     let masterKey: Uint8Array | null = null
 
     if (credentials.authKey) {
-      // Recovery flow: use the pre-derived auth key
-
+      // Recovery flow: use the pre-derived auth key instead of a password
       authKeyB64 = credentials.authKey
     } else {
-      // Normal flow: derive keys from password
-
+      // Normal flow: derive master key and auth key from password via Argon2id
       const { masterKey: mk, authKey } = await deriveKeysFromPassword(
         credentials.password || '',
         preloginResp.salt,
@@ -190,6 +188,7 @@ class AuthService {
     }
   }
 
+  /** Exchanges a stored refresh token for a new access/refresh pair. */
   async refresh(): Promise<AuthResponse> {
     const refreshToken = await tokenManager.getRefreshToken()
     if (!refreshToken) {
@@ -322,14 +321,14 @@ class AuthService {
     }
   }
 
+  /** Restores a session from storage without requiring user interaction. */
   async tryRestoreSession(): Promise<boolean> {
-    // 1. If we already have a valid access token in memory (e.g. HMR reload),
-    // we don't need to call the API at all!
+    // Return immediately if the in-memory access token is still valid (e.g. HMR reload)
     if (tokenManager.getAccessToken() && !tokenManager.isAccessTokenExpired()) {
       return true
     }
 
-    // 2. Otherwise, check if we have a refresh token to get a new access token
+    // Otherwise try to refresh using the persisted refresh token
     const hasSession = await this.hasValidSession()
     if (!hasSession) {
       return false
@@ -374,6 +373,7 @@ class AuthService {
     }
   }
 
+  /** Verifies a recovery key by logging in and attempting to decrypt the stored DEK. */
   async verifyRecoveryKey(
     email: string,
     recoveryKey: Uint8Array
@@ -394,15 +394,12 @@ class AuthService {
     }
 
     try {
-      // 1. Login to verify the key mathematically
       const { data: tokens } = await apiClient.post('/api/v1/auth/login', loginReq)
 
       tokenManager.setAccessToken(tokens.access_token, tokens.expires_in)
 
-      // 2. Fetch the encrypted keys
       const keys = await this.getKeys()
 
-      // 3. Attempt to decrypt the DEK with the provided Recovery Key
       const wrappedDek = {
         ciphertext: await base64ToBytes(keys.recovery_wrapped_dek),
         nonce: await base64ToBytes(keys.recovery_wrapped_dek_nonce),
@@ -421,6 +418,7 @@ class AuthService {
     }
   }
 
+  /** Completes account recovery by re-encrypting the DEK under a new password. */
   async completeRecovery(
     email: string,
     newPassword: string,
@@ -442,13 +440,14 @@ class AuthService {
     const newWrappedDekB64 = await bytesToBase64(newWrappedDek.ciphertext)
     const newWrappedDekNonceB64 = await bytesToBase64(newWrappedDek.nonce)
 
+    // Send new credentials to server before persisting the session client-side
     await apiClient.post('/api/v1/auth/password', {
       new_auth_key: newAuthKeyB64,
       new_wrapped_dek: newWrappedDekB64,
       new_wrapped_dek_nonce: newWrappedDekNonceB64,
     })
 
-    // 2. NOW it is safe to persist the session permanently
+    // Session is only persisted after the server accepts the new password
     await tokenManager.setRefreshToken(tokens.refresh_token)
     tokenManager.setUserEmail(email)
     tokenManager.setHasSession(true)
@@ -457,4 +456,5 @@ class AuthService {
   }
 }
 
+/** Singleton authentication service instance. */
 export const authService = new AuthService()

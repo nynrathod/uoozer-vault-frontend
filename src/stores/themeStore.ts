@@ -9,6 +9,7 @@ interface ThemeState {
   toggleTheme: () => void
 }
 
+/** Persists the user's theme preference and syncs the `dark`/`light` class on `<html>`. */
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set, get) => ({

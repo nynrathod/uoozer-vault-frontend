@@ -3,6 +3,7 @@ import { cn } from '@lib/utils'
 import type { LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 
+/** Props for SelectableCard. */
 interface SelectableCardProps {
   selected: boolean
   onClick: () => void
@@ -12,6 +13,7 @@ interface SelectableCardProps {
   className?: string
 }
 
+/** A card-style option that shows a checkmark when selected. */
 export function SelectableCard({
   selected,
   onClick,

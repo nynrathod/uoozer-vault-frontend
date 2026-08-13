@@ -1,5 +1,4 @@
-// ─── API Request/Response Types ────────────────────────────────────────────
-
+/** Argon2id KDF parameters as returned by the server. */
 export interface Argon2Params {
   m_cost: number
   t_cost: number
@@ -19,6 +18,7 @@ export interface SignupInitResponse {
   argon2_params: Argon2Params
 }
 
+/** Carries the user's cryptographic identity to the server during signup completion. */
 export interface SignupCompleteRequest {
   signup_token: string
   full_name: string
@@ -64,8 +64,6 @@ export interface PasswordChangeRequest {
   new_wrapped_dek_nonce: string
 }
 
-// ─── User & Device Types ───────────────────────────────────────────────────
-
 export interface User {
   id: string
   email: string
@@ -96,8 +94,6 @@ export interface Session {
   is_revoked: boolean
 }
 
-// ─── OAuth Types ───────────────────────────────────────────────────────────
-
 export type OAuthProvider = 'google' | 'github'
 
 export interface OAuthInitResponse {
@@ -113,16 +109,14 @@ export interface OAuthCallbackRequest {
   device_name: string
 }
 
-// ─── Crypto State (in-memory only, never serialized) ────────────────────────
-
+/** In-memory crypto key material; never serialized to storage. */
 export interface CryptoState {
   isReady: boolean
   masterKey: Uint8Array | null
   dek: Uint8Array | null
 }
 
-// ─── Login Credentials ─────────────────────────────────────────────────────
-
+/** Login may use a password or a pre-derived auth key (recovery flow). */
 export interface LoginCredentials {
   email: string
   password?: string

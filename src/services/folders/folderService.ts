@@ -1,6 +1,7 @@
 import { apiClient } from '@services/api'
 import type { Folder, FolderTreeNode, CreateFolderInput, RenameFolderInput } from '@/types/folders'
 
+/** Folder CRUD and tree navigation API. */
 export const folderService = {
   async list(parentId?: string | null): Promise<Folder[]> {
     const { data } = await apiClient.get('/folders', { params: { parentId } })

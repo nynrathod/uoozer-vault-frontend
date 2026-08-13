@@ -19,6 +19,7 @@ const tabs = [
   { id: 'appearance', label: 'Appearance', icon: Palette },
 ]
 
+/** Settings page with tabbed navigation between profile, security, notifications, and appearance. */
 export function SettingsPage() {
   const [activeTab, setActiveTab] = useState('general')
   const { variant, scheme, setVariant, setScheme } = useTheme()

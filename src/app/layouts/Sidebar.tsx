@@ -67,6 +67,7 @@ const apps = [
   },
 ]
 
+/** Collapsible sidebar with workspace switcher, app-specific navigation, and system links. */
 export function Sidebar() {
   const sidebarOpen = useUIStore((s) => s.sidebarOpen)
   const toggleSidebar = useUIStore((s) => s.toggleSidebar)

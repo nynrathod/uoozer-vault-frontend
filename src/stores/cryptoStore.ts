@@ -7,6 +7,7 @@ interface CryptoState {
   initialize: () => Promise<void>
 }
 
+/** Tracks whether the WebAssembly crypto primitives have been loaded. */
 export const useCryptoStore = create<CryptoState>((set) => ({
   isReady: false,
   error: null,

@@ -8,6 +8,7 @@ interface ProgressProps extends React.HTMLAttributes<HTMLDivElement> {
   variant?: 'default' | 'success' | 'warning' | 'error'
 }
 
+/** Horizontal progress bar with color and size variants. */
 const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
   ({ className, value, max = 100, size = 'default', variant = 'default', ...props }, ref) => {
     const percentage = Math.min(100, Math.max(0, (value / max) * 100))

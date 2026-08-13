@@ -9,6 +9,7 @@ interface RecoveryKeyDisplayProps {
   onContinue: () => void
 }
 
+/** Displays the one-time recovery key and requires user acknowledgment before continuing. */
 export function RecoveryKeyDisplay({ recoveryKey, onContinue }: RecoveryKeyDisplayProps) {
   const [acknowledged, setAcknowledged] = useState(false)
   const { copied, copy } = useClipboard()

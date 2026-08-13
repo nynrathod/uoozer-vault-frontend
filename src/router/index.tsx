@@ -6,7 +6,6 @@ import { AppLayout } from '@/app/layouts/AppLayout'
 import { AuthLayout } from '@/app/layouts/AuthLayout'
 import { VaultLoader } from '@/components/ui/feedback/VaultLoader'
 
-// Lazy load route components
 const LoginPage = lazy(() =>
   import('@/pages/auth/LoginPage').then((m) => ({ default: m.LoginPage }))
 )
@@ -32,16 +31,19 @@ const SettingsPage = lazy(() =>
   import('@/pages/settings/SettingsPage').then((m) => ({ default: m.SettingsPage }))
 )
 
+/** Route guard: redirects unauthenticated users to the login page. */
 function ProtectedRoute() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   return isAuthenticated ? <Outlet /> : <Navigate to={ROUTES.LOGIN} replace />
 }
 
+/** Route guard: redirects already-authenticated users away from public pages (login/signup). */
 function PublicRoute() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   return !isAuthenticated ? <Outlet /> : <Navigate to={ROUTES.VAULT} replace />
 }
 
+/** Loading spinner shown while lazy-loaded route components are being fetched. */
 const SuspenseFallback = () => (
   <div className="flex h-full w-full items-center justify-center">
     <VaultLoader size={48} />
@@ -208,6 +210,7 @@ const router = createBrowserRouter([
   },
 ])
 
+/** Application router component wrapping the React Router provider. */
 export function Router() {
   return <RouterProvider router={router} />
 }

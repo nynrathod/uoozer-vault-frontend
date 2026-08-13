@@ -5,6 +5,7 @@ import { PreviewContent } from './PreviewContent'
 import { PreviewFooter } from './PreviewFooter'
 import { PreviewHeader } from './PreviewHeader'
 
+/** Full-screen or panel file preview orchestrating header, content, and footer. */
 export function FilePreviewDialog() {
   const fileId = usePreviewStore((s) => s.fileId)
   const isFullscreen = usePreviewStore((s) => s.isFullscreen)

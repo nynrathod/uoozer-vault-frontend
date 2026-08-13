@@ -3,6 +3,7 @@ import { Button } from '@ui/Button'
 import { Input } from '@ui/Input'
 import { Separator } from '@ui/Separator'
 
+/** Settings section for password change, 2FA via authenticator app, and biometric login. */
 export function SecuritySection() {
   return (
     <div className="space-y-8">

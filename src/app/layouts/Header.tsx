@@ -8,6 +8,7 @@ import { ProfileDropdown } from './ProfileDropdown'
 import { ThemeSwitcher } from './ThemeSwitcher'
 import { SearchCommand } from '@/components/ui/overlays'
 
+/** Top app bar with search, vault actions, notifications, and profile. */
 export function Header() {
   const location = useLocation()
   const setSearchOpen = useUIStore((s) => s.setSearchOpen)

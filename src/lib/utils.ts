@@ -1,10 +1,12 @@
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 
+/** Merges Tailwind class values with clsx, resolving conflicts via tailwind-merge. */
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/** Formats a byte count into a human-readable string (e.g. "1.5 MB"). */
 export function formatBytes(bytes: number, decimals = 1): string {
   if (bytes === 0) return '0 B'
   const k = 1024
@@ -13,6 +15,7 @@ export function formatBytes(bytes: number, decimals = 1): string {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(decimals))} ${sizes[i]}`
 }
 
+/** Formats a date string or Date into "Mon DD, YYYY, HH:MM" format. */
 export function formatDate(date: string | Date): string {
   const d = typeof date === 'string' ? new Date(date) : date
   return new Intl.DateTimeFormat('en-US', {
@@ -24,6 +27,7 @@ export function formatDate(date: string | Date): string {
   }).format(d)
 }
 
+/** Formats a date as a relative string ("Just now", "5m ago", "3d ago") or falls back to absolute. */
 export function formatRelativeDate(date: string | Date): string {
   const d = typeof date === 'string' ? new Date(date) : date
   const now = new Date()
@@ -40,14 +44,17 @@ export function formatRelativeDate(date: string | Date): string {
   return formatDate(date)
 }
 
+/** Generates a cryptographically random UUID v4. */
 export function generateId(): string {
   return crypto.randomUUID()
 }
 
+/** Returns a promise that resolves after the given number of milliseconds. */
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+/** Creates a debounced version of a function that delays invocation until after wait ms of inactivity. */
 export function debounce<T extends (...args: unknown[]) => unknown>(
   fn: T,
   delay: number
@@ -59,6 +66,7 @@ export function debounce<T extends (...args: unknown[]) => unknown>(
   }
 }
 
+/** Creates a throttled version of a function that fires at most once per limit ms. */
 export function throttle<T extends (...args: unknown[]) => unknown>(
   fn: T,
   limit: number
@@ -73,20 +81,24 @@ export function throttle<T extends (...args: unknown[]) => unknown>(
   }
 }
 
+/** Clamps a number between min and max inclusive. */
 export function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max)
 }
 
+/** Returns the lowercase file extension without the dot, or empty string if none. */
 export function getFileExtension(filename: string): string {
   const lastDot = filename.lastIndexOf('.')
   return lastDot === -1 ? '' : filename.slice(lastDot + 1).toLowerCase()
 }
 
+/** Returns the filename without its extension. */
 export function getFileNameWithoutExtension(filename: string): string {
   const lastDot = filename.lastIndexOf('.')
   return lastDot === -1 ? filename : filename.slice(0, lastDot)
 }
 
+/** Maps a MIME type to a generic file category string used for icon/color lookup. */
 export function getMimeTypeIcon(mimeType: string): string {
   if (mimeType.startsWith('image/')) return 'image'
   if (mimeType.startsWith('video/')) return 'video'
@@ -105,18 +117,22 @@ export function getMimeTypeIcon(mimeType: string): string {
   return 'file'
 }
 
+/** Returns true if the MIME type represents an image. */
 export function isImageFile(mimeType: string): boolean {
   return mimeType.startsWith('image/')
 }
 
+/** Returns true if the MIME type represents a video. */
 export function isVideoFile(mimeType: string): boolean {
   return mimeType.startsWith('video/')
 }
 
+/** Returns true if the file type can be previewed in-browser (image, video, or PDF). */
 export function isPreviewable(mimeType: string): boolean {
   return isImageFile(mimeType) || isVideoFile(mimeType) || mimeType === 'application/pdf'
 }
 
+/** Decodes a base64 string into a Uint8Array. */
 export function base64ToUint8Array(base64: string): Uint8Array {
   const binaryString = atob(base64)
   const bytes = new Uint8Array(binaryString.length)
@@ -126,6 +142,7 @@ export function base64ToUint8Array(base64: string): Uint8Array {
   return bytes
 }
 
+/** Encodes a Uint8Array into a standard base64 string. */
 export function uint8ArrayToBase64(bytes: Uint8Array): string {
   let binary = ''
   const len = bytes.byteLength
@@ -135,12 +152,14 @@ export function uint8ArrayToBase64(bytes: Uint8Array): string {
   return btoa(binary)
 }
 
+/** Converts an ArrayBuffer to a lowercase hex string. */
 export function arrayBufferToHex(buffer: ArrayBuffer): string {
   return Array.from(new Uint8Array(buffer))
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('')
 }
 
+/** Converts a hex string (must be exactly 64 chars / 32 bytes) to a Uint8Array. */
 export function hexToUint8Array(hex: string): Uint8Array {
   if (!/^[0-9a-fA-F]{64}$/.test(hex)) {
     throw new Error('Invalid recovery key format.')

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { UI_CONFIG } from '@lib/constants'
 
+/** Manages inline rename state with debounced save and cancellation support. */
 export function useInlineRename(
   currentName: string,
   onSave: (newName: string) => void,

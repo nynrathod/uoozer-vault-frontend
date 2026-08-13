@@ -33,8 +33,8 @@ const userEmail = tokenManager.getUserEmail()
 
 let _initPromise: Promise<void> | null = null
 
+/** Manages authentication state, session restoration, and in-memory crypto keys. */
 export const useAuthStore = create<AuthState>((set, get) => ({
-  // Around line 37
   user:
     hasSession && userEmail
       ? { id: '', email: userEmail, fullName: '', createdAt: '', updatedAt: '' }
@@ -53,7 +53,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set((state) => ({ cryptoState: { ...state.cryptoState, dek }, isCryptoReady: !!dek })),
 
   initialize: async () => {
-    // If already initializing, return the existing promise so React Strict Mode doesn't double-fire
+    // Deduplicate concurrent calls (e.g. React Strict Mode double-mount)
     if (_initPromise) return _initPromise
 
     if (!hasSession) {
@@ -65,7 +65,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       try {
         await authService.ensureCryptoReady()
 
-        // 1. Silent Unlock via IndexedDB Device Key
+        // Attempt silent unlock via the IndexedDB-stored device key
         const deviceKeyB64 = await tokenManager.getDeviceKey()
         const deviceWrappedDek = await tokenManager.getDeviceWrappedDek()
 
@@ -83,7 +83,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           } catch (e) {}
         }
 
-        // 2. Validate Refresh Token via API (This will now only run ONCE)
+        // Validate refresh token via API; only runs once per mount
         const restored = await authService.tryRestoreSession()
         if (!restored) {
           await get().logout()
@@ -92,7 +92,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         await get().logout()
       } finally {
         set({ isInitializing: false })
-        _initPromise = null // Clear lock when done
+        _initPromise = null
       }
     })()
 

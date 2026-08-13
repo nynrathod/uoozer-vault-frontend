@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 
+/** Options for the useKeyboardNavigation hook. */
 interface KeyboardNavigationOptions<T> {
   items: T[]
   onSelect: (item: T) => void
@@ -7,6 +8,7 @@ interface KeyboardNavigationOptions<T> {
   setOpen: (open: boolean) => void
 }
 
+/** Arrow-key and Enter navigation over a list of items with auto-scroll into view. */
 export function useKeyboardNavigation<T>({
   items,
   onSelect,

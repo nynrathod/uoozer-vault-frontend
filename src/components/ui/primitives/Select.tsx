@@ -7,6 +7,7 @@ const Select = SelectPrimitive.Root
 const SelectGroup = SelectPrimitive.Group
 const SelectValue = SelectPrimitive.Value
 
+/** Styled trigger button that opens the select dropdown. */
 const SelectTrigger = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Trigger>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>
@@ -94,10 +95,7 @@ const SelectLabel = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <SelectPrimitive.Label
     ref={ref}
-    className={cn(
-      'text-muted-foreground/70 px-2 py-1.5 text-[11px] font-semibold tracking-wider uppercase',
-      className
-    )}
+    className={cn('text-muted-foreground/70 px-2 py-1.5 text-[11px] font-semibold tracking-wider uppercase', className)}
     {...props}
   />
 ))
@@ -110,7 +108,7 @@ const SelectItem = React.forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      'text-foreground hover:bg-accent focus:bg-accent relative flex w-full cursor-default items-center rounded-lg py-1.5 pr-2 pl-8 text-[13px] outline-none select-none focus-visible:outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+      'text-foreground hover:bg-accent focus:bg-accent relative flex w-full cursor-default select-none items-center rounded-lg py-1.5 pl-8 pr-2 text-[13px] outline-none focus-visible:outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
       className
     )}
     {...props}

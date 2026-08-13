@@ -2,9 +2,10 @@ import { useEffect } from 'react'
 import { Router } from './router'
 import { useAuthStore } from '@stores/authStore'
 import { useCryptoStore } from '@stores/cryptoStore'
-import { ErrorBoundary } from '@app/providers/ErrorBoundary' // Named import
+import { ErrorBoundary } from '@app/providers/ErrorBoundary'
 import { VaultLoader } from './components/ui/feedback'
 
+/** Root application component — initializes crypto and auth state, then renders the router. */
 function App() {
   const isInitializing = useAuthStore((s) => s.isInitializing)
   const initialize = useAuthStore((s) => s.initialize)

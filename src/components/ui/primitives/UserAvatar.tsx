@@ -1,11 +1,13 @@
 import { cn } from '@lib/utils'
 
+/** Props for the UserAvatar component. */
 interface UserAvatarProps {
   email?: string | null
   size?: 'sm' | 'md' | 'lg'
   className?: string
 }
 
+/** Shows the first letter of the user's email as a circular avatar. */
 export function UserAvatar({ email, size = 'md', className }: UserAvatarProps) {
   const sizeClasses = {
     sm: 'h-8 w-8 text-[12px]',

@@ -19,6 +19,16 @@ function processFailedQueue(token: string | null, error: unknown): void {
   _failedQueue = []
 }
 
+/**
+ * Attaches request/response interceptors to the API client.
+ *
+ * Token refresh flow:
+ * 1. Every request gets the current access token attached.
+ * 2. On a 401, the interceptor attempts a single token refresh.
+ * 3. Concurrent 401s queue up while the first refresh is in-flight;
+ *    once resolved, all queued requests retry with the new token.
+ * 4. If refresh fails, all queued requests reject and the session is cleared.
+ */
 export function setupInterceptors(apiClient: AxiosInstance): void {
   apiClient.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
@@ -55,6 +65,7 @@ export function setupInterceptors(apiClient: AxiosInstance): void {
           return Promise.reject(error)
         }
 
+        // Queue concurrent requests while a refresh is already in-flight
         if (_isRefreshing && _refreshPromise) {
           return new Promise((resolve, reject) => {
             _failedQueue.push({

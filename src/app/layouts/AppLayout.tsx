@@ -4,6 +4,7 @@ import { Header } from './Header'
 import { MobileNav } from './MobileNav'
 import { useIsMobile } from '@/hooks/useMediaQuery'
 
+/** Root layout shell with sidebar, header, and routed content. */
 export function AppLayout() {
   const isMobile = useIsMobile()
 

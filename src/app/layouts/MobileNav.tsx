@@ -16,6 +16,7 @@ export function MobileNav() {
     <nav className="border-border/60 bg-background/90 pb-safe fixed inset-x-0 bottom-0 z-50 border-t backdrop-blur-xl">
       <div className="flex h-16 items-center justify-around">
         {navItems.map((item) => {
+          // The center "Add" button is a FAB-style action trigger, not a navigation link
           if (item.action) {
             return (
               <button

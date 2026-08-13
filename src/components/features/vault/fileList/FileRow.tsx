@@ -11,6 +11,7 @@ import type { FileItem } from '@/types/files'
 import type { Folder } from '@/types/folders'
 import { Checkbox } from '@/components/ui'
 
+/** Props for a single row in the vault list view. */
 interface FileRowProps {
   item: FileItem | Folder
   isFolder: boolean
@@ -33,7 +34,7 @@ export const FileRow = memo(function FileRow({
 
   const dragOverId = useFileStore((s) => s.dragOverId)
   const setDragOverId = useFileStore((s) => s.setDragOverId)
-  const isDragging = useFileStore((s) => s.isDragging) // Track global drag state
+  const isDragging = useFileStore((s) => s.isDragging)
   const setIsDragging = useFileStore((s) => s.setIsDragging)
 
   const isDragOver = dragOverId === item.id
@@ -88,7 +89,7 @@ export const FileRow = memo(function FileRow({
         e.dataTransfer.setData('text/plain', item.id)
         e.dataTransfer.setData('application/x-item-type', folderCheck ? 'folder' : 'file')
         e.dataTransfer.effectAllowed = 'move'
-        setIsDragging(true) // Start global drag state
+        setIsDragging(true)
       }}
       onDragEnter={(e) => {
         if (folderCheck) {
@@ -114,7 +115,7 @@ export const FileRow = memo(function FileRow({
           e.preventDefault()
           e.stopPropagation()
           setDragOverId(null)
-          setIsDragging(false) // End global drag state
+          setIsDragging(false)
           const draggedId = e.dataTransfer.getData('text/plain')
           const draggedType = e.dataTransfer.getData('application/x-item-type') || 'file'
           if (draggedId && draggedId !== item.id)
@@ -123,10 +124,9 @@ export const FileRow = memo(function FileRow({
       }}
       onDragEnd={() => {
         setDragOverId(null)
-        setIsDragging(false) // End global drag state
+        setIsDragging(false)
       }}
     >
-      {/* Col 1: Checkbox */}
       <div
         className="flex shrink-0 cursor-pointer items-center justify-center"
         onClick={(e) => {
@@ -140,7 +140,6 @@ export const FileRow = memo(function FileRow({
         />
       </div>
 
-      {/* Col 2: Icon */}
       <div className="flex items-center justify-center">
         <FileIcon
           mimeType={folderCheck ? undefined : (item as FileItem).encryptedMimeType}
@@ -149,7 +148,6 @@ export const FileRow = memo(function FileRow({
         />
       </div>
 
-      {/* Col 3: Name */}
       <div className="flex min-w-0 items-center justify-start">
         {editingId === item.id ? (
           <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -189,7 +187,6 @@ export const FileRow = memo(function FileRow({
         )}
       </div>
 
-      {/* Col 4: Actions */}
       <div
         className={cn(
           'relative z-40 hidden items-center justify-start gap-0.5 transition-opacity duration-150 md:flex',
@@ -246,13 +243,11 @@ export const FileRow = memo(function FileRow({
         />
       </div>
 
-      {/* Col 5: Modified */}
       <div className="text-muted-foreground/70 hidden items-center justify-start text-xs md:flex">
         <Clock className="mr-1.5 h-3.5 w-3.5" />
         <span>{formatRelativeDate(item.updatedAt)}</span>
       </div>
 
-      {/* Col 6: Size */}
       <div className="text-muted-foreground/70 hidden items-center justify-start text-xs tabular-nums md:flex">
         {folderCheck ? `${0} items` : formatBytes((item as FileItem).size)}
       </div>

@@ -13,6 +13,7 @@ interface PreviewState {
   setEditing: (val: boolean) => void
 }
 
+/** Controls the file preview panel visibility, fullscreen, and editing mode. */
 export const usePreviewStore = create<PreviewState>((set) => ({
   fileId: null,
   isFullscreen: false,

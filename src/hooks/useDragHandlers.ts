@@ -2,6 +2,7 @@ import { useFileStore } from '@stores/fileStore'
 import type { FileItem } from '@/types/files'
 import type { Folder } from '@/types/folders'
 
+/** Returns drag event handlers and state for moving files/folders via HTML drag-and-drop. */
 export function useDragHandlers(item: FileItem | Folder, isFolder: boolean) {
   const dragOverId = useFileStore((s) => s.dragOverId)
   const setDragOverId = useFileStore((s) => s.setDragOverId)
@@ -32,6 +33,7 @@ export function useDragHandlers(item: FileItem | Folder, isFolder: boolean) {
       }
     },
     onDragLeave: (e: React.DragEvent) => {
+      // Only clear highlight when truly leaving the folder element
       if (isFolder && !e.currentTarget.contains(e.relatedTarget as Node)) {
         setDragOverId(null)
       }

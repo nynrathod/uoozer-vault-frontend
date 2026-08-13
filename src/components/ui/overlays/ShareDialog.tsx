@@ -7,6 +7,7 @@ import { DropdownMenu, DropdownItem, DropdownSeparator, DropdownLabel } from '@u
 import { useClipboard } from '@hooks/useClipboard'
 import { mockDirectory } from '@/test/mocks/users'
 
+/** Props for the share dialog overlay. */
 interface ShareDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -15,9 +16,11 @@ interface ShareDialogProps {
   itemCount?: number
 }
 
+/** A user suggestion or raw email entry in the share autocomplete. */
 type Suggestion =
   { type: 'user'; data: (typeof mockDirectory)[0] } | { type: 'email'; data: { email: string } }
 
+/** Dialog for inviting users and configuring link-based access to a file or folder. */
 export function ShareDialog({
   open,
   onOpenChange,
@@ -116,7 +119,6 @@ export function ShareDialog({
             </DialogDescription>
           </div>
 
-          {/* Input Wrapper */}
           <div className="relative mb-4">
             <div className="border-border/60 focus-within:border-primary/60 bg-background flex min-h-[40px] flex-wrap items-center gap-1.5 rounded-lg border p-1.5 transition-all focus-within:shadow-[0_0_0_3px_hsl(var(--primary)/0.08)]">
               {invitedUsers.map((user) => (
@@ -152,7 +154,6 @@ export function ShareDialog({
               />
             </div>
 
-            {/* Simple Absolute Autocomplete - Constrained to parent width */}
             {showAutocomplete && inputValue.trim() !== '' && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowAutocomplete(false)} />
@@ -267,7 +268,6 @@ export function ShareDialog({
             ))}
           </div>
 
-          {/* General Access Dropdown - Removed w-full left-0 right-0 so it sizes to content generically */}
           <div className="mb-5">
             <DropdownMenu
               align="start"

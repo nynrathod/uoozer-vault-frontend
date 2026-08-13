@@ -18,6 +18,7 @@ import {
   Heading1,
 } from 'lucide-react'
 
+/** Local note model for the notes editor. */
 interface Note {
   id: string
   title: string
@@ -43,6 +44,7 @@ const mockNotes: Note[] = [
   },
 ]
 
+/** Notes page with a sidebar list, search, and an inline editor with basic formatting toolbar. */
 export function NotesPage() {
   const [notes, setNotes] = useState<Note[]>(mockNotes)
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null)

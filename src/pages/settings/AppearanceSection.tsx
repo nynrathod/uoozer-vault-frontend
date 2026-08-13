@@ -10,6 +10,7 @@ const THEMES = [
   { id: 'forest' as const, label: 'Forest Green', color: '#2F855A' },
 ]
 
+/** Settings section for choosing light/dark/system mode and accent color theme. */
 export function AppearanceSection({ variant, scheme, setVariant, setScheme }: any) {
   return (
     <div className="space-y-8">

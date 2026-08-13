@@ -1,3 +1,4 @@
+/** Tracks the encryption/upload status of a single chunk. */
 export interface UploadChunk {
   id: string
   fileId: string
@@ -10,6 +11,7 @@ export interface UploadChunk {
   retries: number
 }
 
+/** Top-level upload entry with its chunk breakdown and aggregate progress. */
 export interface UploadFile {
   id: string
   localFile: File
@@ -30,12 +32,14 @@ export interface PresignedUrlRequest {
   contentLength: number
 }
 
+/** R2 presigned URL for direct chunk upload. */
 export interface PresignedUrlResponse {
   url: string
   key: string
   expiresAt: string
 }
 
+/** Returned by the upload handler after a successful PUT to R2. */
 export interface ChunkUploadResult {
   chunkIndex: number
   etag: string

@@ -1,10 +1,12 @@
 import * as React from 'react'
 import { cn } from '@lib/utils'
 
+/** Props for the Separator component. */
 interface SeparatorProps extends React.HTMLAttributes<HTMLDivElement> {
   orientation?: 'horizontal' | 'vertical'
 }
 
+/** Horizontal or vertical divider line. */
 const Separator = React.forwardRef<HTMLDivElement, SeparatorProps>(
   ({ className, orientation = 'horizontal', ...props }, ref) => (
     <div

@@ -3,16 +3,19 @@ import { Button } from '@components/ui/primitives/Button'
 import { AlertTriangle, RefreshCw } from 'lucide-react'
 import type { ErrorInfo } from 'react-dom/client'
 
+/** Props for the error boundary wrapper. */
 interface ErrorBoundaryProps {
   children: ReactNode
   fallback?: ReactNode
 }
 
+/** Internal state tracking whether an error has been caught. */
 interface ErrorBoundaryState {
   hasError: boolean
   error: Error | null
 }
 
+/** Catches unhandled render errors and displays a recovery UI or custom fallback. */
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props)

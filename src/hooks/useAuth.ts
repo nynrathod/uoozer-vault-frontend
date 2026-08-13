@@ -19,6 +19,7 @@ import { AuthError, AUTH_ERROR_CODES } from '@/services/auth/error'
 import { hexToUint8Array } from '@lib/utils'
 import type { LoginCredentials, SignupCredentials } from '@/types/auth'
 
+/** Provides login, signup, recovery, unlock, and logout operations with crypto key management. */
 export function useAuth() {
   const navigate = useNavigate()
   const {
@@ -72,6 +73,7 @@ export function useAuth() {
 
           useAuthStore.getState().setDek(dek)
 
+          // Derive a device-local key so the DEK can be re-wrapped on future refreshes without re-prompting
           const deviceKey = await generateDek()
           const deviceWrappedDek = await wrapDek(dek, deviceKey)
           await tokenManager.setDeviceKey(await bytesToBase64(deviceKey))
@@ -143,7 +145,7 @@ export function useAuth() {
     try {
       await authService.ensureCryptoReady()
       const hexClean = recoveryKeyDisplay.replace(/-/g, '')
-      const recoveryKey = hexToUint8Array(hexClean) // Throws here if format is wrong
+      const recoveryKey = hexToUint8Array(hexClean)
 
       const { dek, tokens } = await authService.verifyRecoveryKey(email, recoveryKey)
 
@@ -177,7 +179,7 @@ export function useAuth() {
           tokens
         )
 
-        // Generate a new Device Key for silent unlock on refresh
+        // Derive a device-local key so the DEK can be re-wrapped on future refreshes without re-prompting
         const deviceKey = await generateDek()
         const deviceWrappedDek = await wrapDek(finalDek, deviceKey)
         await tokenManager.setDeviceKey(await bytesToBase64(deviceKey))
@@ -238,6 +240,7 @@ export function useAuth() {
 
         setCryptoState({ masterKey, dek })
 
+        // Derive a device-local key so the DEK can be re-wrapped on future refreshes without re-prompting
         const deviceKey = await generateDek()
         const deviceWrappedDek = await wrapDek(dek, deviceKey)
         await tokenManager.setDeviceKey(await bytesToBase64(deviceKey))
@@ -262,7 +265,7 @@ export function useAuth() {
     try {
       await authService.logout(false)
     } catch {
-      // Ignore errors
+      // Best-effort server logout; local state is always cleared
     } finally {
       await storeLogout()
 

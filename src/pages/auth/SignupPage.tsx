@@ -18,6 +18,7 @@ import { type SignupInput, signupSchema } from '@/lib/validator'
 import { AuthError } from '@/services/auth/error'
 import { mapErrorToAlert, type ApiErrorAlert } from '@/lib/errors'
 
+/** Signup page with password-strength indicator and mandatory recovery-key backup dialog. */
 export function SignupPage() {
   const navigate = useNavigate()
   const [isModalOpen, setIsModalOpen] = useState(false)

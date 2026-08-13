@@ -12,6 +12,7 @@ interface CheckableMenuItemProps {
   className?: string
 }
 
+/** Menu item with a check indicator for toggle-style selections. */
 export function CheckableMenuItem({
   label,
   icon: Icon,

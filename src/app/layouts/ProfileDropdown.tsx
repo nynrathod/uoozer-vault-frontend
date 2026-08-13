@@ -6,6 +6,7 @@ import { useClickOutside } from '@hooks/useClickOutside'
 import { ROUTES } from '@lib/constants'
 import { ThemeSubMenu } from './ThemeSubMenu'
 
+/** User avatar button that expands into a profile menu with settings, devices, theme, and logout. */
 export function ProfileDropdown() {
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
@@ -14,7 +15,6 @@ export function ProfileDropdown() {
   const [profileOpen, setProfileOpen] = useState(false)
   const profileRef = useRef<HTMLDivElement>(null)
 
-  // Close menu if clicking completely outside the profile dropdown
   useClickOutside(profileRef, () => {
     setProfileOpen(false)
   })
@@ -89,7 +89,6 @@ export function ProfileDropdown() {
               <HardDrive className="text-muted-foreground/70 h-4 w-4" /> Manage Devices
             </button>
 
-            {/* ThemeSubMenu is now fully self-contained and won't close this dropdown */}
             <ThemeSubMenu />
           </div>
 

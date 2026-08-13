@@ -30,6 +30,7 @@ import { VaultToolbar } from '@/components/features/vault/VaultToolbar'
 import { mockFiles } from '@/test/mocks/files'
 import { mockFolders } from '@/test/mocks/folders'
 
+/** Main vault page with file browsing, upload dropzone, preview panel, and share/version dialogs. */
 export function VaultPage() {
   const { folderId } = useParams<{ folderId?: string }>()
   const navigate = useNavigate()
@@ -38,11 +39,9 @@ export function VaultPage() {
   const uploadPanelOpen = useUIStore((s) => s.uploadPanelOpen)
   const setUploadPanelOpen = useUIStore((s) => s.setUploadPanelOpen)
 
-  // Preview state — now from previewStore
   const previewFileId = usePreviewStore((s) => s.fileId)
   const openPreview = usePreviewStore((s) => s.open)
 
-  // File/folder state — from fileStore
   const files = useFileStore(useShallow(selectCurrentFiles))
   const folders = useFileStore(useShallow(selectCurrentFolders))
   const breadcrumbPath = useFileStore(useShallow(selectBreadcrumbPath))

@@ -7,6 +7,7 @@ export interface Folder {
   updatedAt: string
 }
 
+/** Folder with nested children and computed tree depth. */
 export interface FolderTreeNode extends Folder {
   children: FolderTreeNode[]
   depth: number

@@ -12,6 +12,7 @@ const THEMES = [
   { id: 'forest' as const, label: 'Forest Green', color: '#2F855A' },
 ]
 
+/** Color-scheme and theme variant selector nested inside the profile dropdown. */
 export function ThemeSubMenu() {
   const { variant, scheme, setVariant, setScheme } = useTheme()
   const [isOpen, setIsOpen] = useState(false)

@@ -3,6 +3,7 @@ interface SectionHeaderProps {
   description?: string
 }
 
+/** Simple title block with an optional description line. */
 export function SectionHeader({ title, description }: SectionHeaderProps) {
   return (
     <div>

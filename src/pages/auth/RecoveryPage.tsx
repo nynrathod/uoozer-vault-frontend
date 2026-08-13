@@ -32,6 +32,7 @@ const step2Schema = z
     path: ['confirmPassword'],
   })
 
+/** Two-step account recovery page: verify recovery key, then set a new password. */
 export function RecoveryPage() {
   const navigate = useNavigate()
   const [step, setStep] = useState<1 | 2>(1)
@@ -67,13 +68,12 @@ export function RecoveryPage() {
   const onStepTwoSubmit = async (data: z.infer<typeof step2Schema>) => {
     setApiError(null)
     try {
-      // The recovery key was already verified in Step 1 and the DEK is stored in the auth store.
-      // We only need to pass the new password here.
+      // Recovery key was verified in step 1; DEK is already in the auth store.
       await completeRecovery(email, data.password)
       navigate(ROUTES.VAULT, { replace: true })
     } catch (error) {
       setApiError(mapErrorToAlert(error))
-      setStep(1) // Send them back if something breaks during the final reset
+      setStep(1)
     }
   }
 

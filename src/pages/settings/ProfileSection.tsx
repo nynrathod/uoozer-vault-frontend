@@ -7,6 +7,7 @@ import { Separator } from '@ui/Separator'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui'
 import { SectionHeader } from '@/components/ui'
 
+/** Settings section for editing name, avatar, email (read-only), and language preference. */
 export function ProfileSection({ user }: { user: any }) {
   const [saved, setSaved] = useState(false)
 
@@ -54,7 +55,6 @@ export function ProfileSection({ user }: { user: any }) {
         <div className="mt-4 grid gap-4">
           <div className="space-y-1.5">
             <label className="text-[13px] font-medium">Language</label>
-            {/* Custom Select Implementation */}
             <Select defaultValue="en-US">
               <SelectTrigger className="w-full rounded-lg">
                 <SelectValue placeholder="Select a language" />

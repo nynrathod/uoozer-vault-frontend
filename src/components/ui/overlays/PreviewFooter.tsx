@@ -3,6 +3,7 @@ import { formatBytes, formatRelativeDate } from '@lib/utils'
 import { useFileStore, selectFileById } from '@stores/fileStore'
 import { usePreviewStore } from '@stores/previewStore'
 
+/** Metadata panel showing file size, modified date, owner, and version. */
 export function PreviewFooter() {
   const fileId = usePreviewStore((s) => s.fileId)
   const file = useFileStore(selectFileById(fileId))

@@ -29,6 +29,7 @@ function assertReady(): void {
   }
 }
 
+/** Crypto API exposed via Comlink from the Web Worker thread. */
 const api: CryptoApi = {
   async init() {
     await initCrypto()
@@ -72,11 +73,13 @@ const api: CryptoApi = {
     }
   },
 
+  /** Generates a 256-bit random Data Encryption Key. */
   async generateDek(): Promise<Uint8Array> {
     assertReady()
     return sodium.randombytes_buf(32)
   },
 
+  /** Wraps a DEK with XChaCha20-Poly1305 under the given key. */
   async wrapDek(dek: Uint8Array, key: Uint8Array): Promise<WrappedKey> {
     assertReady()
     const nonce = sodium.randombytes_buf(sodium.crypto_aead_xchacha20poly1305_ietf_NPUBBYTES)
@@ -90,6 +93,7 @@ const api: CryptoApi = {
     return { ciphertext, nonce }
   },
 
+  /** Unwraps a DEK; returns null if decryption fails (wrong key). */
   async unwrapDek(wrapped: WrappedKey, key: Uint8Array): Promise<Uint8Array | null> {
     assertReady()
     try {
@@ -105,6 +109,7 @@ const api: CryptoApi = {
     }
   },
 
+  /** Generates a 256-bit recovery key and its human-readable hex display string. */
   async generateRecoveryKey(): Promise<{ key: Uint8Array; display: string }> {
     assertReady()
     const key = sodium.randombytes_buf(32)
@@ -115,6 +120,7 @@ const api: CryptoApi = {
     return { key, display }
   },
 
+  /** Derives a recovery auth key from the raw recovery key via BLAKE2b. */
   async deriveRecoveryAuthKey(recoveryKey: Uint8Array): Promise<Uint8Array> {
     assertReady()
     return sodium.crypto_generichash(32, recoveryKey, null)
@@ -131,10 +137,9 @@ const api: CryptoApi = {
     return this.bytesToBase64(hash)
   },
 
+  /** Returns a 256-bit BLAKE3 hash as a hex string. */
   async blake3Hash(data: Uint8Array): Promise<string> {
     assertReady()
-    // hash-wasm's blake3 returns a hex string by default.
-    // We can just return it directly. 32 bytes = 64 hex chars.
     return await blake3(data, 32)
   },
   async zeroize(arrays: (Uint8Array | null | undefined)[]): Promise<void> {
@@ -143,6 +148,7 @@ const api: CryptoApi = {
     }
   },
 
+  /** Generates the full crypto bundle needed for signup: keys, wrapped DEK, and recovery material. */
   async generateSignupBundle(
     password: string,
     saltB64: string,
@@ -161,7 +167,6 @@ const api: CryptoApi = {
     const identityKeyPair = await this.generateKeyPair()
     const deviceKeyPair = await this.generateKeyPair()
 
-    // later for `bundleForSignupRequest`, so we MUST let Comlink clone it normally.
     return {
       masterKey,
       authKey,
@@ -176,6 +181,7 @@ const api: CryptoApi = {
     }
   },
 
+  /** Serializes a signup bundle into the server-expected request format. */
   async bundleForSignupRequest(bundle: SignupCryptoBundle, deviceName: string) {
     return {
       auth_key: await this.bytesToBase64(bundle.authKey),

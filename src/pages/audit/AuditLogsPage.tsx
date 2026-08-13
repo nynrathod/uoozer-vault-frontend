@@ -29,6 +29,7 @@ const actionConfig: Record<LogAction, { icon: React.ElementType; label: string; 
   preview: { icon: Eye, label: 'Previewed', color: 'text-cyan-500 bg-cyan-500/10' },
 }
 
+/** Audit log viewer page with stats summary and filterable event table. */
 export function AuditLogsPage() {
   const [filter] = useState<LogAction | 'all'>('all')
   const [logs] = useState(mockLogs)

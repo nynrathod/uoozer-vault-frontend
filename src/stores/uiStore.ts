@@ -15,6 +15,7 @@ interface UIState {
   setUploadPanelOpen: (open: boolean) => void
 }
 
+/** Controls global UI panel visibility (sidebar, search, command palette, upload panel). */
 export const useUIStore = create<UIState>((set) => ({
   sidebarOpen: true,
   mobileMenuOpen: false,

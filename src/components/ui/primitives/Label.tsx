@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { cn } from '@lib/utils'
 
+/** Accessible label element linked to form controls via htmlFor. */
 const Label = React.forwardRef<HTMLLabelElement, React.LabelHTMLAttributes<HTMLLabelElement>>(
   ({ className, ...props }, ref) => (
     <label

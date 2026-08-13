@@ -6,6 +6,7 @@ import { useFileStore, selectFileById } from '@stores/fileStore'
 import { usePreviewStore } from '@stores/previewStore'
 import { FileIcon } from '@/components/features/vault/fileList/FileIcon'
 
+/** Renders file preview by MIME type (image, PDF, text, or generic fallback). */
 export function PreviewContent() {
   const fileId = usePreviewStore((s) => s.fileId)
   const isFullscreen = usePreviewStore((s) => s.isFullscreen)
@@ -34,7 +35,6 @@ export function PreviewContent() {
             isFullscreen ? 'bg-black/95' : 'bg-muted/30'
           )}
         >
-          {/* Updated Loader2 colors to use semantic tokens */}
           <Loader2
             className={cn(
               'h-8 w-8 animate-spin',
@@ -91,7 +91,6 @@ export function PreviewContent() {
               isLoading ? 'opacity-0' : 'opacity-100'
             )}
           >
-            {/* Updated text colors to use semantic tokens */}
             <h1 className="text-foreground mb-6 text-xl font-bold md:text-2xl">
               {file.encryptedName}
             </h1>

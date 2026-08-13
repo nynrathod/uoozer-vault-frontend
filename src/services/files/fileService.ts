@@ -3,6 +3,7 @@ import type { PresignedUrlResponse } from '@/types/upload'
 import { apiClient } from '@services/api'
 import { AuthError, AUTH_ERROR_CODES } from '@/services/auth/error'
 
+/** File CRUD, chunked upload orchestration, and version management API. */
 export const fileService = {
   async list(folderId?: string | null): Promise<FileItem[]> {
     try {

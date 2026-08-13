@@ -6,6 +6,7 @@ interface VaultLoaderProps {
   className?: string
 }
 
+/** Spinning shield loader used during vault unlock and decryption. */
 export function VaultLoader({ size = 40, className }: VaultLoaderProps) {
   return (
     <div className={cn('flex flex-col items-center gap-3', className)}>
@@ -36,7 +37,7 @@ export function VaultLoader({ size = 40, className }: VaultLoaderProps) {
   )
 }
 
-// 2. "Chunk Stream" (Rapid File Processing Vibe)
+/** Animated bar-chart loader for file-processing states. */
 export function ChunkStreamLoader({ size = 40, className }: VaultLoaderProps) {
   return (
     <div
@@ -63,7 +64,7 @@ export function ChunkStreamLoader({ size = 40, className }: VaultLoaderProps) {
   )
 }
 
-// 3. "Orbit Core" (Crypto/Zero-Knowledge Vibe)
+/** Orbiting-dot loader evoking zero-knowledge/crypto operations. */
 export function OrbitCoreLoader({ size = 40, className }: VaultLoaderProps) {
   return (
     <div className={cn('relative', className)} style={{ width: size, height: size }}>
@@ -83,7 +84,7 @@ export function OrbitCoreLoader({ size = 40, className }: VaultLoaderProps) {
   )
 }
 
-// 4. "Pulse Grid" (High-Speed Backend Sync Vibe)
+/** Pulsing 3×3 grid loader for sync operations. */
 export function PulseGridLoader({ size = 40, className }: VaultLoaderProps) {
   const cellSize = size / 3
   return (

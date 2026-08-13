@@ -1,3 +1,4 @@
+/** Argon2id memory-hard KDF parameters returned by the server during prelogin. */
 export interface Argon2Params {
   m_cost: number
   t_cost: number
@@ -6,21 +7,25 @@ export interface Argon2Params {
   algorithm: string
 }
 
+/** Master key (for decrypting vault data) and auth key (sent to server for verification). */
 export interface DerivedKeys {
   masterKey: Uint8Array
   authKey: Uint8Array
 }
 
+/** XChaCha20-Poly1305 encrypted key material with associated nonce. */
 export interface WrappedKey {
   ciphertext: Uint8Array
   nonce: Uint8Array
 }
 
+/** X25519 key pair used for device and identity encryption. */
 export interface KeyPair {
   publicKey: Uint8Array
   privateKey: Uint8Array
 }
 
+/** Full cryptographic bundle produced during signup key generation. */
 export interface SignupCryptoBundle {
   masterKey: Uint8Array
   authKey: Uint8Array
@@ -34,6 +39,7 @@ export interface SignupCryptoBundle {
   recoveryKeyDisplay: string
 }
 
+/** Web Worker API surface exposed via Comlink for all cryptographic operations. */
 export interface CryptoApi {
   init(): Promise<void>
   bytesToBase64(bytes: Uint8Array): Promise<string>

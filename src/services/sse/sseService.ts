@@ -1,6 +1,15 @@
 import { SSE_BASE_URL } from '@lib/constants'
 import { tokenManager } from '@services/auth/tokenManager'
 
+/**
+ * Server-Sent Events client for real-time vault updates.
+ *
+ * Reconnection logic:
+ * - On any connection error the EventSource is closed and a 5-second
+ *   timer schedules a fresh `connect()` call.
+ * - Calling `connect()` while already connected disconnects first,
+ *   preventing duplicate streams.
+ */
 export class SSEService {
   private eventSource: EventSource | null = null
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
@@ -61,4 +70,5 @@ export class SSEService {
   }
 }
 
+/** Singleton SSE service instance. */
 export const sseService = new SSEService()

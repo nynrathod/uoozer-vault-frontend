@@ -15,6 +15,7 @@ import { mockDevices } from '@/test/mocks/devices'
 
 const iconMap = { desktop: Monitor, mobile: Smartphone, tablet: Tablet }
 
+/** Device management page for viewing, trusting, and revoking authorized devices. */
 export function DevicesPage() {
   const [devices, setDevices] = useState(mockDevices)
 

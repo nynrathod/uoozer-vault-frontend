@@ -18,6 +18,7 @@ interface UploadState {
   getAllUploads: () => UploadFile[]
 }
 
+/** Tracks in-flight uploads with per-chunk progress and overall completion state. */
 export const useUploadStore = create<UploadState>((set, get) => ({
   uploads: new Map(),
   activeUploads: 0,
@@ -44,6 +45,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
       const chunks = upload.chunks.map((c) => {
         if (c.id !== chunkId) return c
 
+        // Skip trivial progress updates (< 2%) to avoid excessive re-renders
         if (patch.progress !== undefined && patch.status === undefined) {
           const progressDiff = Math.abs(c.progress - patch.progress)
           if (progressDiff < 2 && patch.progress < 100) {

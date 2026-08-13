@@ -4,6 +4,7 @@ import { cn } from '@lib/utils'
 
 const DropdownContext = React.createContext<{ close: () => void } | null>(null)
 
+/** Props for the DropdownMenu component. */
 interface DropdownMenuProps {
   trigger: React.ReactNode
   children: React.ReactNode
@@ -14,6 +15,7 @@ interface DropdownMenuProps {
   onOpenChange?: (open: boolean) => void
 }
 
+/** Portal-based dropdown menu with collision-aware positioning. */
 function DropdownMenu({
   trigger,
   children,
@@ -24,7 +26,6 @@ function DropdownMenu({
   onOpenChange,
 }: DropdownMenuProps) {
   const [internalOpen, setInternalOpen] = React.useState(false)
-  // Store position and a 'ready' flag to prevent 1-frame flashing
   const [coords, setCoords] = React.useState<{ top: number; left: number; ready: boolean }>({
     top: 0,
     left: 0,
@@ -49,23 +50,19 @@ function DropdownMenu({
       const triggerRect = triggerRef.current.getBoundingClientRect()
       const menuRect = menuRef.current.getBoundingClientRect()
 
-      // Measure exact heights dynamically
       const menuHeight = menuRect.height
       const menuWidth = menuRect.width
       const spaceBelow = window.innerHeight - triggerRect.bottom
       const spaceAbove = triggerRect.top
 
-      let topPos = triggerRect.bottom + 4 // Default to below
+      let topPos = triggerRect.bottom + 4
 
-      // Industry standard collision check: If no space below, flip to top
       if (spaceBelow < menuHeight && spaceAbove > menuHeight) {
         topPos = triggerRect.top - menuHeight - 4
       }
 
-      // Align left or right based on prop, keep it attached to trigger (no weird right shifting)
       let leftPos = align === 'end' ? triggerRect.right - menuWidth : triggerRect.left
 
-      // Basic boundary check just to keep it on screen if it hits the right edge
       if (leftPos + menuWidth > window.innerWidth - 8) {
         leftPos = window.innerWidth - menuWidth - 8
       }
@@ -73,10 +70,8 @@ function DropdownMenu({
         leftPos = 8
       }
 
-      // Set final coords and mark as ready to show
       setCoords({ top: topPos, left: leftPos, ready: true })
     } else if (!isOpen) {
-      // Reset ready state when closed so it recalculates next time
       setCoords((prev) => ({ ...prev, ready: false }))
     }
   }, [isOpen, align])
@@ -113,10 +108,10 @@ function DropdownMenu({
                   'bg-popover border-border text-popover-foreground animate-scale-in fixed z-[9999] min-w-[12rem] rounded-xl border p-1.5 shadow-lg',
                   className
                 )}
-                // Hide visibility until exact coordinates are calculated to prevent flashing at top-left corner
                 style={{
                   top: `${coords.top}px`,
                   left: `${coords.left}px`,
+                  // Hidden until exact coordinates are calculated to prevent a flash at (0,0)
                   visibility: coords.ready ? 'visible' : 'hidden',
                 }}
                 onClick={(e) => e.stopPropagation()}
@@ -131,12 +126,14 @@ function DropdownMenu({
   )
 }
 
+/** Props for a DropdownItem button. */
 interface DropdownItemProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   icon?: React.ReactNode
   destructive?: boolean
   preventClose?: boolean
 }
 
+/** Actionable item inside a DropdownMenu. */
 function DropdownItem({
   className,
   icon,
@@ -168,10 +165,12 @@ function DropdownItem({
   )
 }
 
+/** Horizontal divider line for dropdown menus. */
 function DropdownSeparator({ className }: { className?: string }) {
   return <div className={cn('bg-border/60 -mx-1.5 my-1 h-px', className)} />
 }
 
+/** Non-interactive label text for grouping items in a dropdown. */
 function DropdownLabel({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div

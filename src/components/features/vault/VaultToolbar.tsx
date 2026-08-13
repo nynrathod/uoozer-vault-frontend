@@ -26,6 +26,7 @@ const NEW_DOC_ICON = <FileText className="h-4 w-4" />
 const NEW_PPT_ICON = <Presentation className="h-4 w-4" />
 const NEW_XLS_ICON = <FileSpreadsheet className="h-4 w-4" />
 
+/** Vault action bar: sort controls, item count, new/upload buttons, and bulk selection actions. */
 export function VaultToolbar() {
   const files = useFileStore((s) => s.files)
   const folders = useFileStore((s) => s.folders)

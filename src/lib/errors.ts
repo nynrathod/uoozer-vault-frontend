@@ -1,10 +1,12 @@
-import { AuthError, AUTH_ERROR_CODES } from '@/services/auth/error'
+import { AUTH_ERROR_CODES, AuthError } from '@/services/auth/error'
 
+/** User-facing error alert with title and localized message. */
 export interface ApiErrorAlert {
   title: string
   message: string
 }
 
+/** Maps internal/auth errors into displayable alerts for the UI. */
 export function mapErrorToAlert(error: unknown): ApiErrorAlert {
   if (error instanceof AuthError) {
     switch (error.code) {

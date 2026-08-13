@@ -19,6 +19,7 @@ import { useFileStore, selectFileById } from '@stores/fileStore'
 import { usePreviewStore } from '@stores/previewStore'
 import { MOCK_URLS } from '@lib/constants'
 
+/** Preview toolbar with file name, rename, share, download, fullscreen, and close actions. */
 export function PreviewHeader() {
   const fileId = usePreviewStore((s) => s.fileId)
   const isFullscreen = usePreviewStore((s) => s.isFullscreen)

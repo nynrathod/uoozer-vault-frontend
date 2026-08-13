@@ -15,6 +15,7 @@ import { formatBytes } from '@lib/utils'
 import { Button } from '@ui/Button'
 import { Progress } from '@ui/Progress'
 
+/** Floating panel showing active, completed, and failed uploads with per-item progress. */
 export function UploadQueue() {
   const [expanded, setExpanded] = useState(true)
   const uploadsMap = useUploadStore((s) => s.uploads)

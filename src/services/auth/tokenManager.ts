@@ -84,8 +84,14 @@ function lsDelete(key: string): void {
   }
 }
 
+/**
+ * Persists auth tokens and crypto material across storage backends.
+ *
+ * - Access token: in-memory only (never persisted to disk).
+ * - Refresh token, wrapped DEK, device keys: IndexedDB.
+ * - UI flags (hasSession, deviceId, userEmail): localStorage.
+ */
 export const tokenManager = {
-  // ── Access Token (memory only) ──
   getAccessToken(): string | null {
     return _accessToken
   },
@@ -93,12 +99,12 @@ export const tokenManager = {
     _accessToken = token
     _accessTokenExpiry = Date.now() + expiresIn * 1000
   },
+  /** Returns true 30 seconds before actual expiry to allow proactive refresh. */
   isAccessTokenExpired(): boolean {
     if (!_accessToken) return true
     return Date.now() >= _accessTokenExpiry - 30_000
   },
 
-  // ── IndexedDB for Secrets ──
   setRefreshToken: (token: string) => idbSet(REFRESH_TOKEN_KEY, token),
   getRefreshToken: () => idbGet(REFRESH_TOKEN_KEY),
 
@@ -124,7 +130,6 @@ export const tokenManager = {
     return w && n ? { wrappedDek: w, nonce: n } : null
   },
 
-  // ── localStorage for UI Flags ──
   setHasSession: (val: boolean) => lsSet(LS_HAS_SESSION, val ? 'true' : 'false'),
   getHasSession: () => lsGet(LS_HAS_SESSION) === 'true',
 
@@ -134,7 +139,6 @@ export const tokenManager = {
   getUserEmail: () => lsGet(LS_USER_EMAIL),
   setUserEmail: (email: string) => lsSet(LS_USER_EMAIL, email),
 
-  // ── Cleanup & Clear ──
   clearAll: async () => {
     _accessToken = null
     _accessTokenExpiry = 0
@@ -150,7 +154,7 @@ export const tokenManager = {
     lsDelete(LS_DEVICE_ID)
     lsDelete(LS_USER_EMAIL)
 
-    // to localStorage in previous versions of the code.
+    // Also clean up keys that were previously stored in localStorage
     lsDelete('vault:device_key')
     lsDelete('vault:device_wrapped_dek')
     lsDelete('vault:device_wrapped_dek_nonce')

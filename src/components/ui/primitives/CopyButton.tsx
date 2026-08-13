@@ -7,6 +7,7 @@ interface CopyButtonProps extends ButtonProps {
   value: string
 }
 
+/** Button that copies a value to the clipboard and shows a checkmark on success. */
 export function CopyButton({ value, children, className, onClick, ...props }: CopyButtonProps) {
   const { copied, copy } = useClipboard()
 

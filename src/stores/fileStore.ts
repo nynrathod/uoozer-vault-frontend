@@ -53,6 +53,7 @@ interface FileStoreState {
   setDragOverId: (id: string | null) => void
 }
 
+/** Manages the file browser: file/folder lists, selection, sorting, drag-and-drop, and UI flags. */
 export const useFileStore = create<FileStoreState>()(
   devtools(
     (set) => ({
@@ -168,11 +169,11 @@ export const useFileStore = create<FileStoreState>()(
   )
 )
 
-// ─── Selectors ─────────────────────────────────────────────────────────────
-
+/** Returns files in the currently-active folder. */
 export const selectCurrentFiles = (s: FileStoreState) =>
   Array.from(s.files.values()).filter((f) => f.folderId === s.currentFolderId)
 
+/** Returns sub-folders of the currently-active folder. */
 export const selectCurrentFolders = (s: FileStoreState) =>
   Array.from(s.folders.values()).filter((f) => f.parentId === s.currentFolderId)
 
@@ -182,6 +183,7 @@ export const selectFileById = (id: string | null) => (s: FileStoreState) =>
 export const selectFolderById = (id: string | null) => (s: FileStoreState) =>
   id ? s.folders.get(id) : null
 
+/** Walks parent pointers to build the folder breadcrumb path from root. */
 export const selectBreadcrumbPath = (s: FileStoreState) => {
   const path: Folder[] = []
   let parentId = s.currentFolderId
@@ -195,6 +197,7 @@ export const selectBreadcrumbPath = (s: FileStoreState) => {
   return path
 }
 
+/** Returns a map of folder ID to its direct child count (folders + files). */
 export const selectFolderCounts = (s: FileStoreState) => {
   const counts: Record<string, number> = {}
   s.folders.forEach((f) => {

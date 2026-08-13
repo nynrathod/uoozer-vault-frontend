@@ -8,6 +8,7 @@ interface AvatarProps extends React.HTMLAttributes<HTMLDivElement> {
   size?: 'sm' | 'default' | 'lg' | 'xl'
 }
 
+/** Displays an image or initial fallback inside a circular container. */
 const Avatar = React.forwardRef<HTMLDivElement, AvatarProps>(
   ({ className, src, alt, fallback, size = 'default', ...props }, ref) => {
     const sizeClasses = {

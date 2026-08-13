@@ -4,6 +4,7 @@ import { Loader2 } from 'lucide-react'
 
 import { cn } from '@lib/utils'
 
+/** Style variants for the Button component. */
 const buttonVariants = cva(
   'focus-visible:outline-ring inline-flex items-center justify-center gap-1.5 rounded-md text-sm font-medium transition-all focus-visible:outline-2 focus-visible:outline-offset-2 active:scale-[0.97] disabled:pointer-events-none disabled:opacity-45',
   {
@@ -52,6 +53,7 @@ export interface ButtonProps
   loading?: boolean
 }
 
+/** Primary button component with variant and size support. */
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, loading, children, disabled, ...props }, ref) => {
     return (

@@ -1,3 +1,4 @@
+/** Static application metadata. */
 export const APP_CONFIG = {
   name: 'Uoozer Vault',
   version: '0.1.0',
@@ -5,6 +6,7 @@ export const APP_CONFIG = {
   supportEmail: 'security@uoozer.dev',
 } as const
 
+/** Cryptographic parameters for key derivation and upload limits. */
 export const CRYPTO_CONFIG = {
   argon2: {
     memory: 65536,
@@ -12,10 +14,11 @@ export const CRYPTO_CONFIG = {
     parallelism: 4,
     hashLength: 32,
   },
-  chunkSize: 4 * 1024 * 1024, // 4MB
-  maxFileSize: 10 * 1024 * 1024 * 1024, // 10GB
+  chunkSize: 4 * 1024 * 1024, // 4 MB
+  maxFileSize: 10 * 1024 * 1024 * 1024, // 10 GB
 } as const
 
+/** Layout dimensions and timing constants used throughout the UI. */
 export const UI_CONFIG = {
   sidebarWidth: 260,
   sidebarCollapsedWidth: 64,

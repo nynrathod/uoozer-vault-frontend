@@ -7,6 +7,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useKeyboardNavigation } from '@hooks/useKeyboardNavigation'
 import { cn, formatBytes } from '@lib/utils'
 
+/** Shape of a file or folder entry used in search results. */
 interface SearchableItem {
   id: string
   encryptedName: string
@@ -14,6 +15,7 @@ interface SearchableItem {
   size?: number
 }
 
+/** Command-palette-style search overlay for files and folders with keyboard navigation. */
 export function SearchCommand() {
   const [query, setQuery] = useState('')
   const open = useUIStore((s) => s.searchOpen)
