@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { createPortal } from 'react-dom'
 import { cn } from '@lib/utils'
 
 const DropdownContext = React.createContext<{ close: () => void } | null>(null)
@@ -16,13 +17,23 @@ interface DropdownMenuProps {
 function DropdownMenu({
   trigger,
   children,
-  align = 'end',
+  align = 'start',
   className,
   containerClassName,
   open: controlledOpen,
   onOpenChange,
 }: DropdownMenuProps) {
   const [internalOpen, setInternalOpen] = React.useState(false)
+  // Store position and a 'ready' flag to prevent 1-frame flashing
+  const [coords, setCoords] = React.useState<{ top: number; left: number; ready: boolean }>({
+    top: 0,
+    left: 0,
+    ready: false,
+  })
+
+  const triggerRef = React.useRef<HTMLDivElement>(null)
+  const menuRef = React.useRef<HTMLDivElement>(null)
+
   const isControlled = controlledOpen !== undefined
   const isOpen = isControlled ? controlledOpen : internalOpen
 
@@ -33,45 +44,88 @@ function DropdownMenu({
 
   const close = React.useCallback(() => toggle(false), [isControlled, onOpenChange])
 
+  React.useLayoutEffect(() => {
+    if (isOpen && triggerRef.current && menuRef.current) {
+      const triggerRect = triggerRef.current.getBoundingClientRect()
+      const menuRect = menuRef.current.getBoundingClientRect()
+
+      // Measure exact heights dynamically
+      const menuHeight = menuRect.height
+      const menuWidth = menuRect.width
+      const spaceBelow = window.innerHeight - triggerRect.bottom
+      const spaceAbove = triggerRect.top
+
+      let topPos = triggerRect.bottom + 4 // Default to below
+
+      // Industry standard collision check: If no space below, flip to top
+      if (spaceBelow < menuHeight && spaceAbove > menuHeight) {
+        topPos = triggerRect.top - menuHeight - 4
+      }
+
+      // Align left or right based on prop, keep it attached to trigger (no weird right shifting)
+      let leftPos = align === 'end' ? triggerRect.right - menuWidth : triggerRect.left
+
+      // Basic boundary check just to keep it on screen if it hits the right edge
+      if (leftPos + menuWidth > window.innerWidth - 8) {
+        leftPos = window.innerWidth - menuWidth - 8
+      }
+      if (leftPos < 8) {
+        leftPos = 8
+      }
+
+      // Set final coords and mark as ready to show
+      setCoords({ top: topPos, left: leftPos, ready: true })
+    } else if (!isOpen) {
+      // Reset ready state when closed so it recalculates next time
+      setCoords((prev) => ({ ...prev, ready: false }))
+    }
+  }, [isOpen, align])
+
   return (
     <DropdownContext.Provider value={{ close }}>
-      <div className={cn('relative inline-block', containerClassName)}>
-        {/* Trigger Wrapper */}
+      <div
+        className={cn('relative inline-block', containerClassName)}
+        ref={triggerRef}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div
           onClick={(e) => {
             e.stopPropagation()
-            if (isControlled) onOpenChange?.(!isOpen)
-            else setInternalOpen(!isOpen)
+            toggle(!isOpen)
           }}
         >
           {trigger}
         </div>
 
-        {isOpen && (
-          <>
-            {/* Invisible Overlay to catch outside clicks */}
-            <div
-              className="fixed inset-0 z-40"
-              onClick={(e) => {
-                e.stopPropagation() // Prevents row click from firing when clicking outside
-                close()
-              }}
-            />
-
-            {/* Dropdown Menu Content */}
-            <div
-              className={cn(
-                'border-border bg-popover text-popover-foreground absolute z-50 min-w-[12rem] rounded-xl border p-1.5 shadow-lg',
-                align === 'end' ? 'right-0' : 'left-0',
-                'top-full mt-1.5',
-                className
-              )}
-              onClick={(e) => e.stopPropagation()} // Prevents row click from firing when clicking inside
-            >
-              {children}
-            </div>
-          </>
-        )}
+        {isOpen &&
+          createPortal(
+            <>
+              <div
+                className="fixed inset-0 z-[9998]"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  close()
+                }}
+              />
+              <div
+                ref={menuRef}
+                className={cn(
+                  'bg-popover border-border text-popover-foreground animate-scale-in fixed z-[9999] min-w-[12rem] rounded-xl border p-1.5 shadow-lg',
+                  className
+                )}
+                // Hide visibility until exact coordinates are calculated to prevent flashing at top-left corner
+                style={{
+                  top: `${coords.top}px`,
+                  left: `${coords.left}px`,
+                  visibility: coords.ready ? 'visible' : 'hidden',
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {children}
+              </div>
+            </>,
+            document.body
+          )}
       </div>
     </DropdownContext.Provider>
   )
@@ -102,9 +156,9 @@ function DropdownItem({
         className
       )}
       onClick={(e) => {
-        e.stopPropagation() // Prevents row click from firing
-        onClick?.(e) // Performs the action (e.g., opens delete dialog)
-        if (!preventClose) ctx?.close() // Closes the menu
+        e.stopPropagation()
+        onClick?.(e)
+        if (!preventClose) ctx?.close()
       }}
       {...props}
     >

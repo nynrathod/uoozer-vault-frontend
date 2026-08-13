@@ -1,44 +1,39 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useFileStore, selectFileById } from '@stores/fileStore'
+import { usePreviewStore } from '@stores/previewStore'
 import { PreviewContent } from './PreviewContent'
 import { PreviewFooter } from './PreviewFooter'
 import { PreviewHeader } from './PreviewHeader'
 
-interface FilePreviewDialogProps {
-  fileId: string | null
-}
+export function FilePreviewDialog() {
+  const fileId = usePreviewStore((s) => s.fileId)
+  const isFullscreen = usePreviewStore((s) => s.isFullscreen)
+  const isEditing = usePreviewStore((s) => s.isEditing)
+  const close = usePreviewStore((s) => s.close)
+  const setLoading = usePreviewStore((s) => s.setLoading)
+  const setEditing = usePreviewStore((s) => s.setEditing)
 
-export function FilePreviewDialog({ fileId }: FilePreviewDialogProps) {
   const file = useFileStore(selectFileById(fileId))
-  const isFullscreen = useFileStore((s) => s.isPreviewFullscreen)
-  const setIsFullscreen = useFileStore((s) => s.setIsPreviewFullscreen)
-  const setPreviewFile = useFileStore((s) => s.setPreviewFile)
-  const renameItem = useFileStore((s) => s.renameItem)
-  const deleteItem = useFileStore((s) => s.deleteItem)
-  const setShareTarget = useFileStore((s) => s.setShareTarget)
-
-  const [isLoading, setIsLoading] = useState(true)
-  const [isEditing, setIsEditing] = useState(false)
 
   useEffect(() => {
     if (fileId) {
-      setIsLoading(true)
-      setIsEditing(false)
-      const timer = setTimeout(() => setIsLoading(false), 1500)
+      setLoading(true)
+      setEditing(false)
+      const timer = setTimeout(() => setLoading(false), 1500)
       return () => clearTimeout(timer)
     }
-  }, [fileId])
+  }, [fileId, setLoading, setEditing])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && fileId) {
-        if (isEditing) setIsEditing(false)
-        else setPreviewFile(null)
+        if (isEditing) setEditing(false)
+        else close()
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [fileId, setPreviewFile, isEditing])
+  }, [fileId, close, isEditing, setEditing])
 
   if (!fileId || !file) return null
 
@@ -48,24 +43,9 @@ export function FilePreviewDialog({ fileId }: FilePreviewDialogProps) {
 
   return (
     <div className={containerClasses}>
-      <PreviewHeader
-        file={file}
-        isFullscreen={isFullscreen}
-        setIsFullscreen={setIsFullscreen}
-        onClose={() => setPreviewFile(null)}
-        isEditing={isEditing}
-        setIsEditing={setIsEditing}
-        onRename={(newName) => renameItem(file.id, false, newName)}
-        onShare={() => setShareTarget(file.id)}
-        onDelete={() => deleteItem(file.id, false)}
-      />
-      <PreviewContent
-        file={file}
-        isFullscreen={isFullscreen}
-        isLoading={isLoading}
-        setIsLoading={setIsLoading}
-      />
-      {!isFullscreen && <PreviewFooter file={file} />}
+      <PreviewHeader />
+      <PreviewContent />
+      {!isFullscreen && <PreviewFooter />}
     </div>
   )
 }

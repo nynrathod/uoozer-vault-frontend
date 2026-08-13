@@ -1,5 +1,6 @@
 import { Palette, ChevronRight, Check, Sun, Moon, Monitor } from 'lucide-react'
 import { cn } from '@lib/utils'
+import type { ThemeVariant, ColorScheme } from '@hooks/useTheme'
 
 const THEMES = [
   { id: 'default' as const, label: 'Uoozer Blue' },
@@ -10,10 +11,10 @@ const THEMES = [
 ]
 
 interface ThemeSubMenuProps {
-  variant: string
-  scheme: string
-  setVariant: (v: any) => void
-  setScheme: (s: any) => void
+  variant: ThemeVariant
+  scheme: ColorScheme
+  setVariant: (v: ThemeVariant) => void
+  setScheme: (s: ColorScheme) => void
   themeSubmenu: boolean
   setThemeSubmenu: (v: boolean) => void
 }

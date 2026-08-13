@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 
-type ThemeVariant = 'default' | 'uoozer' | 'obsidian' | 'slate' | 'forest'
-type ColorScheme = 'light' | 'dark' | 'system'
+export type ThemeVariant = 'default' | 'uoozer' | 'obsidian' | 'slate' | 'forest'
+export type ColorScheme = 'light' | 'dark' | 'system'
 
 interface ThemeState {
   variant: ThemeVariant
@@ -21,10 +21,8 @@ function getInitialState(): ThemeState {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
       const parsed = JSON.parse(raw)
-      const scheme = parsed.scheme || 'system'
-      const variant = parsed.variant || 'default'
-      // The index.html script already applied this to the DOM,
-      // so we just sync our React state to match the DOM.
+      const scheme = (parsed.scheme as ColorScheme) || 'system'
+      const variant = (parsed.variant as ThemeVariant) || 'default'
       const resolvedTheme = scheme === 'system' ? getSystemTheme() : scheme
       return { variant, scheme, resolvedTheme }
     }
@@ -83,7 +81,6 @@ export function useTheme() {
         STORAGE_KEY,
         JSON.stringify({ variant: next.variant, scheme: next.scheme })
       )
-      // Only disable transitions on explicit user click
       return applyThemeToDOM(next, true)
     })
   }, [])
@@ -101,8 +98,8 @@ export function useTheme() {
 
   const toggleTheme = useCallback(() => {
     setState((prev) => {
-      const nextScheme = prev.resolvedTheme === 'dark' ? 'light' : 'dark'
-      const next = { ...prev, scheme: nextScheme as ColorScheme }
+      const nextScheme: ColorScheme = prev.resolvedTheme === 'dark' ? 'light' : 'dark'
+      const next = { ...prev, scheme: nextScheme }
       localStorage.setItem(
         STORAGE_KEY,
         JSON.stringify({ variant: next.variant, scheme: next.scheme })

@@ -1,21 +1,24 @@
 import { useEffect } from 'react'
 import { Router } from './router'
 import { useAuthStore } from '@stores/authStore'
-import { Loader2 } from 'lucide-react'
+import { useCryptoStore } from '@stores/cryptoStore'
 import ErrorBoundary from '@app/providers/ErrorBoundary'
+import { VaultLoader } from './components/ui/feedback/VaultLoader'
 
 function App() {
   const isInitializing = useAuthStore((s) => s.isInitializing)
   const initialize = useAuthStore((s) => s.initialize)
+  const initializeCrypto = useCryptoStore((s) => s.initialize)
 
   useEffect(() => {
+    initializeCrypto()
     initialize()
-  }, [initialize])
+  }, [initialize, initializeCrypto])
 
   if (isInitializing) {
     return (
       <div className="bg-background flex h-screen w-screen items-center justify-center">
-        <Loader2 className="text-primary h-8 w-8 animate-spin" />
+        <VaultLoader size={48} />
       </div>
     )
   }

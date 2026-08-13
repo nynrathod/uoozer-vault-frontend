@@ -50,6 +50,7 @@ export interface CryptoApi {
   deriveRecoveryAuthKey(recoveryKey: Uint8Array): Promise<Uint8Array>
   generateKeyPair(): Promise<KeyPair>
   blake2bHash(data: Uint8Array): Promise<string>
+  blake3Hash(data: Uint8Array): Promise<string>
   zeroize(arrays: (Uint8Array | null | undefined)[]): Promise<void>
   generateSignupBundle(
     password: string,

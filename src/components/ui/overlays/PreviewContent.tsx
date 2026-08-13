@@ -3,21 +3,19 @@ import { FileIcon } from '@/components/features/vault/file-list/FileIcon'
 import { Loader2, Download } from 'lucide-react'
 import { cn } from '@lib/utils'
 import { MOCK_URLS } from '@lib/constants'
-import type { FileItem } from '@/types/files'
+import { useFileStore, selectFileById } from '@stores/fileStore'
+import { usePreviewStore } from '@stores/previewStore'
 
-interface PreviewContentProps {
-  file: FileItem
-  isFullscreen: boolean
-  isLoading: boolean
-  setIsLoading: (val: boolean) => void
-}
+export function PreviewContent() {
+  const fileId = usePreviewStore((s) => s.fileId)
+  const isFullscreen = usePreviewStore((s) => s.isFullscreen)
+  const isLoading = usePreviewStore((s) => s.isLoading)
+  const setLoading = usePreviewStore((s) => s.setLoading)
 
-export function PreviewContent({
-  file,
-  isFullscreen,
-  isLoading,
-  setIsLoading,
-}: PreviewContentProps) {
+  const file = useFileStore(selectFileById(fileId))
+
+  if (!file) return null
+
   const isImage = file.encryptedMimeType?.startsWith('image/')
   const isPdf = file.encryptedMimeType === 'application/pdf'
   const isText =
@@ -59,7 +57,7 @@ export function PreviewContent({
               'max-h-full max-w-full object-contain transition-opacity duration-300',
               isLoading ? 'opacity-0' : 'opacity-100'
             )}
-            onLoad={() => setIsLoading(false)}
+            onLoad={() => setLoading(false)}
           />
         )}
         {isPdf && (

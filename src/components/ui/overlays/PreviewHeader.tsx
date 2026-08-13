@@ -15,32 +15,23 @@ import {
 import { cn, formatBytes } from '@lib/utils'
 import { useClipboard } from '@hooks/useClipboard'
 import { useInlineRename } from '@hooks/useInlineRename'
+import { useFileStore, selectFileById } from '@stores/fileStore'
+import { usePreviewStore } from '@stores/previewStore'
 import { MOCK_URLS } from '@lib/constants'
-import type { FileItem } from '@/types/files'
 
-interface PreviewHeaderProps {
-  file: FileItem
-  isFullscreen: boolean
-  setIsFullscreen: (val: boolean) => void
-  onClose: () => void
-  isEditing: boolean
-  setIsEditing: (val: boolean) => void
-  onRename: (newName: string) => void
-  onShare: () => void
-  onDelete: (id: string, isFolder: boolean) => void
-}
+export function PreviewHeader() {
+  const fileId = usePreviewStore((s) => s.fileId)
+  const isFullscreen = usePreviewStore((s) => s.isFullscreen)
+  const isEditing = usePreviewStore((s) => s.isEditing)
+  const setFullscreen = usePreviewStore((s) => s.setFullscreen)
+  const setEditing = usePreviewStore((s) => s.setEditing)
+  const close = usePreviewStore((s) => s.close)
 
-export function PreviewHeader({
-  file,
-  isFullscreen,
-  setIsFullscreen,
-  onClose,
-  isEditing,
-  setIsEditing,
-  onRename,
-  onShare,
-  onDelete,
-}: PreviewHeaderProps) {
+  const file = useFileStore(selectFileById(fileId))
+  const renameItem = useFileStore((s) => s.renameItem)
+  const deleteItem = useFileStore((s) => s.deleteItem)
+  const setShareTarget = useFileStore((s) => s.setShareTarget)
+
   const { copied, copy } = useClipboard()
   const {
     name: previewName,
@@ -48,13 +39,15 @@ export function PreviewHeader({
     isSaving,
     handleSubmit,
   } = useInlineRename(
-    file.encryptedName,
+    file?.encryptedName ?? '',
     (newName) => {
-      onRename(newName)
-      setIsEditing(false)
+      if (file) renameItem(file.id, false, newName)
+      setEditing(false)
     },
-    () => setIsEditing(false)
+    () => setEditing(false)
   )
+
+  if (!file) return null
 
   const handleCopyLink = () => copy(`${MOCK_URLS.SHARE_LINK_BASE}${file.id}`)
 
@@ -73,7 +66,7 @@ export function PreviewHeader({
             variant="ghost"
             size="icon"
             className={cn(iconBtnClasses, 'shrink-0 md:hidden')}
-            onClick={onClose}
+            onClick={close}
           >
             <ChevronLeft className="h-5 w-5" />
           </Button>
@@ -83,7 +76,7 @@ export function PreviewHeader({
             variant="ghost"
             size="icon"
             className={cn(iconBtnClasses, 'shrink-0')}
-            onClick={() => setIsFullscreen(false)}
+            onClick={() => setFullscreen(false)}
           >
             <ChevronLeft className="h-5 w-5" />
           </Button>
@@ -115,7 +108,7 @@ export function PreviewHeader({
                   onClick={(e) => e.stopPropagation()}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleSubmit()
-                    if (e.key === 'Escape') setIsEditing(false)
+                    if (e.key === 'Escape') setEditing(false)
                   }}
                   className={cn(
                     'bg-background border-primary w-full max-w-[300px] rounded-md border px-1.5 py-0.5 text-sm font-semibold outline-none',
@@ -134,7 +127,7 @@ export function PreviewHeader({
                 )}
               </>
             ) : (
-              <div className="min-w-0" onDoubleClick={() => setIsEditing(true)}>
+              <div className="min-w-0" onDoubleClick={() => setEditing(true)}>
                 <p className="cursor-pointer truncate text-sm font-semibold">
                   {file.encryptedName}
                 </p>
@@ -158,7 +151,7 @@ export function PreviewHeader({
           variant="ghost"
           size="icon"
           className={cn(iconBtnClasses, 'h-9 w-9 md:hidden')}
-          onClick={onShare}
+          onClick={() => setShareTarget(file.id)}
         >
           <Share2 className="h-4 w-4" />
         </Button>
@@ -166,7 +159,7 @@ export function PreviewHeader({
           variant="ghost"
           size="sm"
           className={cn(iconBtnClasses, 'hidden h-9 gap-1.5 px-3 font-medium md:flex')}
-          onClick={onShare}
+          onClick={() => setShareTarget(file.id)}
         >
           <Share2 className="h-4 w-4" /> Share
         </Button>
@@ -186,7 +179,7 @@ export function PreviewHeader({
           variant="ghost"
           size="icon"
           className={cn(iconBtnClasses, 'h-9 w-9')}
-          onClick={() => setIsFullscreen(!isFullscreen)}
+          onClick={() => setFullscreen(!isFullscreen)}
         >
           {isFullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
         </Button>
@@ -194,9 +187,9 @@ export function PreviewHeader({
         <FileActionsMenu
           item={file}
           isFolder={false}
-          onRenameRequest={() => setIsEditing(true)}
-          onDelete={onDelete}
-          onShare={onShare}
+          onRenameRequest={() => setEditing(true)}
+          onDelete={deleteItem}
+          onShare={() => setShareTarget(file.id)}
           copied={copied}
           onCopyLink={handleCopyLink}
           trigger={
@@ -213,7 +206,7 @@ export function PreviewHeader({
               variant="ghost"
               size="icon"
               className={cn(iconBtnClasses, 'hidden h-9 w-9 md:flex')}
-              onClick={onClose}
+              onClick={close}
             >
               <X className="h-5 w-5" />
             </Button>

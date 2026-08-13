@@ -104,7 +104,6 @@ export function Sidebar() {
   }, [])
 
   return (
-    // Replaced framer-motion.aside with standard aside + CSS transitions
     <aside
       className="border-border/60 bg-sidebar relative flex h-full flex-col overflow-hidden border-r transition-all duration-300 ease-out"
       style={{ width: sidebarOpen ? 256 : 72 }}

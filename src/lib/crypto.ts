@@ -112,3 +112,4 @@ export const bundleForSignupRequest = (bundle: SignupCryptoBundle, deviceName: s
   cryptoApi.bundleForSignupRequest(bundle, deviceName)
 export const deriveRecoveryAuthKey = (recoveryKey: Uint8Array) =>
   cryptoApi.deriveRecoveryAuthKey(recoveryKey)
+export const blake3Hash = (d: Uint8Array) => cryptoApi.blake3Hash(d)

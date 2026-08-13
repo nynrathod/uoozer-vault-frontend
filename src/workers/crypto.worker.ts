@@ -11,7 +11,7 @@ import type {
 
 import * as Comlink from 'comlink'
 import * as _sodiumModule from 'libsodium-wrappers'
-import { argon2id } from 'hash-wasm'
+import { argon2id, blake3 } from 'hash-wasm'
 
 let sodium: any = null
 let _initialized = false
@@ -145,6 +145,12 @@ const api: CryptoApi = {
     return this.bytesToBase64(hash)
   },
 
+  async blake3Hash(data: Uint8Array): Promise<string> {
+    assertReady()
+    // hash-wasm's blake3 returns a hex string by default.
+    // We can just return it directly. 32 bytes = 64 hex chars.
+    return await blake3(data, 32)
+  },
   async zeroize(arrays: (Uint8Array | null | undefined)[]): Promise<void> {
     for (const arr of arrays) {
       if (arr) arr.fill(0)

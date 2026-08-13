@@ -6,11 +6,6 @@ interface VaultLoaderProps {
   className?: string
 }
 
-interface VaultLoaderProps {
-  size?: number
-  className?: string
-}
-
 // 1. The Original "Vault Core" (Spinning Square + Data Slider)
 export function VaultLoader({ size = 40, className }: VaultLoaderProps) {
   return (
@@ -73,18 +68,15 @@ export function ChunkStreamLoader({ size = 40, className }: VaultLoaderProps) {
 export function OrbitCoreLoader({ size = 40, className }: VaultLoaderProps) {
   return (
     <div className={cn('relative', className)} style={{ width: size, height: size }}>
-      {/* Central Core */}
       <div
         className="bg-primary/20 absolute inset-1/4 rounded-md"
         style={{ animation: 'pulse 1s ease-in-out infinite' }}
       ></div>
 
-      {/* Orbiting Dot 1 */}
       <div className="absolute inset-0" style={{ animation: 'spin 0.8s linear infinite' }}>
         <div className="bg-primary absolute top-0 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full"></div>
       </div>
 
-      {/* Orbiting Dot 2 (Reverse) */}
       <div className="absolute inset-0" style={{ animation: 'spin 1.2s linear reverse infinite' }}>
         <div className="bg-primary/50 absolute bottom-0 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full"></div>
       </div>

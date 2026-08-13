@@ -1,12 +1,14 @@
 import { HardDrive, Calendar, User, History } from 'lucide-react'
 import { formatBytes, formatRelativeDate } from '@lib/utils'
-import type { FileItem } from '@/types/files'
+import { useFileStore, selectFileById } from '@stores/fileStore'
+import { usePreviewStore } from '@stores/previewStore'
 
-interface PreviewFooterProps {
-  file: FileItem
-}
+export function PreviewFooter() {
+  const fileId = usePreviewStore((s) => s.fileId)
+  const file = useFileStore(selectFileById(fileId))
 
-export function PreviewFooter({ file }: PreviewFooterProps) {
+  if (!file) return null
+
   return (
     <div className="border-border bg-background h-auto shrink-0 space-y-3 border-t p-4">
       <h4 className="text-muted-foreground/60 text-[11px] font-semibold tracking-wider uppercase">
