@@ -37,13 +37,27 @@ export const useUploadStore = create<UploadState>((set, get) => ({
       return { uploads: next }
     }),
   updateChunk: (uploadId, chunkId, patch) =>
-    set((s) => {
-      const upload = s.uploads.get(uploadId)
-      if (!upload) return s
-      const chunks = upload.chunks.map((c) => (c.id === chunkId ? { ...c, ...patch } : c))
+    set((state) => {
+      const upload = state.uploads.get(uploadId)
+      if (!upload) return state
+
+      const chunks = upload.chunks.map((c) => {
+        if (c.id !== chunkId) return c
+
+        if (patch.progress !== undefined && patch.status === undefined) {
+          const progressDiff = Math.abs(c.progress - patch.progress)
+          if (progressDiff < 2 && patch.progress < 100) {
+            return c
+          }
+        }
+
+        return { ...c, ...patch }
+      })
+
       const doneChunks = chunks.filter((c) => c.status === 'done').length
       const overallProgress = Math.round((doneChunks / chunks.length) * 100)
-      const next = new Map(s.uploads)
+
+      const next = new Map(state.uploads)
       next.set(uploadId, { ...upload, chunks, overallProgress })
       return { uploads: next }
     }),
