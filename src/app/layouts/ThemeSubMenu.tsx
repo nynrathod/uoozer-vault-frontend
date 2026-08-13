@@ -70,7 +70,7 @@ export function ThemeSubMenu() {
               leading={
                 <span
                   className="border-border/60 h-3.5 w-3.5 rounded-full border"
-                  style={{ background: t.color }}
+                  style={{ background: `var(--color-theme-${t.id})` }}
                 />
               }
             />

@@ -1,10 +1,10 @@
 import { Button } from '@ui/Button'
-import { FileIcon } from '@/components/features/vault/fileList/FileIcon'
 import { Loader2, Download } from 'lucide-react'
 import { cn } from '@lib/utils'
 import { MOCK_URLS } from '@lib/constants'
 import { useFileStore, selectFileById } from '@stores/fileStore'
 import { usePreviewStore } from '@stores/previewStore'
+import { FileIcon } from '@/components/features/vault/fileList/FileIcon'
 
 export function PreviewContent() {
   const fileId = usePreviewStore((s) => s.fileId)
@@ -22,7 +22,7 @@ export function PreviewContent() {
     file.encryptedMimeType?.startsWith('text/') || file.encryptedMimeType === 'application/document'
 
   const contentAreaClasses = isFullscreen
-    ? 'flex-1 flex items-center justify-center p-4 md:p-8 overflow-hidden relative bg-[#0a0a0a]'
+    ? 'flex-1 flex items-center justify-center p-4 md:p-8 overflow-hidden relative bg-black/95'
     : 'flex-1 flex items-center justify-center p-4 md:p-6 overflow-hidden relative bg-muted/40'
 
   return (
@@ -31,13 +31,14 @@ export function PreviewContent() {
         <div
           className={cn(
             'absolute inset-0 flex items-center justify-center',
-            isFullscreen ? 'bg-[#0a0a0a]' : 'bg-muted/30'
+            isFullscreen ? 'bg-black/95' : 'bg-muted/30'
           )}
         >
+          {/* Updated Loader2 colors to use semantic tokens */}
           <Loader2
             className={cn(
               'h-8 w-8 animate-spin',
-              isFullscreen ? 'text-white/50' : 'text-muted-foreground'
+              isFullscreen ? 'text-muted-foreground' : 'text-muted-foreground'
             )}
           />
         </div>
@@ -90,10 +91,11 @@ export function PreviewContent() {
               isLoading ? 'opacity-0' : 'opacity-100'
             )}
           >
-            <h1 className="mb-6 text-xl font-bold text-neutral-900 md:text-2xl">
+            {/* Updated text colors to use semantic tokens */}
+            <h1 className="text-foreground mb-6 text-xl font-bold md:text-2xl">
               {file.encryptedName}
             </h1>
-            <div className="prose prose-sm max-w-none space-y-4 leading-relaxed text-neutral-600">
+            <div className="prose prose-sm text-muted-foreground max-w-none space-y-4 leading-relaxed">
               <p>
                 This is a simulated text preview for <strong>{file.encryptedName}</strong>. In a
                 production zero-knowledge environment, the actual file content would be fetched in
@@ -116,14 +118,14 @@ export function PreviewContent() {
                 size="lg"
                 className={cn(
                   'bg-transparent',
-                  isFullscreen ? 'text-white/50' : 'text-muted-foreground'
+                  isFullscreen ? 'text-muted-foreground' : 'text-muted-foreground'
                 )}
               />
             </div>
             <h3
               className={cn(
                 'mb-1 text-lg font-semibold',
-                isFullscreen ? 'text-white' : 'text-foreground'
+                isFullscreen ? 'text-foreground' : 'text-foreground'
               )}
             >
               No preview available
@@ -131,7 +133,7 @@ export function PreviewContent() {
             <p
               className={cn(
                 'mb-6 max-w-sm text-sm',
-                isFullscreen ? 'text-white/50' : 'text-muted-foreground'
+                isFullscreen ? 'text-muted-foreground' : 'text-muted-foreground'
               )}
             >
               We can't show a preview for this file type in your browser. Please download it to view

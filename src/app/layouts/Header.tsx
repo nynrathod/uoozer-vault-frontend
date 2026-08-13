@@ -3,9 +3,10 @@ import { Search, Bell, Upload, Plus } from 'lucide-react'
 import { Button } from '@ui/Button'
 import { useUIStore } from '@stores/uiStore'
 import { cn } from '@lib/utils'
-import { SearchCommand } from '@/components/ui/overlays/SearchCommand'
+
 import { ProfileDropdown } from './ProfileDropdown'
 import { ThemeSwitcher } from './ThemeSwitcher'
+import { SearchCommand } from '@/components/ui/overlays'
 
 export function Header() {
   const location = useLocation()

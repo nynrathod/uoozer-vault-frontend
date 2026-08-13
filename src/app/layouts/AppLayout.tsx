@@ -2,7 +2,7 @@ import { Outlet } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
 import { MobileNav } from './MobileNav'
-import { useIsMobile } from '@hooks/useMediaQuery'
+import { useIsMobile } from '@/hooks/useMediaQuery'
 
 export function AppLayout() {
   const isMobile = useIsMobile()

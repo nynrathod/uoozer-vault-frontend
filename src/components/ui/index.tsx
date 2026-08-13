@@ -43,3 +43,6 @@ export {
   DropdownSeparator,
   DropdownLabel,
 } from './primitives/DropdownMenu'
+export { Badge } from './primitives/Badge'
+export { SelectableCard } from './primitives/SelectableCard'
+export { UserAvatar } from './primitives/UserAvatar'
