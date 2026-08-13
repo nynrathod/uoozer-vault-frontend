@@ -42,8 +42,7 @@ export function ProfileDropdown() {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-foreground truncate text-[13px] font-medium">
-                  {user?.email?.split('@')[0].replace(/^\w/, (c) => c.toUpperCase()) ||
-                    'Guest User'}
+                  {user?.fullName || 'Guest User'}
                 </p>
                 <p className="text-muted-foreground/80 truncate text-[11px]">
                   {user?.email || 'No email'}

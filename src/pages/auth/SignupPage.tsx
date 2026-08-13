@@ -38,7 +38,13 @@ export function SignupPage() {
     watch,
   } = useForm<SignupInput>({
     resolver: zodResolver(signupSchema),
-    defaultValues: { email: '', password: '', confirmPassword: '', acceptTerms: false },
+    defaultValues: {
+      email: '',
+      fullName: '',
+      password: '',
+      confirmPassword: '',
+      acceptTerms: false,
+    },
   })
 
   const password = watch('password')
@@ -63,6 +69,7 @@ export function SignupPage() {
       const result = await signup({
         email: data.email,
         password: data.password,
+        fullName: data.fullName,
         deviceName: 'Web Browser',
         acceptTerms: data.acceptTerms,
       })
@@ -77,7 +84,7 @@ export function SignupPage() {
   }
 
   const handleEnterVault = async () => {
-    await completeSignup(cryptoBundle, userEmail)
+    await completeSignup(cryptoBundle, userEmail, watch('fullName'))
     setIsModalOpen(false)
     navigate(ROUTES.VAULT)
   }
@@ -104,6 +111,19 @@ export function SignupPage() {
             </div>
           </div>
         )}
+
+        <div className="space-y-1.5">
+          <Label htmlFor="fullName">Full Name</Label>
+          <Input
+            id="fullName"
+            type="text"
+            placeholder="John Doe"
+            autoComplete="name"
+            {...register('fullName')}
+            className={cn(errors.fullName && 'border-destructive')}
+          />
+          {errors.fullName && <p className="text-destructive text-xs">{errors.fullName.message}</p>}
+        </div>
 
         <div className="space-y-1.5">
           <Label htmlFor="email">Email</Label>

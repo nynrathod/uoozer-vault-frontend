@@ -21,6 +21,7 @@ export interface SignupInitResponse {
 
 export interface SignupCompleteRequest {
   signup_token: string
+  full_name: string
   auth_key: string
   recovery_auth_key: string
   wrapped_dek: string
@@ -45,6 +46,7 @@ export interface AuthResponse {
   refresh_token: string
   token_type: string
   expires_in: number
+  full_name: string
 }
 
 export interface RefreshRequest {
@@ -67,6 +69,7 @@ export interface PasswordChangeRequest {
 export interface User {
   id: string
   email: string
+  fullName: string
   createdAt: string
   updatedAt: string
 }
@@ -130,6 +133,7 @@ export interface LoginCredentials {
 export interface SignupCredentials {
   email: string
   password: string
+  fullName: string
   deviceName: string
   acceptTerms: boolean
 }

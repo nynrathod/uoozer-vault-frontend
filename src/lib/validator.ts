@@ -24,6 +24,7 @@ export const loginSchema = z.object({
 export const signupSchema = z
   .object({
     email: emailSchema,
+    fullName: z.string().min(1, 'Name is required').max(100, 'Name is too long'),
     password: passwordSchema,
     confirmPassword: z.string().min(1, 'Please confirm your password'),
     acceptTerms: z.boolean().refine((val) => val === true, {

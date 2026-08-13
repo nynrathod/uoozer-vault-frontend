@@ -32,7 +32,7 @@ export function ProfileSection({ user }: { user: any }) {
       <div className="grid gap-4">
         <div className="space-y-1.5">
           <label className="text-[13px] font-medium">Full Name</label>
-          <Input defaultValue="Nayan Rathod" className="rounded-lg" />
+          <Input defaultValue={user?.fullName || ''} className="rounded-lg" />
         </div>
         <div className="space-y-1.5">
           <label className="text-[13px] font-medium">Email Address</label>

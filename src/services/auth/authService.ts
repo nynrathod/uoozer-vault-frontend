@@ -84,6 +84,7 @@ class AuthService {
 
     const requestBody: SignupCompleteRequest = {
       signup_token: signupToken,
+      full_name: credentials.fullName,
       ...(await bundleForSignupRequest(bundle, credentials.deviceName || 'Web Browser')),
     }
 

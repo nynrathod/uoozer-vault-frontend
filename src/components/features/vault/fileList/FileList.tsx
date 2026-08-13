@@ -21,7 +21,6 @@ interface FileListProps {
 export function FileList({
   files,
   folders,
-  folderCounts,
   onFolderClick,
   onFileClick,
   onFileSelect,

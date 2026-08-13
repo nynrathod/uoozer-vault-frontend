@@ -81,7 +81,13 @@ export function useAuth() {
           )
         }
 
-        setUser({ id: '', email: credentials.email, createdAt: '', updatedAt: '' })
+        setUser({
+          id: '',
+          email: credentials.email,
+          fullName: result.tokens.full_name,
+          createdAt: '',
+          updatedAt: '',
+        })
         setAuthenticated(true)
       } catch (error) {
         const message = error instanceof AuthError ? error.message : 'Login failed'
@@ -113,7 +119,7 @@ export function useAuth() {
   }, [])
 
   const completeSignup = useCallback(
-    async (bundle: any, email: string) => {
+    async (bundle: any, email: string, fullName: string = '') => {
       setCryptoState({ masterKey: bundle.masterKey, dek: bundle.dek })
 
       const deviceKey = await generateDek()
@@ -124,7 +130,7 @@ export function useAuth() {
         await bytesToBase64(deviceWrappedDek.nonce)
       )
 
-      setUser({ id: '', email, createdAt: '', updatedAt: '' })
+      setUser({ id: '', email, fullName, createdAt: '', updatedAt: '' })
       setAuthenticated(true)
     },
     [setAuthenticated, setCryptoState, setUser]
@@ -181,7 +187,13 @@ export function useAuth() {
         )
 
         setCryptoState({ masterKey: newMasterKey, dek: finalDek })
-        setUser({ id: '', email, createdAt: '', updatedAt: '' })
+        setUser({
+          id: '',
+          email,
+          fullName: bundle.recoveryKeyDisplay ? credentials.fullName : '',
+          createdAt: '',
+          updatedAt: '',
+        })
         setAuthenticated(true)
         useAuthStore.setState({ isLoading: false, isInitializing: false })
       } finally {

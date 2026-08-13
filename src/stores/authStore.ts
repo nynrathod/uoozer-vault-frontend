@@ -34,7 +34,11 @@ const userEmail = tokenManager.getUserEmail()
 let _initPromise: Promise<void> | null = null
 
 export const useAuthStore = create<AuthState>((set, get) => ({
-  user: hasSession && userEmail ? { id: '', email: userEmail, createdAt: '', updatedAt: '' } : null,
+  // Around line 37
+  user:
+    hasSession && userEmail
+      ? { id: '', email: userEmail, fullName: '', createdAt: '', updatedAt: '' }
+      : null,
   isAuthenticated: hasSession,
   isCryptoReady: false,
   isInitializing: hasSession,

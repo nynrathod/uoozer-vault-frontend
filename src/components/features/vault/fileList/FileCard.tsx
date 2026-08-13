@@ -15,6 +15,7 @@ interface FileCardProps {
   item: FileItem | Folder
   isSelected: boolean
   onClick: () => void
+  onSelect: () => void
   editingId?: string | null
   onRenameRequest?: (id: string | null) => void
   itemCount?: number
@@ -24,6 +25,7 @@ export const FileCard = memo(function FileCard({
   item,
   isSelected,
   onClick,
+  onSelect,
   editingId,
   onRenameRequest,
   itemCount = 0,
