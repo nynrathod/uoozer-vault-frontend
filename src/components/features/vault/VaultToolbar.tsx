@@ -18,22 +18,18 @@ import { useFileStore } from '@stores/fileStore'
 import { useUIStore } from '@stores/uiStore'
 import { Button } from '@ui/Button'
 import { DropdownMenu, DropdownItem, DropdownSeparator, DropdownLabel } from '@ui/DropdownMenu'
-import { cn } from '@lib/utils'
+import type { FileItem } from '@/types/files'
+import type { Folder } from '@/types/folders'
 
 export function VaultToolbar({
   files,
   folders,
   onUpload,
 }: {
-  files: any[]
-  folders: any[]
+  files: FileItem[]
+  folders: Folder[]
   onUpload: () => void
 }) {
-  const selectedIds = useUIStore((s) => s.selectedFileIds)
-  const clearSelection = useUIStore((s) => s.clearSelection)
-
-  // Wait, we moved selection to fileStore in step 1, but VaultToolbar is reading it from UIStore?
-  // Let's read from fileStore to be consistent with the architecture.
   const selectedFileIds = useFileStore((s) => s.selectedFileIds)
   const clearFileSelection = useFileStore((s) => s.clearSelection)
   const deleteItem = useFileStore((s) => s.deleteItem)
@@ -50,23 +46,6 @@ export function VaultToolbar({
 
   const applySort = (field: 'name' | 'size' | 'modified', order: 'asc' | 'desc') => {
     setSort(field, order)
-    // Actual sorting of arrays will happen in the selector or component if we map it,
-    // but for now we just store the state. To keep it simple, we just re-render.
-  }
-
-  const handleColumnSort = (field: 'name' | 'size' | 'modified') => {
-    let newField: 'name' | 'size' | 'modified' | null = field
-    let newOrder: 'asc' | 'desc' | null = 'asc'
-
-    if (sortField === field) {
-      if (sortOrder === 'asc') {
-        newOrder = 'desc'
-      } else if (sortOrder === 'desc') {
-        newField = null
-        newOrder = null
-      }
-    }
-    setSort(newField, newOrder)
   }
 
   const handleBulkDelete = () => {

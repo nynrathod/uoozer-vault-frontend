@@ -9,8 +9,6 @@ interface FileStoreState {
   currentFolderId: string | null
 
   editingId: string | null
-  previewFileId: string | null
-  isPreviewFullscreen: boolean
   removingIds: Set<string>
   shareTargetId: string | null
   activeMenuId: string | null
@@ -34,8 +32,6 @@ interface FileStoreState {
   ) => void
 
   setEditingId: (id: string | null) => void
-  setPreviewFile: (id: string | null) => void
-  setIsPreviewFullscreen: (val: boolean) => void
   addRemovingId: (id: string) => void
   clearRemovingId: (id: string) => void
   setShareTarget: (id: string | null) => void
@@ -50,6 +46,11 @@ interface FileStoreState {
     order: 'asc' | 'desc' | null
   ) => void
   toggleViewMode: () => void
+
+  isDragging: boolean
+  setIsDragging: (val: boolean) => void
+  dragOverId: string | null
+  setDragOverId: (id: string | null) => void
 }
 
 export const useFileStore = create<FileStoreState>()(
@@ -59,8 +60,6 @@ export const useFileStore = create<FileStoreState>()(
       folders: new Map(),
       currentFolderId: null,
       editingId: null,
-      previewFileId: null,
-      isPreviewFullscreen: false,
       removingIds: new Set(),
       shareTargetId: null,
       activeMenuId: null,
@@ -132,8 +131,6 @@ export const useFileStore = create<FileStoreState>()(
         }),
 
       setEditingId: (id) => set({ editingId: id }),
-      setPreviewFile: (id) => set({ previewFileId: id }),
-      setIsPreviewFullscreen: (val) => set({ isPreviewFullscreen: val }),
       addRemovingId: (id) =>
         set((state) => {
           const next = new Set(state.removingIds)
@@ -162,12 +159,17 @@ export const useFileStore = create<FileStoreState>()(
       setSort: (field, order) => set({ sortField: field, sortOrder: order }),
       toggleViewMode: () =>
         set((state) => ({ viewMode: state.viewMode === 'list' ? 'grid' : 'list' })),
+      isDragging: false,
+      setIsDragging: (val) => set({ isDragging: val }),
+      dragOverId: null,
+      setDragOverId: (id) => set({ dragOverId: id }),
     }),
     { name: 'fileStore' }
   )
 )
 
-// Selectors
+// ─── Selectors ─────────────────────────────────────────────────────────────
+
 export const selectCurrentFiles = (s: FileStoreState) =>
   Array.from(s.files.values()).filter((f) => f.folderId === s.currentFolderId)
 

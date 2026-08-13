@@ -1,8 +1,10 @@
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { useShallow } from 'zustand/react/shallow'
 import { useUIStore } from '@stores/uiStore'
 import { useUploadStore } from '@stores/uploadStore'
+import { usePreviewStore } from '@stores/previewStore'
 import {
   useFileStore,
   selectCurrentFiles,
@@ -25,6 +27,9 @@ import { VersionHistoryDialog } from '@/components/ui/overlays/VersionHistoryDia
 import { VaultLoader } from '@/components/ui/feedback/VaultLoader'
 import { VaultToolbar } from '@/components/features/vault/VaultToolbar'
 
+import { mockFiles } from '@/test/mocks/files'
+import { mockFolders } from '@/test/mocks/folders'
+
 export function VaultPage() {
   const { folderId } = useParams<{ folderId?: string }>()
   const navigate = useNavigate()
@@ -33,24 +38,29 @@ export function VaultPage() {
   const uploadPanelOpen = useUIStore((s) => s.uploadPanelOpen)
   const setUploadPanelOpen = useUIStore((s) => s.setUploadPanelOpen)
 
-  const files = useFileStore(selectCurrentFiles)
-  const folders = useFileStore(selectCurrentFolders)
-  const breadcrumbPath = useFileStore(selectBreadcrumbPath)
-  const folderCounts = useFileStore(selectFolderCounts)
+  // Preview state — now from previewStore
+  const previewFileId = usePreviewStore((s) => s.fileId)
+  const openPreview = usePreviewStore((s) => s.open)
+
+  // File/folder state — from fileStore
+  const files = useFileStore(useShallow(selectCurrentFiles))
+  const folders = useFileStore(useShallow(selectCurrentFolders))
+  const breadcrumbPath = useFileStore(useShallow(selectBreadcrumbPath))
+  const folderCounts = useFileStore(useShallow(selectFolderCounts))
 
   const currentFolderIdState = useFileStore((s) => s.currentFolderId)
   const setCurrentFolderId = useFileStore((s) => s.setCurrentFolderId)
-  const previewFileId = useFileStore((s) => s.previewFileId)
   const shareTargetId = useFileStore((s) => s.shareTargetId)
   const versionFileId = useFileStore((s) => s.versionFileId)
+  const viewMode = useFileStore((s) => s.viewMode)
 
-  const setPreviewFile = useFileStore((s) => s.setPreviewFile)
+  const setFiles = useFileStore((s) => s.setFiles)
+  const setFolders = useFileStore((s) => s.setFolders)
   const setShareTarget = useFileStore((s) => s.setShareTarget)
   const setVersionFileId = useFileStore((s) => s.setVersionFileId)
   const toggleFileSelection = useFileStore((s) => s.toggleFileSelection)
   const selectedFileIds = useFileStore((s) => s.selectedFileIds)
 
-  // Derive the shared item object from the ID
   const sharedItem = useFileStore((s) =>
     s.shareTargetId ? s.files.get(s.shareTargetId) || s.folders.get(s.shareTargetId) : null
   )
@@ -71,6 +81,17 @@ export function VaultPage() {
       setCurrentFolderId(currentFolderId)
     }
   }, [currentFolderId, currentFolderIdState, setCurrentFolderId])
+
+  const isInitialized = useRef(false)
+  useEffect(() => {
+    if (!isInitialized.current) {
+      if (useFileStore.getState().files.size === 0 && useFileStore.getState().folders.size === 0) {
+        setFiles(mockFiles)
+        setFolders(mockFolders)
+      }
+      isInitialized.current = true
+    }
+  }, [setFiles, setFolders])
 
   const handleUploadFiles = useCallback(
     (droppedFiles: File[]) => {
@@ -130,14 +151,14 @@ export function VaultPage() {
               </div>
             ) : files.length === 0 && folders.length === 0 ? (
               <EmptyState onUpload={() => setUploadPanelOpen(true)} />
-            ) : useFileStore.getState().viewMode === 'list' ? (
+            ) : viewMode === 'list' ? (
               <div className="h-full overflow-auto">
                 <FileList
                   files={files}
                   folders={folders}
                   folderCounts={folderCounts}
                   onFolderClick={(folder) => navigate(`/vault/folder/${folder.id}`)}
-                  onFileClick={(file) => setPreviewFile(file.id)}
+                  onFileClick={(file) => openPreview(file.id)}
                   onFileSelect={toggleFileSelection}
                   onShare={(item) => setShareTarget(item.id)}
                 />
@@ -150,7 +171,7 @@ export function VaultPage() {
 
         {previewFileId && (
           <div className="bg-muted/30 flex h-full w-full flex-col overflow-hidden md:w-1/2">
-            <FilePreviewDialog fileId={previewFileId} />
+            <FilePreviewDialog />
           </div>
         )}
 

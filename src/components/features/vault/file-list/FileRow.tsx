@@ -13,6 +13,7 @@ import type { Folder } from '@/types/folders'
 
 interface FileRowProps {
   item: FileItem | Folder
+  isFolder: boolean
   isSelected: boolean
   onClick: () => void
   onSelect: () => void
@@ -21,13 +22,21 @@ interface FileRowProps {
 
 export const FileRow = memo(function FileRow({
   item,
+  isFolder,
   isSelected,
   onClick,
   onSelect,
   onShare,
 }: FileRowProps) {
   const { copied, copy } = useClipboard()
-  const folderCheck = isFolder(item)
+  const folderCheck = isFolder
+
+  const dragOverId = useFileStore((s) => s.dragOverId)
+  const setDragOverId = useFileStore((s) => s.setDragOverId)
+  const isDragging = useFileStore((s) => s.isDragging) // Track global drag state
+  const setIsDragging = useFileStore((s) => s.setIsDragging)
+
+  const isDragOver = dragOverId === item.id
 
   const deleteItem = useFileStore((s) => s.deleteItem)
   const moveItem = useFileStore((s) => s.moveItem)
@@ -60,9 +69,18 @@ export const FileRow = memo(function FileRow({
 
   return (
     <div
+      // If isDragging is true, we don't apply hover classes (hover:bg-accent/60)
       className={cn(
-        'group grid grid-cols-[24px_2.5rem_1fr_9.5rem] items-stretch gap-3 overflow-hidden rounded-lg border px-3 transition-all duration-150 md:grid-cols-[24px_2.5rem_1fr_9.5rem_8rem_6rem]',
-        'hover:bg-accent/60 hover:border-border/40 h-[52px] border-transparent',
+        'group relative grid h-[52px] grid-cols-[40px_40px_1fr] items-center gap-2 rounded-lg border border-transparent px-0 transition-colors duration-150 ease-out md:grid-cols-[40px_40px_1fr_160px_140px_80px]',
+        isDragOver
+          ? 'bg-primary/5 border-primary/20 z-20 shadow-[0_0_0_1px_hsl(var(--primary)/0.2),0_4px_12px_-2px_hsl(var(--primary)/0.15)]'
+          : isSelected
+            ? 'bg-primary/[0.06] border-primary/20'
+            : !isDragging
+              ? 'hover:bg-accent/60 hover:border-border/40'
+              : '',
+        isMenuActive && 'z-30',
+        editingId === item.id && 'z-30',
         'cursor-grab active:cursor-grabbing'
       )}
       onClick={onClick}
@@ -71,25 +89,48 @@ export const FileRow = memo(function FileRow({
         e.dataTransfer.setData('text/plain', item.id)
         e.dataTransfer.setData('application/x-item-type', folderCheck ? 'folder' : 'file')
         e.dataTransfer.effectAllowed = 'move'
+        setIsDragging(true) // Start global drag state
+      }}
+      onDragEnter={(e) => {
+        if (folderCheck) {
+          e.preventDefault()
+          setDragOverId(item.id)
+        }
       }}
       onDragOver={(e) => {
-        if (folderCheck) e.preventDefault()
+        if (folderCheck) {
+          e.preventDefault()
+          e.stopPropagation()
+        }
+      }}
+      onDragLeave={(e) => {
+        if (folderCheck) {
+          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+            setDragOverId(null)
+          }
+        }
       }}
       onDrop={(e) => {
         if (folderCheck) {
           e.preventDefault()
+          e.stopPropagation()
+          setDragOverId(null)
+          setIsDragging(false) // End global drag state
           const draggedId = e.dataTransfer.getData('text/plain')
           const draggedType = e.dataTransfer.getData('application/x-item-type') || 'file'
           if (draggedId && draggedId !== item.id)
             moveItem(draggedId, item.id, draggedType === 'folder')
         }
       }}
+      onDragEnd={() => {
+        // Guarantee state is cleared when the drag operation finishes or is canceled
+        setDragOverId(null)
+        setIsDragging(false) // End global drag state
+      }}
     >
+      {/* Col 1: Checkbox */}
       <div
-        className={cn(
-          'flex shrink-0 cursor-pointer items-center justify-center',
-          isSelected ? 'text-primary' : 'group-hover:text-muted-foreground/40 text-transparent'
-        )}
+        className="flex shrink-0 cursor-pointer items-center justify-center"
         onClick={(e) => {
           e.stopPropagation()
           onSelect()
@@ -107,7 +148,8 @@ export const FileRow = memo(function FileRow({
         </div>
       </div>
 
-      <div className="flex cursor-grab items-center justify-center active:cursor-grabbing">
+      {/* Col 2: Icon */}
+      <div className="flex items-center justify-center">
         <FileIcon
           mimeType={folderCheck ? undefined : (item as FileItem).encryptedMimeType}
           isFolder={folderCheck}
@@ -115,7 +157,8 @@ export const FileRow = memo(function FileRow({
         />
       </div>
 
-      <div className="flex min-w-0 items-center">
+      {/* Col 3: Name */}
+      <div className="flex min-w-0 items-center justify-start">
         {editingId === item.id ? (
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <input
@@ -154,41 +197,36 @@ export const FileRow = memo(function FileRow({
         )}
       </div>
 
+      {/* Col 4: Actions */}
       <div
         className={cn(
-          'flex cursor-pointer items-center justify-end gap-0.5 transition-opacity duration-150',
+          'relative z-40 hidden items-center justify-start gap-0.5 transition-opacity duration-150 md:flex',
           isMenuActive
             ? 'opacity-100'
             : isOtherMenuActive
               ? 'opacity-0'
-              : 'md:opacity-0 md:group-hover:opacity-100'
+              : 'opacity-0 group-hover:opacity-100'
         )}
+        onClick={(e) => e.stopPropagation()}
       >
         {!folderCheck && (
           <button
-            onClick={(e) => e.stopPropagation()}
-            className="text-muted-foreground hover:bg-accent hover:text-foreground hidden h-8 w-8 cursor-pointer items-center justify-center rounded-md md:flex"
+            className="text-muted-foreground hover:bg-accent hover:text-foreground flex h-8 w-8 cursor-pointer items-center justify-center rounded-md"
             title="Download"
           >
             <Download className="h-4 w-4" />
           </button>
         )}
         <button
-          onClick={(e) => {
-            e.stopPropagation()
-            handleCopyLink()
-          }}
-          className="text-muted-foreground hover:bg-accent hover:text-foreground hidden h-8 w-8 cursor-pointer items-center justify-center rounded-md md:flex"
+          onClick={handleCopyLink}
+          className="text-muted-foreground hover:bg-accent hover:text-foreground flex h-8 w-8 cursor-pointer items-center justify-center rounded-md"
           title="Copy Link"
         >
           {copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Link2 className="h-4 w-4" />}
         </button>
         <button
-          onClick={(e) => {
-            e.stopPropagation()
-            onShare(item, folderCheck)
-          }}
-          className="text-muted-foreground hover:bg-accent hover:text-foreground hidden h-8 w-8 cursor-pointer items-center justify-center rounded-md md:flex"
+          onClick={() => onShare(item, folderCheck)}
+          className="text-muted-foreground hover:bg-accent hover:text-foreground flex h-8 w-8 cursor-pointer items-center justify-center rounded-md"
           title="Share"
         >
           <Share2 className="h-4 w-4" />
@@ -216,12 +254,14 @@ export const FileRow = memo(function FileRow({
         />
       </div>
 
-      <div className="text-muted-foreground/70 hidden w-full items-center gap-1.5 text-xs md:flex">
-        <Clock className="h-3.5 w-3.5" />
+      {/* Col 5: Modified */}
+      <div className="text-muted-foreground/70 hidden items-center justify-start text-xs md:flex">
+        <Clock className="mr-1.5 h-3.5 w-3.5" />
         <span>{formatRelativeDate(item.updatedAt)}</span>
       </div>
 
-      <div className="text-muted-foreground/70 hidden w-full items-center justify-end text-right text-xs tabular-nums md:block">
+      {/* Col 6: Size */}
+      <div className="text-muted-foreground/70 hidden items-center justify-start text-xs tabular-nums md:flex">
         {folderCheck ? `${0} items` : formatBytes((item as FileItem).size)}
       </div>
     </div>

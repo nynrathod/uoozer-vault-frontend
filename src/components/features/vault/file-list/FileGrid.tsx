@@ -2,6 +2,7 @@ import { useRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { FileCard } from './FileCard'
 import { useFileStore } from '@stores/fileStore'
+import { usePreviewStore } from '@stores/previewStore'
 import { isFolder } from '@/lib/type-guards'
 import type { FileItem } from '@/types/files'
 import type { Folder } from '@/types/folders'
@@ -16,14 +17,13 @@ export function FileGrid({ files, folders, folderCounts }: FileGridProps) {
   const parentRef = useRef<HTMLDivElement>(null)
   const allItems = [...folders, ...files]
 
-  // For grid virtualization, we chunk items into rows of 6 and virtualize the rows
   const columns = 6
   const rows = Math.ceil(allItems.length / columns)
 
   const rowVirtualizer = useVirtualizer({
     count: rows,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 180, // Approximate height of a grid card + gap
+    estimateSize: () => 180,
     overscan: 2,
   })
 
@@ -31,7 +31,7 @@ export function FileGrid({ files, folders, folderCounts }: FileGridProps) {
   const setEditingId = useFileStore((s) => s.setEditingId)
   const selectedFileIds = useFileStore((s) => s.selectedFileIds)
   const toggleFileSelection = useFileStore((s) => s.toggleFileSelection)
-  const setPreviewFile = useFileStore((s) => s.setPreviewFile)
+  const openPreview = usePreviewStore((s) => s.open)
 
   return (
     <div ref={parentRef} className="h-full overflow-auto p-4">
@@ -56,7 +56,7 @@ export function FileGrid({ files, folders, folderCounts }: FileGridProps) {
                     key={item.id}
                     item={item}
                     isSelected={selectedFileIds.has(item.id)}
-                    onClick={() => !folderCheck && setPreviewFile(item.id)}
+                    onClick={() => !folderCheck && openPreview(item.id)}
                     onSelect={() => toggleFileSelection(item.id)}
                     editingId={editingId}
                     onRenameRequest={setEditingId}

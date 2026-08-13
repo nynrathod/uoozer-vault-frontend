@@ -33,7 +33,7 @@ export function FileList({
   const rowVirtualizer = useVirtualizer({
     count: allItems.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 52, // Approximate height of FileRow
+    estimateSize: () => 56, // 52px row + 4px gap
     overscan: 5,
   })
 
@@ -69,20 +69,27 @@ export function FileList({
 
   return (
     <div className="flex h-full flex-col">
-      {/* Header */}
-      <div className="border-border/40 text-muted-foreground/50 bg-background sticky top-0 z-10 grid grid-cols-[24px_2.5rem_1fr_9.5rem] items-center gap-3 border-b px-3 py-2 text-[11px] font-semibold tracking-wider uppercase md:grid-cols-[24px_2.5rem_1fr_9.5rem_8rem_6rem]">
-        <div
-          className={cn(
-            'flex h-[18px] w-[18px] shrink-0 cursor-pointer items-center justify-center rounded-[5px] border transition-all duration-150',
-            isAllSelected
-              ? 'border-primary bg-primary text-primary-foreground'
-              : 'border-border hover:border-muted-foreground/40'
-          )}
-          onClick={handleSelectAll}
-        >
-          {isAllSelected && <Check className="h-3 w-3" strokeWidth={3} />}
+      {/* Header - Unified Grid and Left Aligned */}
+      <div className="border-border/40 text-muted-foreground/50 bg-background sticky top-0 z-10 grid grid-cols-[40px_40px_1fr] items-center gap-2 border-b px-4 py-2.5 text-[11px] font-semibold tracking-wider uppercase sm:px-6 md:grid-cols-[40px_40px_1fr_160px_140px_80px]">
+        {/* Col 1: Checkbox */}
+        <div className="flex items-center justify-center">
+          <div
+            className={cn(
+              'flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-[5px] border transition-all duration-150',
+              isAllSelected
+                ? 'border-primary bg-primary text-primary-foreground'
+                : 'border-border hover:border-muted-foreground/40'
+            )}
+            onClick={handleSelectAll}
+          >
+            {isAllSelected && <Check className="h-3 w-3" strokeWidth={3} />}
+          </div>
         </div>
-        <span></span>
+
+        {/* Col 2: Icon Placeholder */}
+        <div></div>
+
+        {/* Col 3: Name */}
         <button
           className="hover:text-foreground flex cursor-pointer items-center gap-1 truncate transition-colors"
           onClick={() => handleColumnSort('name')}
@@ -98,10 +105,16 @@ export function FileList({
             <ChevronsUpDown className="h-3 w-3 opacity-40" />
           )}
         </button>
-        <span></span>
+
+        {/* Col 4: Actions Placeholder (Hidden on mobile) */}
+        <div className="hidden md:block"></div>
+
+        {/* Col 5: Modified */}
         <span className="hidden md:block">Modified</span>
+
+        {/* Col 6: Size */}
         <button
-          className="hover:text-foreground ml-auto flex cursor-pointer items-center gap-1 transition-colors"
+          className="hover:text-foreground hidden cursor-pointer items-center gap-1 transition-colors md:flex"
           onClick={() => handleColumnSort('size')}
         >
           Size{' '}
@@ -119,7 +132,10 @@ export function FileList({
 
       {/* Virtualized List */}
       <div ref={parentRef} className="flex-1 overflow-auto px-4 sm:px-6">
-        <div className="relative w-full" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
+        <div
+          className="relative w-full py-2"
+          style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
+        >
           {rowVirtualizer.getVirtualItems().map((virtualRow) => {
             const item = allItems[virtualRow.index]
             const folderCheck = isFolder(item)
@@ -128,12 +144,13 @@ export function FileList({
                 key={item.id}
                 className="absolute top-0 left-0 w-full"
                 style={{
-                  height: `${virtualRow.size}px`,
+                  height: '52px', // Fixed row height (4px less than virtualizer size to create gap)
                   transform: `translateY(${virtualRow.start}px)`,
                 }}
               >
                 <FileRow
                   item={item}
+                  isFolder={folderCheck}
                   isSelected={selectedFileIds.has(item.id)}
                   onClick={() => (folderCheck ? onFolderClick(item) : onFileClick(item))}
                   onSelect={() => onFileSelect(item.id)}

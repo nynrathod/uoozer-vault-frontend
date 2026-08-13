@@ -36,10 +36,19 @@ export const FileCard = memo(function FileCard({
   const renameItem = useFileStore((s) => s.renameItem)
   const setShareTarget = useFileStore((s) => s.setShareTarget)
   const setVersionFileId = useFileStore((s) => s.setVersionFileId)
+  const activeMenuId = useFileStore((s) => s.activeMenuId)
+
+  // Drag state
+  const dragOverId = useFileStore((s) => s.dragOverId)
+  const setDragOverId = useFileStore((s) => s.setDragOverId)
+  const isDragging = useFileStore((s) => s.isDragging)
+  const setIsDragging = useFileStore((s) => s.setIsDragging)
 
   const folderCheck = isFolder(item)
   const name = item.encryptedName
   const isEditing = editingId === item.id
+  const isMenuActive = activeMenuId === item.id
+  const isDragOver = dragOverId === item.id
 
   const {
     name: gridName,
@@ -60,10 +69,16 @@ export const FileCard = memo(function FileCard({
   return (
     <div
       className={cn(
-        'group relative flex cursor-pointer flex-col items-center gap-2.5 rounded-xl border p-4 text-center transition-all duration-150',
-        isSelected
-          ? 'border-primary/25 bg-primary/[0.04] shadow-sm'
-          : 'hover:border-border/60 hover:bg-accent/50 border-transparent',
+        'group relative flex cursor-pointer flex-col items-center gap-2.5 rounded-xl border p-4 text-center transition-colors duration-150 ease-out',
+        isDragOver
+          ? 'border-primary/20 bg-primary/5 z-20 shadow-[0_0_0_2px_hsl(var(--primary)/0.2),0_8px_20px_-4px_hsl(var(--primary)/0.15)]'
+          : isSelected
+            ? 'border-primary/25 bg-primary/[0.04] shadow-sm'
+            : !isDragging
+              ? 'hover:border-border/60 hover:bg-accent/50 border-transparent'
+              : 'border-transparent',
+        isMenuActive && 'z-30',
+        isEditing && 'z-30',
         'cursor-grab active:cursor-grabbing'
       )}
       onClick={onClick}
@@ -72,18 +87,42 @@ export const FileCard = memo(function FileCard({
         e.dataTransfer.setData('text/plain', item.id)
         e.dataTransfer.setData('application/x-item-type', folderCheck ? 'folder' : 'file')
         e.dataTransfer.effectAllowed = 'move'
+        setIsDragging(true)
+      }}
+      onDragEnter={(e) => {
+        if (folderCheck) {
+          e.preventDefault()
+          setDragOverId(item.id)
+        }
       }}
       onDragOver={(e) => {
-        if (folderCheck) e.preventDefault()
+        if (folderCheck) {
+          e.preventDefault()
+          e.stopPropagation()
+        }
+      }}
+      onDragLeave={(e) => {
+        if (folderCheck) {
+          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+            setDragOverId(null)
+          }
+        }
       }}
       onDrop={(e) => {
         if (folderCheck) {
           e.preventDefault()
+          e.stopPropagation()
+          setDragOverId(null)
+          setIsDragging(false)
           const draggedId = e.dataTransfer.getData('text/plain')
           const draggedType = e.dataTransfer.getData('application/x-item-type') || 'file'
           if (draggedId && draggedId !== item.id)
             moveItem(draggedId, item.id, draggedType === 'folder')
         }
+      }}
+      onDragEnd={() => {
+        setDragOverId(null)
+        setIsDragging(false)
       }}
     >
       <FileIcon
@@ -151,6 +190,8 @@ export const FileCard = memo(function FileCard({
           copied={copied}
           onCopyLink={handleCopyLink}
           onVersions={() => !folderCheck && setVersionFileId(item.id)}
+          open={isMenuActive}
+          onOpenChange={(open) => useFileStore.getState().setActiveMenuId(open ? item.id : null)}
           trigger={
             <button
               className={cn(
