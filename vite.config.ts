@@ -115,20 +115,22 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
+            // Core React stuff
             if (
               id.includes('react') ||
               id.includes('react-dom') ||
-              id.includes('react-router-dom')
+              id.includes('react-router-dom') ||
+              id.includes('scheduler')
             ) {
               return 'vendor'
             }
-            if (
-              id.includes('framer-motion') ||
-              id.includes('lucide-react') ||
-              id.includes('vaul')
-            ) {
-              return 'ui'
+
+            // Crypto & Workers (Keep them isolated so they load in the background!)
+            if (id.includes('libsodium') || id.includes('hash-wasm') || id.includes('comlink')) {
+              return 'crypto'
             }
+
+            // Data fetching & Forms
             if (id.includes('@tanstack/react-query')) {
               return 'query'
             }
@@ -138,6 +140,21 @@ export default defineConfig({
               id.includes('@hookform/resolvers')
             ) {
               return 'form'
+            }
+
+            // UI Libraries (Radix, Framer, Lucide)
+            if (
+              id.includes('framer-motion') ||
+              id.includes('lucide-react') ||
+              id.includes('vaul') ||
+              id.includes('@radix-ui')
+            ) {
+              return 'ui'
+            }
+
+            // Axios and other utilities
+            if (id.includes('axios')) {
+              return 'network'
             }
           }
         },
