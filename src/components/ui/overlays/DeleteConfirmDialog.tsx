@@ -9,6 +9,7 @@ interface DeleteConfirmDialogProps {
   onConfirm: () => void
 }
 
+/** Confirmation dialog before permanently deleting a file or folder. */
 export function DeleteConfirmDialog({
   open,
   onOpenChange,

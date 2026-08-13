@@ -1,7 +1,10 @@
 import { Shield } from 'lucide-react'
 import { cn } from '@lib/utils'
 
+/** Branded loading spinner with animated shield icon and progress bar. */
 export function VaultLoader({ size = 40, className }: { size?: number; className?: string }) {
+  // Uses CSS keyframe animations: spin (border rotation), pulse (icon opacity),
+  // and vault-slide (progress bar indeterminate slide)
   return (
     <div className={cn('flex flex-col items-center gap-3', className)}>
       <div className="relative" style={{ width: size, height: size }}>

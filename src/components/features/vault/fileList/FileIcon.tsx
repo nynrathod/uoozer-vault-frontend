@@ -21,6 +21,7 @@ interface FileIconProps {
   className?: string
 }
 
+/** Displays a typed icon for a file or folder, color-coded by MIME category. */
 export const FileIcon = memo(function FileIcon({
   mimeType,
   isFolder,
@@ -47,6 +48,8 @@ export const FileIcon = memo(function FileIcon({
     )
   }
 
+  // Cascading MIME classification: checks prefix patterns first, then specific type matches,
+  // then extension-based code detection, falling back to generic file icon
   const ext = mimeType?.split('/').pop() || ''
   const type = mimeType?.startsWith('image/')
     ? 'image'

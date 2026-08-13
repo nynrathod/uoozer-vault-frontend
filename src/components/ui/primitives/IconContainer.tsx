@@ -8,6 +8,7 @@ interface IconContainerProps {
   className?: string
 }
 
+/** Colored background circle wrapping a Lucide icon. */
 export function IconContainer({
   icon: Icon,
   variant = 'primary',

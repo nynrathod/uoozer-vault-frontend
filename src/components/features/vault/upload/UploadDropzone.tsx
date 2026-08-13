@@ -10,6 +10,7 @@ interface UploadDropzoneProps {
   onDrop: (files: File[]) => void
 }
 
+/** Full-screen overlay dropzone for drag-and-drop file uploads. */
 export function UploadDropzone({ isOpen, onClose, onDrop }: UploadDropzoneProps) {
   const handleDrop = useCallback(
     (acceptedFiles: File[]) => {

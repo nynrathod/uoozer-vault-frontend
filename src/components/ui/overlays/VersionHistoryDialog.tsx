@@ -18,6 +18,7 @@ interface VersionHistoryDialogProps {
   fileName: string
 }
 
+// TODO: Replace with API integration when version history endpoint is available
 const mockVersions: Version[] = [
   {
     id: 'v3',
@@ -45,6 +46,7 @@ const mockVersions: Version[] = [
   },
 ]
 
+/** Dialog showing the version history for a file with restore/download actions. */
 export function VersionHistoryDialog({ open, onOpenChange, fileName }: VersionHistoryDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange} className="max-w-md">

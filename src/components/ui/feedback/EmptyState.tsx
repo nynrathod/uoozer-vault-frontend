@@ -7,6 +7,7 @@ interface EmptyStateProps {
   description?: string
 }
 
+/** Placeholder shown when a folder or view contains no items. */
 export function EmptyState({
   title = 'No files yet',
   description = 'Upload your first file to get started',

@@ -6,7 +6,7 @@ import type { ReactNode } from 'react'
 interface CheckableMenuItemProps {
   label: string
   icon?: LucideIcon
-  leading?: ReactNode // Added this to support custom elements like color dots
+  leading?: ReactNode
   isActive: boolean
   onClick: () => void
   className?: string

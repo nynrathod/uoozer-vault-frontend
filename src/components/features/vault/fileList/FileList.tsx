@@ -18,6 +18,7 @@ interface FileListProps {
   onShare: (item: FileItem | Folder, isFolder: boolean) => void
 }
 
+/** Virtualized list view for files and folders with sortable columns. */
 export function FileList({
   files,
   folders,
@@ -27,12 +28,13 @@ export function FileList({
   onShare,
 }: FileListProps) {
   const parentRef = useRef<HTMLDivElement>(null)
+  // Folders always appear before files
   const allItems = [...folders, ...files]
 
   const rowVirtualizer = useVirtualizer({
     count: allItems.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 56, // 52px row + 4px gap
+    estimateSize: () => 56, // 52px row height + 4px visual gap
     overscan: 5,
   })
 
@@ -52,6 +54,7 @@ export function FileList({
     else selectAll(allItems.map((i) => i.id))
   }
 
+  // Cycles through ascending → descending → unsorted on repeated clicks
   const handleColumnSort = (field: 'name' | 'size' | 'modified') => {
     let newField: 'name' | 'size' | 'modified' | null = field
     let newOrder: 'asc' | 'desc' | null = 'asc'
@@ -68,9 +71,7 @@ export function FileList({
 
   return (
     <div className="flex h-full flex-col">
-      {/* Header - Unified Grid and Left Aligned */}
       <div className="border-border/40 text-muted-foreground/50 bg-background sticky top-0 z-10 grid grid-cols-[40px_40px_1fr] items-center gap-2 border-b px-4 py-2.5 text-[11px] font-semibold tracking-wider uppercase sm:px-6 md:grid-cols-[40px_40px_1fr_160px_140px_80px]">
-        {/* Col 1: Checkbox */}
         <div className="flex items-center justify-center">
           <Checkbox
             checked={isAllSelected}
@@ -79,10 +80,8 @@ export function FileList({
           />
         </div>
 
-        {/* Col 2: Icon Placeholder */}
         <div></div>
 
-        {/* Col 3: Name */}
         <button
           className="hover:text-foreground flex cursor-pointer items-center gap-1 truncate transition-colors"
           onClick={() => handleColumnSort('name')}
@@ -99,13 +98,10 @@ export function FileList({
           )}
         </button>
 
-        {/* Col 4: Actions Placeholder (Hidden on mobile) */}
         <div className="hidden md:block"></div>
 
-        {/* Col 5: Modified */}
         <span className="hidden md:block">Modified</span>
 
-        {/* Col 6: Size */}
         <button
           className="hover:text-foreground hidden cursor-pointer items-center gap-1 transition-colors md:flex"
           onClick={() => handleColumnSort('size')}
@@ -123,7 +119,6 @@ export function FileList({
         </button>
       </div>
 
-      {/* Virtualized List */}
       <div ref={parentRef} className="flex-1 overflow-auto px-4 sm:px-6">
         <div
           className="relative w-full py-2"
@@ -137,7 +132,7 @@ export function FileList({
                 key={item.id}
                 className="absolute top-0 left-0 w-full"
                 style={{
-                  height: '52px', // Fixed row height (4px less than virtualizer size to create gap)
+                  height: '52px',
                   transform: `translateY(${virtualRow.start}px)`,
                 }}
               >

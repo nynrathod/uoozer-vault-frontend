@@ -8,6 +8,7 @@ interface FileBreadcrumbProps {
   onNavigate: (folderId: string | null) => void
 }
 
+/** Clickable breadcrumb navigation showing the current folder path. */
 export const FileBreadcrumb = memo(function FileBreadcrumb({
   path,
   onNavigate,

@@ -30,6 +30,7 @@ interface FileActionsMenuProps {
   onVersions?: () => void
 }
 
+/** Dropdown menu with file/folder actions such as rename, share, and delete. */
 export const FileActionsMenu = memo(function FileActionsMenu({
   item,
   isFolder,
@@ -53,6 +54,7 @@ export const FileActionsMenu = memo(function FileActionsMenu({
         <DropdownItem icon={<Edit3 className="h-4 w-4" />} onClick={() => onRenameRequest(item.id)}>
           Rename
         </DropdownItem>
+        {/* Optimistic UI: shows "Copied!" immediately while the link is copied to clipboard */}
         <DropdownItem
           icon={
             copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />

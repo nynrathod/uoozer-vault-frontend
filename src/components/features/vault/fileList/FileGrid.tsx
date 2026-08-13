@@ -13,13 +13,18 @@ interface FileGridProps {
   folderCounts?: Record<string, number>
 }
 
+/** Virtualized grid of file/folder cards. */
 export function FileGrid({ files, folders, folderCounts }: FileGridProps) {
   const parentRef = useRef<HTMLDivElement>(null)
+  // Folders always appear before files
   const allItems = [...folders, ...files]
 
+  // Fixed column count for virtualizer row calculation;
+  // responsive column count is handled by CSS grid-cols at each breakpoint
   const columns = 6
   const rows = Math.ceil(allItems.length / columns)
 
+  // Virtualize rows of cards rather than individual cards to keep grid layout intact
   const rowVirtualizer = useVirtualizer({
     count: rows,
     getScrollElement: () => parentRef.current,

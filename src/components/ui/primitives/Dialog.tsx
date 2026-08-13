@@ -10,18 +10,17 @@ interface DialogProps {
   className?: string
 }
 
+/** Portal-based modal dialog with backdrop and animated content. */
 function Dialog({ open, onOpenChange, children, className }: DialogProps) {
   if (!open) return null
 
   return createPortal(
     <>
-      {/* Backdrop with smooth fade-in */}
       <div
         className="animate-fade-in fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm"
         onClick={() => onOpenChange(false)}
       />
       <div className="pointer-events-none fixed inset-0 z-[200] flex items-center justify-center p-4">
-        {/* Content with smooth scale-in */}
         <div
           className={cn(
             'border-border/60 bg-card pointer-events-auto w-full max-w-lg rounded-2xl border p-6 shadow-xl',
@@ -37,12 +36,14 @@ function Dialog({ open, onOpenChange, children, className }: DialogProps) {
   )
 }
 
+/** Container for the dialog title and description. */
 function DialogHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div className={cn('flex flex-col gap-1.5 text-left sm:text-left', className)} {...props} />
   )
 }
 
+/** Accessible heading element inside a dialog. */
 function DialogTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
   return (
     <h2
@@ -52,6 +53,7 @@ function DialogTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingEl
   )
 }
 
+/** Secondary text providing context for the dialog. */
 function DialogDescription({ className, ...props }: React.HTMLAttributes<HTMLParagraphElement>) {
   return (
     <p
@@ -61,6 +63,7 @@ function DialogDescription({ className, ...props }: React.HTMLAttributes<HTMLPar
   )
 }
 
+/** Container for dialog action buttons, right-aligned on larger screens. */
 function DialogFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
@@ -70,6 +73,7 @@ function DialogFooter({ className, ...props }: React.HTMLAttributes<HTMLDivEleme
   )
 }
 
+/** Close button positioned in the top-right corner of the dialog. */
 function DialogClose({ onClick }: { onClick?: () => void }) {
   return (
     <button

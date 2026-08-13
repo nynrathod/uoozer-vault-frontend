@@ -10,6 +10,7 @@ const navItems = [
   { label: 'Settings', icon: Settings, path: ROUTES.SETTINGS },
 ]
 
+/** Fixed bottom navigation bar for mobile viewports. */
 export function MobileNav() {
   return (
     <nav className="border-border/60 bg-background/90 pb-safe fixed inset-x-0 bottom-0 z-50 border-t backdrop-blur-xl">

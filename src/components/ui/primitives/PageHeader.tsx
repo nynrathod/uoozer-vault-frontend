@@ -9,6 +9,7 @@ interface PageHeaderProps {
   children?: React.ReactNode
 }
 
+/** Top bar with page title, optional subtitle/icon, and a slot for actions. */
 export function PageHeader({ title, subtitle, icon: Icon, className, children }: PageHeaderProps) {
   return (
     <div

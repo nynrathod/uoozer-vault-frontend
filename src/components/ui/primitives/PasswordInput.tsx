@@ -3,6 +3,7 @@ import { Eye, EyeOff } from 'lucide-react'
 import { cn } from '@lib/utils'
 import { Input } from '@/components/ui/primitives/Input'
 
+/** Password input with a toggle to reveal the value. */
 const PasswordInput = React.forwardRef<HTMLInputElement, React.ComponentPropsWithoutRef<'input'>>(
   ({ className, ...props }, ref) => {
     const [showPassword, setShowPassword] = React.useState(false)
