@@ -121,7 +121,7 @@ export function useAuth() {
   }, [])
 
   const completeSignup = useCallback(
-    async (bundle: any, email: string, fullName: string = '') => {
+    async (bundle: any, email: string, fullName: string) => {
       setCryptoState({ masterKey: bundle.masterKey, dek: bundle.dek })
 
       const deviceKey = await generateDek()
@@ -132,7 +132,14 @@ export function useAuth() {
         await bytesToBase64(deviceWrappedDek.nonce)
       )
 
-      setUser({ id: '', email, fullName, createdAt: '', updatedAt: '' })
+      // Use the fullName parameter passed into the function
+      setUser({
+        id: '',
+        email,
+        fullName,
+        createdAt: '',
+        updatedAt: '',
+      })
       setAuthenticated(true)
     },
     [setAuthenticated, setCryptoState, setUser]
@@ -192,7 +199,7 @@ export function useAuth() {
         setUser({
           id: '',
           email,
-          fullName: bundle.recoveryKeyDisplay ? credentials.fullName : '',
+          fullName: tokens.full_name || '',
           createdAt: '',
           updatedAt: '',
         })
