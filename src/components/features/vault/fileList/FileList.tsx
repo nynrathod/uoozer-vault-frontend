@@ -1,7 +1,6 @@
 import { useRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { cn } from '@lib/utils'
-import { Check, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
+import { ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
 import { FileRow } from './FileRow'
 import { useFileStore } from '@stores/fileStore'
 import { isFolder } from '@/lib/type-guards'

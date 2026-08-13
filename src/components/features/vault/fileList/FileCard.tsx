@@ -1,7 +1,7 @@
 import { memo } from 'react'
 import { FileIcon } from './FileIcon'
 import { cn, formatBytes } from '@lib/utils'
-import { FileActionsMenu } from '../file-actions/FileActionsMenu'
+import { FileActionsMenu } from '../fileActions/FileActionsMenu'
 import { MoreHorizontal, Share2, Loader2, Check } from 'lucide-react'
 import { useClipboard } from '@hooks/useClipboard'
 import { useInlineRename } from '@hooks/useInlineRename'
@@ -15,7 +15,6 @@ interface FileCardProps {
   item: FileItem | Folder
   isSelected: boolean
   onClick: () => void
-  onSelect: () => void
   editingId?: string | null
   onRenameRequest?: (id: string | null) => void
   itemCount?: number
@@ -25,7 +24,6 @@ export const FileCard = memo(function FileCard({
   item,
   isSelected,
   onClick,
-  onSelect,
   editingId,
   onRenameRequest,
   itemCount = 0,
