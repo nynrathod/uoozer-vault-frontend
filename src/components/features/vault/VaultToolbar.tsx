@@ -11,25 +11,17 @@ import {
   Download,
   Trash2,
   X,
-  Check,
   ChevronDown,
 } from 'lucide-react'
 import { useFileStore } from '@stores/fileStore'
 import { useUIStore } from '@stores/uiStore'
 import { Button } from '@ui/Button'
 import { DropdownMenu, DropdownItem, DropdownSeparator, DropdownLabel } from '@ui/DropdownMenu'
-import type { FileItem } from '@/types/files'
-import type { Folder } from '@/types/folders'
+import { CheckableMenuItem } from '@/components/ui'
 
-export function VaultToolbar({
-  files,
-  folders,
-  onUpload,
-}: {
-  files: FileItem[]
-  folders: Folder[]
-  onUpload: () => void
-}) {
+export function VaultToolbar() {
+  const files = useFileStore((s) => s.files)
+  const folders = useFileStore((s) => s.folders)
   const selectedFileIds = useFileStore((s) => s.selectedFileIds)
   const clearFileSelection = useFileStore((s) => s.clearSelection)
   const deleteItem = useFileStore((s) => s.deleteItem)
@@ -43,18 +35,10 @@ export function VaultToolbar({
   const setUploadPanelOpen = useUIStore((s) => s.setUploadPanelOpen)
 
   const hasSelection = selectedFileIds.size > 0
-
-  const applySort = (field: 'name' | 'size' | 'modified', order: 'asc' | 'desc') => {
-    setSort(field, order)
-  }
+  const itemCount = files.size + folders.size
 
   const handleBulkDelete = () => {
-    selectedFileIds.forEach((id) =>
-      deleteItem(
-        id,
-        folders.some((f) => f.id === id)
-      )
-    )
+    selectedFileIds.forEach((id) => deleteItem(id, folders.has(id)))
     clearFileSelection()
   }
 
@@ -101,39 +85,39 @@ export function VaultToolbar({
               }
             >
               <DropdownLabel>Sort by</DropdownLabel>
-              <DropdownItem onClick={() => applySort('name', 'asc')}>
+              <DropdownItem onClick={() => setSort('name', 'asc')}>
                 Name (A → Z){' '}
                 {sortField === 'name' && sortOrder === 'asc' && (
                   <Check className="ml-auto h-3.5 w-3.5" />
                 )}
               </DropdownItem>
-              <DropdownItem onClick={() => applySort('name', 'desc')}>
+              <DropdownItem onClick={() => setSort('name', 'desc')}>
                 Name (Z → A){' '}
                 {sortField === 'name' && sortOrder === 'desc' && (
                   <Check className="ml-auto h-3.5 w-3.5" />
                 )}
               </DropdownItem>
               <DropdownSeparator />
-              <DropdownItem onClick={() => applySort('modified', 'desc')}>
+              <DropdownItem onClick={() => setSort('modified', 'desc')}>
                 Newest first{' '}
                 {sortField === 'modified' && sortOrder === 'desc' && (
                   <Check className="ml-auto h-3.5 w-3.5" />
                 )}
               </DropdownItem>
-              <DropdownItem onClick={() => applySort('modified', 'asc')}>
+              <DropdownItem onClick={() => setSort('modified', 'asc')}>
                 Oldest first{' '}
                 {sortField === 'modified' && sortOrder === 'asc' && (
                   <Check className="ml-auto h-3.5 w-3.5" />
                 )}
               </DropdownItem>
               <DropdownSeparator />
-              <DropdownItem onClick={() => applySort('size', 'desc')}>
+              <DropdownItem onClick={() => setSort('size', 'desc')}>
                 Largest first{' '}
                 {sortField === 'size' && sortOrder === 'desc' && (
                   <Check className="ml-auto h-3.5 w-3.5" />
                 )}
               </DropdownItem>
-              <DropdownItem onClick={() => applySort('size', 'asc')}>
+              <DropdownItem onClick={() => setSort('size', 'asc')}>
                 Smallest first{' '}
                 {sortField === 'size' && sortOrder === 'asc' && (
                   <Check className="ml-auto h-3.5 w-3.5" />
@@ -141,7 +125,7 @@ export function VaultToolbar({
               </DropdownItem>
             </DropdownMenu>
             <span className="text-muted-foreground/60 hidden text-xs sm:inline">
-              {files.length + folders.length} items
+              {itemCount} items
             </span>
           </div>
 
@@ -163,7 +147,10 @@ export function VaultToolbar({
               >
                 New Folder
               </DropdownItem>
-              <DropdownItem icon={<Upload className="h-4 w-4" />} onClick={onUpload}>
+              <DropdownItem
+                icon={<Upload className="h-4 w-4" />}
+                onClick={() => setUploadPanelOpen(true)}
+              >
                 Upload File
               </DropdownItem>
               <DropdownSeparator />
@@ -198,3 +185,6 @@ export function VaultToolbar({
     </div>
   )
 }
+
+// Required import for Check icon used in sort dropdown
+import { Check } from 'lucide-react'

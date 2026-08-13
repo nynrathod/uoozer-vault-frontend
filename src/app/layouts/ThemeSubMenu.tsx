@@ -1,36 +1,26 @@
-import { Palette, ChevronRight, Check, Sun, Moon, Monitor } from 'lucide-react'
+import { useState } from 'react'
+import { Palette, ChevronRight, Sun, Moon, Monitor } from 'lucide-react'
 import { cn } from '@lib/utils'
-import type { ThemeVariant, ColorScheme } from '@hooks/useTheme'
+import { useTheme } from '@hooks/useTheme'
+import { CheckableMenuItem } from '@/components/ui'
 
 const THEMES = [
-  { id: 'default' as const, label: 'Uoozer Blue' },
-  { id: 'uoozer' as const, label: 'Uoozer Amber' },
-  { id: 'obsidian' as const, label: 'Obsidian Dark' },
-  { id: 'slate' as const, label: 'Slate Gray' },
-  { id: 'forest' as const, label: 'Forest Green' },
+  { id: 'default' as const, label: 'Uoozer Blue', color: '#0061FE' },
+  { id: 'uoozer' as const, label: 'Uoozer Amber', color: '#F5A623' },
+  { id: 'obsidian' as const, label: 'Obsidian Dark', color: '#4F8CFF' },
+  { id: 'slate' as const, label: 'Slate Gray', color: '#4A5568' },
+  { id: 'forest' as const, label: 'Forest Green', color: '#2F855A' },
 ]
 
-interface ThemeSubMenuProps {
-  variant: ThemeVariant
-  scheme: ColorScheme
-  setVariant: (v: ThemeVariant) => void
-  setScheme: (s: ColorScheme) => void
-  themeSubmenu: boolean
-  setThemeSubmenu: (v: boolean) => void
-}
+export function ThemeSubMenu() {
+  const { variant, scheme, setVariant, setScheme } = useTheme()
+  const [isOpen, setIsOpen] = useState(false)
 
-export function ThemeSubMenu({
-  variant,
-  scheme,
-  setVariant,
-  setScheme,
-  themeSubmenu,
-  setThemeSubmenu,
-}: ThemeSubMenuProps) {
   return (
     <div className="relative mt-0.5">
       <button
-        onClick={() => setThemeSubmenu(!themeSubmenu)}
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
         className="text-foreground hover:bg-accent flex w-full items-center justify-between rounded-lg px-2.5 py-[7px] text-[13px] transition-colors"
       >
         <span className="flex items-center gap-2.5">
@@ -39,63 +29,51 @@ export function ThemeSubMenu({
         <ChevronRight
           className={cn(
             'text-muted-foreground/50 h-3.5 w-3.5 transition-transform',
-            themeSubmenu && 'rotate-90'
+            isOpen && 'rotate-90'
           )}
         />
       </button>
 
-      {themeSubmenu && (
+      {isOpen && (
         <div className="border-border/60 mt-1 ml-4 space-y-1 border-l pl-2">
           <div className="text-muted-foreground/50 px-2.5 pt-1.5 pb-1 text-[10px] font-semibold tracking-wider uppercase">
             Mode
           </div>
-          {(
-            [
-              { id: 'light', label: 'Light', icon: Sun },
-              { id: 'dark', label: 'Dark', icon: Moon },
-              { id: 'system', label: 'System', icon: Monitor },
-            ] as const
-          ).map((s) => (
-            <button
-              key={s.id}
-              onClick={() => setScheme(s.id)}
-              className="text-foreground hover:bg-accent flex w-full items-center justify-between rounded-lg px-2.5 py-[6px] text-[13px] transition-colors"
-            >
-              <span className="flex items-center gap-2.5">
-                <s.icon className="text-muted-foreground/60 h-4 w-4" /> {s.label}
-              </span>
-              {scheme === s.id && <Check className="text-primary h-3.5 w-3.5" strokeWidth={3} />}
-            </button>
-          ))}
+          <CheckableMenuItem
+            label="Light"
+            icon={Sun}
+            isActive={scheme === 'light'}
+            onClick={() => setScheme('light')}
+          />
+          <CheckableMenuItem
+            label="Dark"
+            icon={Moon}
+            isActive={scheme === 'dark'}
+            onClick={() => setScheme('dark')}
+          />
+          <CheckableMenuItem
+            label="System"
+            icon={Monitor}
+            isActive={scheme === 'system'}
+            onClick={() => setScheme('system')}
+          />
+
           <div className="text-muted-foreground/50 px-2.5 pt-2 pb-1 text-[10px] font-semibold tracking-wider uppercase">
             Color
           </div>
           {THEMES.map((t) => (
-            <button
+            <CheckableMenuItem
               key={t.id}
+              label={t.label}
+              isActive={variant === t.id}
               onClick={() => setVariant(t.id)}
-              className="text-foreground hover:bg-accent flex w-full items-center justify-between rounded-lg px-2.5 py-[6px] text-[13px] transition-colors"
-            >
-              <span className="flex items-center gap-2.5">
+              leading={
                 <span
                   className="border-border/60 h-3.5 w-3.5 rounded-full border"
-                  style={{
-                    background:
-                      t.id === 'default'
-                        ? '#0061FE'
-                        : t.id === 'uoozer'
-                          ? '#F5A623'
-                          : t.id === 'obsidian'
-                            ? '#4F8CFF'
-                            : t.id === 'slate'
-                              ? '#4A5568'
-                              : '#2F855A',
-                  }}
+                  style={{ background: t.color }}
                 />
-                <span>{t.label}</span>
-              </span>
-              {variant === t.id && <Check className="text-primary h-3.5 w-3.5" strokeWidth={3} />}
-            </button>
+              }
+            />
           ))}
         </div>
       )}

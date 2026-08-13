@@ -142,7 +142,7 @@ export function VaultPage() {
               id === null ? navigate(ROUTES.VAULT) : navigate(`/vault/folder/${id}`)
             }
           />
-          <VaultToolbar files={files} folders={folders} onUpload={() => setUploadPanelOpen(true)} />
+          <VaultToolbar />
 
           <div className="flex-1 overflow-hidden">
             {isLoading ? (

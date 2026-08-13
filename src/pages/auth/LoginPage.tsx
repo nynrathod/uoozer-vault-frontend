@@ -11,6 +11,8 @@ import { Label } from '@ui/Label'
 import { ROUTES } from '@lib/constants'
 import { cn } from '@lib/utils'
 import { type LoginInput, loginSchema } from '@/lib/validator'
+import { PasswordInput } from '@/components/ui/primitives/PasswordInput'
+import { Checkbox } from '@/components/ui/primitives/Checkbox'
 
 export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
@@ -74,36 +76,21 @@ export function LoginPage() {
 
         <div className="space-y-1.5">
           <Label htmlFor="password">Password</Label>
-          <div className="relative">
-            <Input
-              id="password"
-              type={showPassword ? 'text' : 'password'}
-              placeholder="Enter your password"
-              autoComplete="current-password"
-              {...register('password')}
-              className={cn(
-                'pr-10',
-                errors.password && 'border-destructive focus-visible:shadow-destructive/10'
-              )}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2 transition-colors"
-            >
-              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
-          </div>
+          <PasswordInput
+            id="password"
+            placeholder="Enter your password"
+            autoComplete="current-password"
+            {...register('password')}
+            className={cn(
+              errors.password && 'border-destructive focus-visible:shadow-destructive/10'
+            )}
+          />
           {errors.password && <p className="text-destructive text-xs">{errors.password.message}</p>}
         </div>
 
         <div className="flex items-center justify-between">
           <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              {...register('rememberMe')}
-              className="border-border text-primary focus:ring-primary h-4 w-4 rounded"
-            />
+            <Checkbox {...register('rememberMe')} />
             <span className="text-muted-foreground">Remember me</span>
           </label>
           <Link to={ROUTES.RECOVERY} className="text-primary text-sm hover:underline">

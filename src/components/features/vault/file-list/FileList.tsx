@@ -7,6 +7,7 @@ import { useFileStore } from '@stores/fileStore'
 import { isFolder } from '@/lib/type-guards'
 import type { FileItem } from '@/types/files'
 import type { Folder } from '@/types/folders'
+import { Checkbox } from '@/components/ui/primitives/Checkbox'
 
 interface FileListProps {
   files: FileItem[]
@@ -73,17 +74,11 @@ export function FileList({
       <div className="border-border/40 text-muted-foreground/50 bg-background sticky top-0 z-10 grid grid-cols-[40px_40px_1fr] items-center gap-2 border-b px-4 py-2.5 text-[11px] font-semibold tracking-wider uppercase sm:px-6 md:grid-cols-[40px_40px_1fr_160px_140px_80px]">
         {/* Col 1: Checkbox */}
         <div className="flex items-center justify-center">
-          <div
-            className={cn(
-              'flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-[5px] border transition-all duration-150',
-              isAllSelected
-                ? 'border-primary bg-primary text-primary-foreground'
-                : 'border-border hover:border-muted-foreground/40'
-            )}
-            onClick={handleSelectAll}
-          >
-            {isAllSelected && <Check className="h-3 w-3" strokeWidth={3} />}
-          </div>
+          <Checkbox
+            checked={isAllSelected}
+            onCheckedChange={handleSelectAll}
+            className="data-[state=unchecked]:hover:border-muted-foreground/40"
+          />
         </div>
 
         {/* Col 2: Icon Placeholder */}

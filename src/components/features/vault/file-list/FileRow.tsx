@@ -10,6 +10,7 @@ import { MOCK_URLS } from '@lib/constants'
 import { isFolder } from '@/lib/type-guards'
 import type { FileItem } from '@/types/files'
 import type { Folder } from '@/types/folders'
+import { Checkbox } from '@/components/ui'
 
 interface FileRowProps {
   item: FileItem | Folder
@@ -136,16 +137,10 @@ export const FileRow = memo(function FileRow({
           onSelect()
         }}
       >
-        <div
-          className={cn(
-            'flex h-[18px] w-[18px] items-center justify-center rounded-[5px] border transition-all duration-150',
-            isSelected
-              ? 'border-primary bg-primary text-primary-foreground'
-              : 'border-border group-hover:border-muted-foreground/40'
-          )}
-        >
-          {isSelected && <Check className="h-3 w-3" strokeWidth={3} />}
-        </div>
+        <Checkbox
+          checked={isSelected}
+          className="data-[state=unchecked]:group-hover:border-muted-foreground/40"
+        />
       </div>
 
       {/* Col 2: Icon */}

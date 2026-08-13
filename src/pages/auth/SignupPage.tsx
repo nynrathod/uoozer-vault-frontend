@@ -1,36 +1,25 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useForm } from 'react-hook-form'
+import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import {
-  Eye,
-  EyeOff,
-  Shield,
-  ArrowRight,
-  AlertCircle,
-  Check,
-  Copy,
-  Key,
-  Loader2,
-  ArrowDownToLine,
-} from 'lucide-react'
+import { Shield, ArrowRight, AlertCircle, Check, Key, Loader2, ArrowDownToLine } from 'lucide-react'
 
 import { useAuth } from '@hooks/useAuth'
 import { Button } from '@ui/Button'
 import { Input } from '@ui/Input'
 import { Label } from '@ui/Label'
+import { PasswordInput } from '@ui/PasswordInput'
+import { Checkbox } from '@ui/Checkbox'
+import { CopyButton } from '@ui/CopyButton'
 import { Dialog, DialogHeader, DialogTitle, DialogDescription } from '@ui/Dialog'
 import { ROUTES } from '@lib/constants'
 import { cn } from '@lib/utils'
 import { type SignupInput, signupSchema } from '@/lib/validator'
 import { AuthError } from '@/services/auth/error'
 import { mapErrorToAlert, type ApiErrorAlert } from '@/lib/errors'
-import { useClipboard } from '@hooks/useClipboard'
 
 export function SignupPage() {
   const navigate = useNavigate()
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirm, setShowConfirm] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [recoveryKey, setRecoveryKey] = useState('')
   const [cryptoBundle, setCryptoBundle] = useState<any>(null)
@@ -39,12 +28,12 @@ export function SignupPage() {
   const [acknowledged, setAcknowledged] = useState(false)
   const [apiError, setApiError] = useState<ApiErrorAlert | null>(null)
 
-  const { copied, copy } = useClipboard()
   const { signup, completeSignup, isSigningUp } = useAuth()
 
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors },
     watch,
   } = useForm<SignupInput>({
@@ -65,7 +54,7 @@ export function SignupPage() {
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
     setDownloaded(true)
-    setTimeout(() => setDownloaded(false), 2000) // Keeping this simple timeout as it's not state dependent on component unmount
+    setTimeout(() => setDownloaded(false), 2000)
   }
 
   const onSubmit = async (data: SignupInput) => {
@@ -131,23 +120,13 @@ export function SignupPage() {
 
         <div className="space-y-1.5">
           <Label htmlFor="password">Password</Label>
-          <div className="relative">
-            <Input
-              id="password"
-              type={showPassword ? 'text' : 'password'}
-              placeholder="Create a strong password"
-              autoComplete="new-password"
-              {...register('password')}
-              className={cn('pr-10', errors.password && 'border-destructive')}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2"
-            >
-              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
-          </div>
+          <PasswordInput
+            id="password"
+            placeholder="Create a strong password"
+            autoComplete="new-password"
+            {...register('password')}
+            className={cn(errors.password && 'border-destructive')}
+          />
           {errors.password && <p className="text-destructive text-xs">{errors.password.message}</p>}
           {password && password.length > 0 && (
             <div className="mt-2 flex gap-1">
@@ -173,39 +152,43 @@ export function SignupPage() {
 
         <div className="space-y-1.5">
           <Label htmlFor="confirmPassword">Confirm password</Label>
-          <div className="relative">
-            <Input
-              id="confirmPassword"
-              type={showConfirm ? 'text' : 'password'}
-              placeholder="Confirm your password"
-              autoComplete="new-password"
-              {...register('confirmPassword')}
-              className={cn('pr-10', errors.confirmPassword && 'border-destructive')}
-            />
-            <button
-              type="button"
-              onClick={() => setShowConfirm(!showConfirm)}
-              className="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2"
-            >
-              {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
-          </div>
+          <PasswordInput
+            id="confirmPassword"
+            placeholder="Confirm your password"
+            autoComplete="new-password"
+            {...register('confirmPassword')}
+            className={cn(errors.confirmPassword && 'border-destructive')}
+          />
           {errors.confirmPassword && (
             <p className="text-destructive text-xs">{errors.confirmPassword.message}</p>
           )}
         </div>
 
-        <label className="flex items-start gap-2.5 text-sm">
-          <input
-            type="checkbox"
-            {...register('acceptTerms')}
-            className="border-border text-primary focus:ring-primary mt-0.5 h-4 w-4 rounded"
+        <div className="flex items-start gap-2.5">
+          <Controller
+            control={control}
+            name="acceptTerms"
+            render={({ field }) => (
+              <Checkbox
+                id="acceptTerms"
+                checked={field.value}
+                onCheckedChange={field.onChange}
+                ref={field.ref}
+                className="data-[state=unchecked]:border-border mt-0.5"
+              />
+            )}
           />
-          <span className={cn('text-muted-foreground', errors.acceptTerms && 'text-destructive')}>
+          <label
+            htmlFor="acceptTerms"
+            className={cn(
+              'text-muted-foreground text-sm',
+              errors.acceptTerms && 'text-destructive'
+            )}
+          >
             I understand that losing my password and recovery key means losing access to my data
             permanently. No one, including Uoozer, can recover it for me.
-          </span>
-        </label>
+          </label>
+        </div>
         {errors.acceptTerms && (
           <p className="text-destructive -mt-2 text-xs">{errors.acceptTerms.message}</p>
         )}
@@ -247,15 +230,9 @@ export function SignupPage() {
           </div>
 
           <div className="grid grid-cols-2 gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => copy(recoveryKey)}
-              className={cn('gap-1.5', copied && 'text-emerald-500')}
-            >
-              {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-              {copied ? 'Copied!' : 'Copy Key'}
-            </Button>
+            <CopyButton value={recoveryKey} variant="secondary" size="sm" className="gap-1.5">
+              Copy Key
+            </CopyButton>
             <Button
               variant="secondary"
               size="sm"
@@ -275,11 +252,10 @@ export function SignupPage() {
           </div>
 
           <label className="flex cursor-pointer items-start gap-2.5 text-[13px]">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={acknowledged}
-              onChange={(e) => setAcknowledged(e.target.checked)}
-              className="border-border text-primary focus:ring-primary mt-0.5 h-4 w-4 rounded"
+              onCheckedChange={(val) => setAcknowledged(val === true)}
+              className="data-[state=unchecked]:border-border mt-0.5"
             />
             <span className="text-muted-foreground">
               I have saved my recovery key and understand the risks.

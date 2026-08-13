@@ -2,8 +2,6 @@ import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Settings, LogOut, User, HardDrive } from 'lucide-react'
 import { useAuthStore } from '@stores/authStore'
-import { useUIStore } from '@stores/uiStore'
-import { useTheme } from '@hooks/useTheme'
 import { useClickOutside } from '@hooks/useClickOutside'
 import { ROUTES } from '@lib/constants'
 import { ThemeSubMenu } from './ThemeSubMenu'
@@ -12,24 +10,20 @@ export function ProfileDropdown() {
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
-  const { variant, scheme, setVariant, setScheme } = useTheme()
 
   const [profileOpen, setProfileOpen] = useState(false)
-  const [themeSubmenu, setThemeSubmenu] = useState(false)
   const profileRef = useRef<HTMLDivElement>(null)
 
+  // Close menu if clicking completely outside the profile dropdown
   useClickOutside(profileRef, () => {
     setProfileOpen(false)
-    setThemeSubmenu(false)
   })
 
   return (
     <div className="relative" ref={profileRef}>
       <button
-        onClick={() => {
-          setProfileOpen(!profileOpen)
-          setThemeSubmenu(false)
-        }}
+        type="button"
+        onClick={() => setProfileOpen(!profileOpen)}
         className="bg-secondary text-foreground hover:bg-secondary/80 ml-1 flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold transition-colors"
       >
         {user?.email ? (
@@ -65,7 +59,10 @@ export function ProfileDropdown() {
               <div className="bg-border h-1.5 w-full overflow-hidden rounded-full">
                 <div className="bg-primary h-full w-[1%] rounded-full"></div>
               </div>
-              <button className="bg-primary text-primary-foreground hover:bg-primary/90 mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-[12px] font-medium transition-colors">
+              <button
+                type="button"
+                className="bg-primary text-primary-foreground hover:bg-primary/90 mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-[12px] font-medium transition-colors"
+              >
                 Upgrade to Pro
               </button>
             </div>
@@ -73,6 +70,7 @@ export function ProfileDropdown() {
 
           <div className="p-2">
             <button
+              type="button"
               onClick={() => {
                 setProfileOpen(false)
                 navigate(ROUTES.SETTINGS)
@@ -82,6 +80,7 @@ export function ProfileDropdown() {
               <Settings className="text-muted-foreground/70 h-4 w-4" /> Settings
             </button>
             <button
+              type="button"
               onClick={() => {
                 setProfileOpen(false)
                 navigate(ROUTES.DEVICES)
@@ -91,18 +90,13 @@ export function ProfileDropdown() {
               <HardDrive className="text-muted-foreground/70 h-4 w-4" /> Manage Devices
             </button>
 
-            <ThemeSubMenu
-              variant={variant}
-              scheme={scheme}
-              setVariant={setVariant}
-              setScheme={setScheme}
-              themeSubmenu={themeSubmenu}
-              setThemeSubmenu={setThemeSubmenu}
-            />
+            {/* ThemeSubMenu is now fully self-contained and won't close this dropdown */}
+            <ThemeSubMenu />
           </div>
 
           <div className="border-border/60 border-t p-2">
             <button
+              type="button"
               onClick={() => {
                 setProfileOpen(false)
                 logout()

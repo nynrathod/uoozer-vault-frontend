@@ -16,6 +16,7 @@ import {
 import { cn, formatRelativeDate } from '@lib/utils'
 import { Button } from '@ui/Button'
 import { mockLogs, type LogAction } from '@/test/mocks/audit-logs'
+import { PageHeader, StatCard } from '@/components/ui'
 
 const actionConfig: Record<LogAction, { icon: React.ElementType; label: string; color: string }> = {
   upload: { icon: Upload, label: 'Uploaded', color: 'text-emerald-500 bg-emerald-500/10' },
@@ -36,14 +37,7 @@ export function AuditLogsPage() {
 
   return (
     <div className="bg-background flex h-full flex-col">
-      <div className="border-border/60 flex h-[60px] items-center justify-between border-b px-6">
-        <div className="flex items-center gap-3">
-          <Activity className="text-primary h-5 w-5" strokeWidth={1.8} />
-          <div>
-            <h2 className="text-[15px] font-semibold">Audit Logs</h2>
-            <p className="text-muted-foreground/60 text-[11px]">Track all activity in your vault</p>
-          </div>
-        </div>
+      <PageHeader title="Audit Logs" subtitle="Track all activity in your vault" icon={Activity}>
         <div className="flex items-center gap-2">
           <div className="relative">
             <button className="border-border/60 bg-background hover:bg-accent flex h-8 items-center gap-2 rounded-lg border px-3 text-[13px] transition-colors">
@@ -56,22 +50,13 @@ export function AuditLogsPage() {
             <Calendar className="h-3.5 w-3.5" /> Last 30 days
           </Button>
         </div>
-      </div>
+      </PageHeader>
 
       <div className="border-border/60 grid grid-cols-4 gap-4 border-b px-6 py-4">
-        {[
-          { label: 'Total events', value: logs.length },
-          { label: 'Uploads', value: logs.filter((l) => l.action === 'upload').length },
-          { label: 'Downloads', value: logs.filter((l) => l.action === 'download').length },
-          { label: 'Logins', value: logs.filter((l) => l.action === 'login').length },
-        ].map((stat) => (
-          <div key={stat.label} className="border-border/60 rounded-xl border p-4">
-            <p className="text-muted-foreground/50 text-[11px] font-medium tracking-wide uppercase">
-              {stat.label}
-            </p>
-            <p className="mt-1 text-2xl font-semibold">{stat.value}</p>
-          </div>
-        ))}
+        <StatCard label="Total events" value={logs.length} />
+        <StatCard label="Uploads" value={logs.filter((l) => l.action === 'upload').length} />
+        <StatCard label="Downloads" value={logs.filter((l) => l.action === 'download').length} />
+        <StatCard label="Logins" value={logs.filter((l) => l.action === 'login').length} />
       </div>
 
       <div className="flex-1 overflow-auto px-6 py-4">
