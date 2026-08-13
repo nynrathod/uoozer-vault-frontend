@@ -1,6 +1,6 @@
 import { Button } from '@ui/Button'
-import { FileIcon } from '@/components/features/vault/file-list/FileIcon'
-import { FileActionsMenu } from '@/components/features/vault/file-actions/FileActionsMenu'
+import { FileIcon } from '@/components/features/vault/fileList/FileIcon'
+import { FileActionsMenu } from '@/components/features/vault/fileActions/FileActionsMenu'
 import {
   X,
   Download,

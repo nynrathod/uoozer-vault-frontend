@@ -15,7 +15,7 @@ import {
 } from 'lucide-react'
 import { cn, formatRelativeDate } from '@lib/utils'
 import { Button } from '@ui/Button'
-import { mockLogs, type LogAction } from '@/test/mocks/audit-logs'
+import { mockLogs, type LogAction } from '@/test/mocks/auditLogs'
 import { PageHeader, StatCard } from '@/components/ui'
 
 const actionConfig: Record<LogAction, { icon: React.ElementType; label: string; color: string }> = {

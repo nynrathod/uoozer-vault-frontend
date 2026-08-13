@@ -1,8 +1,7 @@
-import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Eye, EyeOff, Shield, ArrowRight, AlertCircle } from 'lucide-react'
+import { Shield, ArrowRight, AlertCircle } from 'lucide-react'
 
 import { useAuth } from '@hooks/useAuth'
 import { Button } from '@ui/Button'
@@ -15,7 +14,6 @@ import { PasswordInput } from '@/components/ui/primitives/PasswordInput'
 import { Checkbox } from '@/components/ui/primitives/Checkbox'
 
 export function LoginPage() {
-  const [showPassword, setShowPassword] = useState(false)
   const { login, isLoggingIn, loginError, clearLoginError } = useAuth()
 
   const {

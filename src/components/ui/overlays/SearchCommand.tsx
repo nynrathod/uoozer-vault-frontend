@@ -1,39 +1,30 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, File, Folder as FolderIcon } from 'lucide-react'
 import { useUIStore } from '@stores/uiStore'
+import { useFileStore } from '@stores/fileStore'
+import { useShallow } from 'zustand/react/shallow'
 import { useKeyboardNavigation } from '@hooks/useKeyboardNavigation'
 import { cn, formatBytes } from '@lib/utils'
 
-interface SearchItem {
+interface SearchableItem {
   id: string
   encryptedName: string
   type: 'file' | 'folder'
   size?: number
 }
 
-const mockFolders: SearchItem[] = [
-  { id: '1', encryptedName: 'Documents', type: 'folder' },
-  { id: '2', encryptedName: 'Images', type: 'folder' },
-  { id: '4', encryptedName: 'Work Projects', type: 'folder' },
-]
-const mockFiles: SearchItem[] = [
-  { id: 'f1', encryptedName: 'Annual Report.pdf', size: 2456789, type: 'file' },
-  { id: 'f2', encryptedName: 'Vacation.png', size: 4567891, type: 'file' },
-  { id: 'f3', encryptedName: 'Meeting Notes.docx', size: 12345, type: 'file' },
-  { id: 'f7', encryptedName: 'Readme.txt', size: 1024, type: 'file' },
-]
-
 export function SearchCommand() {
   const [query, setQuery] = useState('')
   const open = useUIStore((s) => s.searchOpen)
   const setOpen = useUIStore((s) => s.setSearchOpen)
   const navigate = useNavigate()
-
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // Focus input when opened
+  const files = useFileStore(useShallow((s) => Array.from(s.files.values())))
+  const folders = useFileStore(useShallow((s) => Array.from(s.folders.values())))
+
   useEffect(() => {
     if (open) {
       setQuery('')
@@ -41,7 +32,6 @@ export function SearchCommand() {
     }
   }, [open])
 
-  // Click outside to close
   useEffect(() => {
     if (!open) return
     const handleClickOutside = (e: MouseEvent) => {
@@ -53,19 +43,33 @@ export function SearchCommand() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [open, setOpen])
 
-  const allItems: SearchItem[] = [...mockFolders, ...mockFiles]
-  const filtered: SearchItem[] = query.trim()
-    ? allItems.filter((item) => item.encryptedName.toLowerCase().includes(query.toLowerCase()))
-    : allItems
+  const allItems = useMemo<SearchableItem[]>(() => {
+    const folderItems = folders.map((f) => ({
+      id: f.id,
+      encryptedName: f.encryptedName,
+      type: 'folder' as const,
+    }))
+    const fileItems = files.map((f) => ({
+      id: f.id,
+      encryptedName: f.encryptedName,
+      type: 'file' as const,
+      size: f.size,
+    }))
+    return [...folderItems, ...fileItems]
+  }, [files, folders])
 
-  const handleSelect = (item: SearchItem) => {
+  const filtered = useMemo(() => {
+    if (!query.trim()) return allItems
+    return allItems.filter((item) => item.encryptedName.toLowerCase().includes(query.toLowerCase()))
+  }, [query, allItems])
+
+  const handleSelect = (item: SearchableItem) => {
     setOpen(false)
     if (item.type === 'folder') {
       navigate(`/vault/folder/${item.id}`)
     }
   }
 
-  // Extract keyboard navigation logic
   const { activeIndex, setActiveIndex, itemRefs, listRef, handleKeyDown } = useKeyboardNavigation({
     items: filtered,
     onSelect: handleSelect,
@@ -81,7 +85,6 @@ export function SearchCommand() {
   return (
     <div ref={containerRef} className="absolute inset-0 z-50">
       <div className="bg-card border-border/60 absolute top-0 right-0 left-0 z-50 flex flex-col overflow-hidden rounded-lg border shadow-xl">
-        {/* 1. Search Input Row */}
         <div className="border-border/60 flex h-10 shrink-0 items-center gap-2.5 border-b px-3.5">
           <Search className="text-muted-foreground/60 h-4 w-4 shrink-0" />
           <input
@@ -97,7 +100,6 @@ export function SearchCommand() {
           </kbd>
         </div>
 
-        {/* 2. Results Area */}
         <div ref={listRef} className="max-h-[320px] overflow-y-auto p-1.5">
           {filtered.length === 0 ? (
             <div className="text-muted-foreground/70 py-8 text-center text-[13px]">
@@ -105,7 +107,6 @@ export function SearchCommand() {
             </div>
           ) : (
             <>
-              {/* Folders Section */}
               {filteredFolders.length > 0 && (
                 <>
                   <div className="text-muted-foreground/50 px-3 py-1.5 text-[10px] font-semibold tracking-wider uppercase">
@@ -139,12 +140,10 @@ export function SearchCommand() {
                 </>
               )}
 
-              {/* Separator only if both exist */}
               {filteredFolders.length > 0 && filteredFiles.length > 0 && (
                 <div className="bg-border/60 my-1.5 h-px" />
               )}
 
-              {/* Files Section */}
               {filteredFiles.length > 0 && (
                 <>
                   <div className="text-muted-foreground/50 px-3 py-1.5 text-[10px] font-semibold tracking-wider uppercase">
@@ -184,7 +183,6 @@ export function SearchCommand() {
           )}
         </div>
 
-        {/* 3. Footer Keyboard Hints */}
         <div className="border-border/60 text-muted-foreground/60 flex items-center gap-4 border-t px-4 py-2 text-[11px]">
           <span className="flex items-center gap-1">
             <kbd className="border-border/60 bg-muted rounded border px-1 text-[10px]">↑↓</kbd>

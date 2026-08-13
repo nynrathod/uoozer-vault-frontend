@@ -11,13 +11,21 @@ import {
   Download,
   Trash2,
   X,
+  Check,
   ChevronDown,
 } from 'lucide-react'
+import { useCallback, useMemo } from 'react'
 import { useFileStore } from '@stores/fileStore'
 import { useUIStore } from '@stores/uiStore'
 import { Button } from '@ui/Button'
 import { DropdownMenu, DropdownItem, DropdownSeparator, DropdownLabel } from '@ui/DropdownMenu'
-import { CheckableMenuItem } from '@/components/ui'
+
+// Item 35: Module-level constants for icons
+const NEW_FOLDER_ICON = <FolderPlus className="h-4 w-4" />
+const UPLOAD_ICON = <Upload className="h-4 w-4" />
+const NEW_DOC_ICON = <FileText className="h-4 w-4" />
+const NEW_PPT_ICON = <Presentation className="h-4 w-4" />
+const NEW_XLS_ICON = <FileSpreadsheet className="h-4 w-4" />
 
 export function VaultToolbar() {
   const files = useFileStore((s) => s.files)
@@ -35,12 +43,18 @@ export function VaultToolbar() {
   const setUploadPanelOpen = useUIStore((s) => s.setUploadPanelOpen)
 
   const hasSelection = selectedFileIds.size > 0
-  const itemCount = files.size + folders.size
 
-  const handleBulkDelete = () => {
+  // Item 33: useMemo for computed values
+  const itemCount = useMemo(() => files.size + folders.size, [files, folders])
+
+  // Item 34: useCallback for event handlers
+  const handleBulkDelete = useCallback(() => {
     selectedFileIds.forEach((id) => deleteItem(id, folders.has(id)))
     clearFileSelection()
-  }
+  }, [selectedFileIds, deleteItem, folders, clearFileSelection])
+
+  const handleNewFolder = useCallback(() => setEditingId('new'), [setEditingId])
+  const handleUploadClick = useCallback(() => setUploadPanelOpen(true), [setUploadPanelOpen])
 
   return (
     <div className="border-border/60 flex shrink-0 items-center justify-between border-b px-4 py-2">
@@ -141,26 +155,16 @@ export function VaultToolbar() {
                 </Button>
               }
             >
-              <DropdownItem
-                icon={<FolderPlus className="h-4 w-4" />}
-                onClick={() => setEditingId('new')}
-              >
+              <DropdownItem icon={NEW_FOLDER_ICON} onClick={handleNewFolder}>
                 New Folder
               </DropdownItem>
-              <DropdownItem
-                icon={<Upload className="h-4 w-4" />}
-                onClick={() => setUploadPanelOpen(true)}
-              >
+              <DropdownItem icon={UPLOAD_ICON} onClick={handleUploadClick}>
                 Upload File
               </DropdownItem>
               <DropdownSeparator />
-              <DropdownItem icon={<FileText className="h-4 w-4" />}>New Document</DropdownItem>
-              <DropdownItem icon={<Presentation className="h-4 w-4" />}>
-                New Presentation
-              </DropdownItem>
-              <DropdownItem icon={<FileSpreadsheet className="h-4 w-4" />}>
-                New Spreadsheet
-              </DropdownItem>
+              <DropdownItem icon={NEW_DOC_ICON}>New Document</DropdownItem>
+              <DropdownItem icon={NEW_PPT_ICON}>New Presentation</DropdownItem>
+              <DropdownItem icon={NEW_XLS_ICON}>New Spreadsheet</DropdownItem>
             </DropdownMenu>
             <div className="bg-border/70 mx-1 hidden h-5 w-px sm:block" />
             <Button
@@ -185,6 +189,3 @@ export function VaultToolbar() {
     </div>
   )
 }
-
-// Required import for Check icon used in sort dropdown
-import { Check } from 'lucide-react'

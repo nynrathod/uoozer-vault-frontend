@@ -24,11 +24,17 @@ export function UploadQueue() {
 
   const uploads = useMemo(() => Array.from(uploadsMap.values()), [uploadsMap])
 
-  const activeCount = uploads.filter(
-    (u) => u.status === 'uploading' || u.status === 'encrypting'
-  ).length
-  const completedCount = uploads.filter((u) => u.status === 'done').length
-  const errorCount = uploads.filter((u) => u.status === 'error').length
+  const { activeCount, completedCount, errorCount } = useMemo(() => {
+    let active = 0,
+      completed = 0,
+      error = 0
+    uploads.forEach((u) => {
+      if (u.status === 'uploading' || u.status === 'encrypting') active++
+      else if (u.status === 'done') completed++
+      else if (u.status === 'error') error++
+    })
+    return { activeCount: active, completedCount: completed, errorCount: error }
+  }, [uploads])
 
   if (uploads.length === 0) return null
 

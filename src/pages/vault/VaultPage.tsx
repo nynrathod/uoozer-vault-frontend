@@ -15,10 +15,10 @@ import {
 import { QUERY_KEYS, ROUTES, UPLOAD_CONFIG } from '@lib/constants'
 import { cn } from '@lib/utils'
 
-import { FileGrid } from '@/components/features/vault/file-list/FileGrid'
-import { FileList } from '@/components/features/vault/file-list/FileList'
-import { FileBreadcrumb } from '@/components/features/vault/file-list/FileBreadcrumb'
-import { EmptyState } from '@/components/features/vault/file-list/EmptyState'
+import { FileGrid } from '@/components/features/vault/fileList/FileGrid'
+import { FileList } from '@/components/features/vault/fileList/FileList'
+import { FileBreadcrumb } from '@/components/features/vault/fileList/FileBreadcrumb'
+import { EmptyState } from '@/components/ui/feedback/EmptyState'
 import { UploadDropzone } from '@/components/features/vault/upload/UploadDropzone'
 import { UploadQueue } from '@/components/features/vault/upload/UploadQueue'
 import { FilePreviewDialog } from '@/components/ui/overlays/FilePreviewDialog'
@@ -59,7 +59,6 @@ export function VaultPage() {
   const setShareTarget = useFileStore((s) => s.setShareTarget)
   const setVersionFileId = useFileStore((s) => s.setVersionFileId)
   const toggleFileSelection = useFileStore((s) => s.toggleFileSelection)
-  const selectedFileIds = useFileStore((s) => s.selectedFileIds)
 
   const sharedItem = useFileStore((s) =>
     s.shareTargetId ? s.files.get(s.shareTargetId) || s.folders.get(s.shareTargetId) : null
@@ -150,7 +149,7 @@ export function VaultPage() {
                 <VaultLoader size={48} />
               </div>
             ) : files.length === 0 && folders.length === 0 ? (
-              <EmptyState onUpload={() => setUploadPanelOpen(true)} />
+              <EmptyState />
             ) : viewMode === 'list' ? (
               <div className="h-full overflow-auto">
                 <FileList

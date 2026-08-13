@@ -1,5 +1,5 @@
 import { Button } from '@ui/Button'
-import { FileIcon } from '@/components/features/vault/file-list/FileIcon'
+import { FileIcon } from '@/components/features/vault/fileList/FileIcon'
 import { Loader2, Download } from 'lucide-react'
 import { cn } from '@lib/utils'
 import { MOCK_URLS } from '@lib/constants'

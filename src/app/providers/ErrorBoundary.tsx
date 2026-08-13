@@ -13,7 +13,7 @@ interface ErrorBoundaryState {
   error: Error | null
 }
 
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props)
     this.state = { hasError: false, error: null }
@@ -33,10 +33,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 
   render(): ReactNode {
     if (this.state.hasError) {
-      if (this.props.fallback) {
-        return this.props.fallback
-      }
-
+      if (this.props.fallback) return this.props.fallback
       return (
         <div className="bg-background text-foreground flex min-h-screen flex-col items-center justify-center p-6 text-center">
           <div className="bg-destructive/10 text-destructive mb-6 flex h-16 w-16 items-center justify-center rounded-full">
@@ -54,17 +51,13 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
           )}
           <div className="flex gap-3">
             <Button variant="outline" onClick={() => window.location.reload()}>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Refresh Page
+              <RefreshCw className="mr-2 h-4 w-4" /> Refresh Page
             </Button>
             <Button onClick={this.handleReset}>Try Again</Button>
           </div>
         </div>
       )
     }
-
     return this.props.children
   }
 }
-
-export default ErrorBoundary

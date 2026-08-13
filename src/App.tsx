@@ -2,8 +2,8 @@ import { useEffect } from 'react'
 import { Router } from './router'
 import { useAuthStore } from '@stores/authStore'
 import { useCryptoStore } from '@stores/cryptoStore'
-import ErrorBoundary from '@app/providers/ErrorBoundary'
-import { VaultLoader } from './components/ui/feedback/VaultLoader'
+import { ErrorBoundary } from '@app/providers/ErrorBoundary' // Named import
+import { VaultLoader } from './components/ui/feedback'
 
 function App() {
   const isInitializing = useAuthStore((s) => s.isInitializing)

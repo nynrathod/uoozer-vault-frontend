@@ -4,7 +4,6 @@ import { useAuthStore } from '@stores/authStore'
 import { ROUTES } from '@lib/constants'
 import { AppLayout } from '@/app/layouts/AppLayout'
 import { AuthLayout } from '@/app/layouts/AuthLayout'
-import { Loader2 } from 'lucide-react'
 import { VaultLoader } from '@/components/ui/feedback/VaultLoader'
 
 // Lazy load route components
