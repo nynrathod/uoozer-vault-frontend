@@ -35,7 +35,7 @@ export function FileGrid({ files, folders, folderCounts }: FileGridProps) {
   const editingId = useFileStore((s) => s.editingId)
   const setEditingId = useFileStore((s) => s.setEditingId)
   const selectedFileIds = useFileStore((s) => s.selectedFileIds)
-  const toggleFileSelection = useFileStore((s) => s.toggleFileSelection)
+
   const openPreview = usePreviewStore((s) => s.open)
 
   return (
@@ -58,11 +58,10 @@ export function FileGrid({ files, folders, folderCounts }: FileGridProps) {
                 const folderCheck = isFolder(item)
                 return (
                   <FileCard
-                    key={item.id}
+                    key={item.uid}
                     item={item}
                     isSelected={selectedFileIds.has(item.id)}
                     onClick={() => !folderCheck && openPreview(item.id)}
-                    onSelect={() => toggleFileSelection(item.id)}
                     editingId={editingId}
                     onRenameRequest={setEditingId}
                     itemCount={folderCheck ? folderCounts?.[item.id] || 0 : 0}

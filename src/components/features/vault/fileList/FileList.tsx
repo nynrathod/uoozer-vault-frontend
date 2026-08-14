@@ -129,7 +129,7 @@ export function FileList({
             const folderCheck = isFolder(item)
             return (
               <div
-                key={item.id}
+                key={item.uid}
                 className="absolute top-0 left-0 w-full"
                 style={{
                   height: '52px',
@@ -138,7 +138,6 @@ export function FileList({
               >
                 <FileRow
                   item={item}
-                  isFolder={folderCheck}
                   isSelected={selectedFileIds.has(item.id)}
                   onClick={() => (folderCheck ? onFolderClick(item) : onFileClick(item))}
                   onSelect={() => onFileSelect(item.id)}

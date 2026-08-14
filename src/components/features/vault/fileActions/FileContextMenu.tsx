@@ -72,7 +72,7 @@ export function FileContextMenu({
       <DeleteConfirmDialog
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
-        itemName={item.encryptedName}
+        itemName={item.name}
         isFolder={isFolder}
         onConfirm={() => {
           onDelete?.()

@@ -3,15 +3,11 @@ import { FileIcon } from './FileIcon'
 import { cn, formatBytes } from '@lib/utils'
 import { FileActionsMenu } from '../fileActions/FileActionsMenu'
 import { MoreHorizontal, Share2, Loader2, Check } from 'lucide-react'
-import { useClipboard } from '@hooks/useClipboard'
-import { useInlineRename } from '@hooks/useInlineRename'
+import { useItemActions } from '@hooks/useItemActions'
 import { useFileStore } from '@stores/fileStore'
-import { MOCK_URLS } from '@lib/constants'
-import { isFolder } from '@/lib/type-guards'
 import type { FileItem } from '@/types/files'
 import type { Folder } from '@/types/folders'
 
-/** Props for a single grid cell in the vault file browser. */
 interface FileCardProps {
   item: FileItem | Folder
   isSelected: boolean
@@ -29,10 +25,21 @@ export const FileCard = memo(function FileCard({
   onRenameRequest,
   itemCount = 0,
 }: FileCardProps) {
-  const { copied, copy } = useClipboard()
+  const {
+    isFolder,
+    copied,
+    handleCopyLink,
+    handleDelete,
+    name,
+    setName,
+    isSaving,
+    error,
+    handleSubmit,
+    handleCancel,
+  } = useItemActions(item, () => onRenameRequest?.(null))
+
   const deleteItem = useFileStore((s) => s.deleteItem)
   const moveItem = useFileStore((s) => s.moveItem)
-  const renameItem = useFileStore((s) => s.renameItem)
   const setShareTarget = useFileStore((s) => s.setShareTarget)
   const setVersionFileId = useFileStore((s) => s.setVersionFileId)
   const activeMenuId = useFileStore((s) => s.activeMenuId)
@@ -42,27 +49,8 @@ export const FileCard = memo(function FileCard({
   const isDragging = useFileStore((s) => s.isDragging)
   const setIsDragging = useFileStore((s) => s.setIsDragging)
 
-  const folderCheck = isFolder(item)
-  const name = item.encryptedName
-  const isEditing = editingId === item.id
   const isMenuActive = activeMenuId === item.id
   const isDragOver = dragOverId === item.id
-
-  const {
-    name: gridName,
-    setName,
-    isSaving,
-    handleSubmit,
-  } = useInlineRename(
-    name,
-    (newName) => {
-      renameItem(item.id, folderCheck, newName)
-      onRenameRequest?.(null)
-    },
-    () => onRenameRequest?.(null)
-  )
-
-  const handleCopyLink = () => copy(`${MOCK_URLS.SHARE_LINK_BASE}${item.id}`)
 
   return (
     <div
@@ -76,38 +64,34 @@ export const FileCard = memo(function FileCard({
               ? 'hover:border-border/60 hover:bg-accent/50 border-transparent'
               : 'border-transparent',
         isMenuActive && 'z-30',
-        isEditing && 'z-30',
+        editingId === item.id && 'z-30',
         'cursor-grab active:cursor-grabbing'
       )}
       onClick={onClick}
       draggable={true}
       onDragStart={(e) => {
         e.dataTransfer.setData('text/plain', item.id)
-        e.dataTransfer.setData('application/x-item-type', folderCheck ? 'folder' : 'file')
+        e.dataTransfer.setData('application/x-item-type', isFolder ? 'folder' : 'file')
         e.dataTransfer.effectAllowed = 'move'
         setIsDragging(true)
       }}
       onDragEnter={(e) => {
-        if (folderCheck) {
+        if (isFolder) {
           e.preventDefault()
           setDragOverId(item.id)
         }
       }}
       onDragOver={(e) => {
-        if (folderCheck) {
+        if (isFolder) {
           e.preventDefault()
           e.stopPropagation()
         }
       }}
       onDragLeave={(e) => {
-        if (folderCheck) {
-          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-            setDragOverId(null)
-          }
-        }
+        if (isFolder && !e.currentTarget.contains(e.relatedTarget as Node)) setDragOverId(null)
       }}
       onDrop={(e) => {
-        if (folderCheck) {
+        if (isFolder) {
           e.preventDefault()
           e.stopPropagation()
           setDragOverId(null)
@@ -124,44 +108,48 @@ export const FileCard = memo(function FileCard({
       }}
     >
       <FileIcon
-        mimeType={folderCheck ? undefined : (item as FileItem).encryptedMimeType}
-        isFolder={folderCheck}
+        mimeType={isFolder ? undefined : (item as FileItem).mimeType}
+        isFolder={isFolder}
         size="lg"
         className="mb-0.5"
       />
       <div className="w-full">
-        {isEditing ? (
-          <div className="flex items-center gap-1">
-            <input
-              autoFocus
-              value={gridName}
-              onChange={(e) => setName(e.target.value)}
-              onClick={(e) => e.stopPropagation()}
-              onBlur={handleSubmit}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSubmit()
-                if (e.key === 'Escape') onRenameRequest?.(null)
-              }}
-              className="bg-background border-primary w-full rounded-md border px-1.5 py-0.5 text-center text-[13px] font-medium outline-none"
-            />
-            {isSaving ? (
-              <Loader2 className="text-primary h-4 w-4 shrink-0 animate-spin" />
-            ) : (
-              <button
-                onClick={handleSubmit}
-                className="shrink-0 text-emerald-500 hover:text-emerald-600"
-              >
-                <Check className="h-4 w-4" />
-              </button>
-            )}
+        {editingId === item.id ? (
+          <div className="flex flex-col items-center gap-1">
+            <div className="flex w-full items-center gap-1">
+              <input
+                autoFocus
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                onBlur={handleCancel} // <-- CHANGE THIS from handleSubmit to handleCancel
+                onFocus={(e) => e.target.select()}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSubmit()
+                  if (e.key === 'Escape') onRenameRequest?.(null)
+                }}
+                className="bg-background border-primary w-full rounded-md border px-1.5 py-0.5 text-center text-[13px] font-medium outline-none"
+              />
+              {isSaving ? (
+                <Loader2 className="text-primary h-4 w-4 shrink-0 animate-spin" />
+              ) : (
+                <button
+                  onClick={handleSubmit}
+                  className="shrink-0 text-emerald-500 hover:text-emerald-600"
+                >
+                  <Check className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            {error && <span className="text-destructive text-[11px] font-medium">{error}</span>}
           </div>
         ) : (
-          <p className="text-foreground truncate text-[13px] font-medium">{name}</p>
+          <p className="text-foreground truncate text-[13px] font-medium">{item.name}</p>
         )}
         <p className="text-muted-foreground/70 mt-0.5 text-[11px]">
-          {folderCheck
+          {isFolder
             ? `${itemCount} item${itemCount !== 1 ? 's' : ''}`
-            : formatBytes((item as FileItem).size)}
+            : formatBytes((item as FileItem).totalSize)}
         </p>
       </div>
 
@@ -181,13 +169,13 @@ export const FileCard = memo(function FileCard({
 
         <FileActionsMenu
           item={item}
-          isFolder={folderCheck}
-          onRenameRequest={(id) => onRenameRequest?.(id)}
-          onDelete={deleteItem}
+          isFolder={isFolder}
+          onRenameRequest={() => onRenameRequest?.(item.id)}
+          onDelete={handleDelete}
           onShare={() => setShareTarget(item.id)}
           copied={copied}
           onCopyLink={handleCopyLink}
-          onVersions={() => !folderCheck && setVersionFileId(item.id)}
+          onVersions={() => !isFolder && setVersionFileId(item.id)}
           open={isMenuActive}
           onOpenChange={(open) => useFileStore.getState().setActiveMenuId(open ? item.id : null)}
           trigger={

@@ -39,7 +39,7 @@ export const FileBreadcrumb = memo(function FileBreadcrumb({
                 : 'text-muted-foreground/70 hover:bg-accent/60 hover:text-foreground'
             )}
           >
-            {folder.encryptedName}
+            {folder.name}
           </button>
         </div>
       ))}

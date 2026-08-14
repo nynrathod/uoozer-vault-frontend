@@ -19,8 +19,8 @@ import { DeleteConfirmDialog } from '@/components/ui/overlays/DeleteConfirmDialo
 interface FileActionsMenuProps {
   item: FileItem | Folder
   isFolder: boolean
-  onRenameRequest: (id: string) => void
-  onDelete: (id: string, isFolder: boolean) => void
+  onRenameRequest: () => void
+  onDelete: () => void
   onShare: () => void
   trigger: React.ReactNode
   copied: boolean
@@ -30,7 +30,6 @@ interface FileActionsMenuProps {
   onVersions?: () => void
 }
 
-/** Dropdown menu with file/folder actions such as rename, share, and delete. */
 export const FileActionsMenu = memo(function FileActionsMenu({
   item,
   isFolder,
@@ -51,10 +50,9 @@ export const FileActionsMenu = memo(function FileActionsMenu({
       <DropdownMenu trigger={trigger} open={open} onOpenChange={onOpenChange}>
         {!isFolder && <DropdownItem icon={<Eye className="h-4 w-4" />}>Preview</DropdownItem>}
         {!isFolder && <DropdownItem icon={<Download className="h-4 w-4" />}>Download</DropdownItem>}
-        <DropdownItem icon={<Edit3 className="h-4 w-4" />} onClick={() => onRenameRequest(item.id)}>
+        <DropdownItem icon={<Edit3 className="h-4 w-4" />} onClick={onRenameRequest}>
           Rename
         </DropdownItem>
-        {/* Optimistic UI: shows "Copied!" immediately while the link is copied to clipboard */}
         <DropdownItem
           icon={
             copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />
@@ -91,10 +89,10 @@ export const FileActionsMenu = memo(function FileActionsMenu({
       <DeleteConfirmDialog
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
-        itemName={item.encryptedName}
+        itemName={item.name}
         isFolder={isFolder}
         onConfirm={() => {
-          onDelete(item.id, isFolder)
+          onDelete()
           setDeleteOpen(false)
         }}
       />
