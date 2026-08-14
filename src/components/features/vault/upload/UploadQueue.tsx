@@ -109,7 +109,7 @@ export function UploadQueue() {
                 strokeWidth={1.5}
               />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[13px] font-medium">{upload.encryptedName}</p>
+                <p className="truncate text-[13px] font-medium">{upload.file.name}</p>
                 <div className="mt-2 flex items-center gap-2.5">
                   <Progress
                     value={upload.overallProgress}
