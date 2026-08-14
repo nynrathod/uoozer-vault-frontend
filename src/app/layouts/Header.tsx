@@ -1,5 +1,5 @@
 import { useLocation } from 'react-router-dom'
-import { Search, Bell, Upload, Plus } from 'lucide-react'
+import { Search, Bell } from 'lucide-react'
 import { Button } from '@ui/Button'
 import { useUIStore } from '@stores/uiStore'
 import { cn } from '@lib/utils'
@@ -12,7 +12,6 @@ import { SearchCommand } from '@/components/ui/overlays'
 export function Header() {
   const location = useLocation()
   const setSearchOpen = useUIStore((s) => s.setSearchOpen)
-  const setUploadPanelOpen = useUIStore((s) => s.setUploadPanelOpen)
 
   const isVault = location.pathname.startsWith('/vault')
 
@@ -38,26 +37,6 @@ export function Header() {
       </div>
 
       <div className="ml-4 flex items-center gap-1.5">
-        {isVault && (
-          <>
-            <Button
-              variant="default"
-              size="sm"
-              className="bg-foreground text-background hover:bg-foreground/90 hidden h-[34px] gap-1.5 rounded-lg px-3.5 text-[13px] font-medium shadow-none sm:flex"
-            >
-              <Plus className="h-4 w-4" strokeWidth={2.5} /> New
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-border hover:bg-secondary hidden h-[34px] gap-1.5 rounded-lg px-3 text-[13px] font-medium shadow-none sm:flex"
-              onClick={() => setUploadPanelOpen(true)}
-            >
-              <Upload className="h-4 w-4" /> Upload
-            </Button>
-          </>
-        )}
-
         <div className="bg-border/70 mx-1 h-5 w-px" />
 
         <ThemeSwitcher />
