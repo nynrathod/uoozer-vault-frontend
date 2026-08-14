@@ -6,6 +6,7 @@ import type { Folder } from '@/types/folders'
 interface FileStoreState {
   files: Map<string, FileItem>
   folders: Map<string, Folder>
+
   currentFolderId: string | null
 
   editingId: string | null
@@ -51,6 +52,8 @@ interface FileStoreState {
   setIsDragging: (val: boolean) => void
   dragOverId: string | null
   setDragOverId: (id: string | null) => void
+  _lastRefresh?: number
+  refreshFiles: () => void
 }
 
 /** Manages the file browser: file/folder lists, selection, sorting, drag-and-drop, and UI flags. */
@@ -78,10 +81,10 @@ export const useFileStore = create<FileStoreState>()(
         set((state) => {
           if (isFolder) {
             const f = state.folders.get(id)
-            if (f) state.folders.set(id, { ...f, encryptedName: newName })
+            if (f) state.folders.set(id, { ...f, name: newName })
           } else {
             const f = state.files.get(id)
-            if (f) state.files.set(id, { ...f, encryptedName: newName })
+            if (f) state.files.set(id, { ...f, name: newName })
           }
           return { folders: new Map(state.folders), files: new Map(state.files) }
         }),
@@ -111,8 +114,9 @@ export const useFileStore = create<FileStoreState>()(
             if (!field || !order)
               return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
             const mult = order === 'asc' ? 1 : -1
-            if (field === 'name') return mult * a.encryptedName.localeCompare(b.encryptedName)
-            if (field === 'size' && 'size' in a && 'size' in b) return mult * (a.size - b.size)
+            if (field === 'name') return mult * a.name.localeCompare(b.name)
+            if (field === 'size' && 'totalSize' in a && 'totalSize' in b)
+              return mult * ((a as FileItem).totalSize - (b as FileItem).totalSize)
             if (field === 'modified')
               return mult * (new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime())
             return 0
@@ -164,6 +168,10 @@ export const useFileStore = create<FileStoreState>()(
       setIsDragging: (val) => set({ isDragging: val }),
       dragOverId: null,
       setDragOverId: (id) => set({ dragOverId: id }),
+
+      refreshFiles: () => {
+        set({ _lastRefresh: Date.now() })
+      },
     }),
     { name: 'fileStore' }
   )
@@ -171,11 +179,42 @@ export const useFileStore = create<FileStoreState>()(
 
 /** Returns files in the currently-active folder. */
 export const selectCurrentFiles = (s: FileStoreState) =>
-  Array.from(s.files.values()).filter((f) => f.folderId === s.currentFolderId)
+  Array.from(s.files.values())
+    .filter((f) => f.folderId === s.currentFolderId)
+    .sort((a, b) => {
+      const aIsTemp = a.id.startsWith('temp-')
+      const bIsTemp = b.id.startsWith('temp-')
+      if (aIsTemp && !bIsTemp) return -1
+      if (!aIsTemp && bIsTemp) return 1
 
-/** Returns sub-folders of the currently-active folder. */
+      if (s.sortField && s.sortOrder) {
+        const mult = s.sortOrder === 'asc' ? 1 : -1
+        if (s.sortField === 'name') return mult * a.name.localeCompare(b.name)
+        if (s.sortField === 'size') return mult * (a.totalSize - b.totalSize)
+        if (s.sortField === 'modified')
+          return mult * (new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime())
+      }
+      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    })
+
 export const selectCurrentFolders = (s: FileStoreState) =>
-  Array.from(s.folders.values()).filter((f) => f.parentId === s.currentFolderId)
+  Array.from(s.folders.values())
+    .filter((f) => f.parentId === s.currentFolderId)
+    .sort((a, b) => {
+      const aIsTemp = a.id.startsWith('temp-')
+      const bIsTemp = b.id.startsWith('temp-')
+      if (aIsTemp && !bIsTemp) return -1
+      if (!aIsTemp && bIsTemp) return 1
+
+      if (s.sortField && s.sortOrder) {
+        const mult = s.sortOrder === 'asc' ? 1 : -1
+        if (s.sortField === 'name') return mult * a.name.localeCompare(b.name)
+        if (s.sortField === 'modified')
+          return mult * (new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime())
+      }
+
+      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    })
 
 export const selectFileById = (id: string | null) => (s: FileStoreState) =>
   id ? s.files.get(id) : null
