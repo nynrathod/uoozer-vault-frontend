@@ -1,5 +1,9 @@
 /// <reference lib="webworker" />
 
+import * as Comlink from 'comlink'
+import * as _sodiumModule from 'libsodium-wrappers'
+import { createBLAKE3 } from 'hash-wasm'
+
 import type {
   Argon2Params,
   CryptoApi,
@@ -7,33 +11,39 @@ import type {
   SignupCryptoBundle,
   WrappedKey,
   KeyPair,
+  EncryptedMetadata,
+  EncryptedChunkResult,
 } from '../lib/crypto-types'
-
-import * as Comlink from 'comlink'
-import * as _sodiumModule from 'libsodium-wrappers'
-import { argon2id, blake3 } from 'hash-wasm'
 
 let sodium: any = null
 let _initialized = false
+let _blake3Instance: any = null
+
+let _encryptState: any = null
+let _decryptState: any = null
 
 async function initCrypto(): Promise<void> {
   if (_initialized) return
   await _sodiumModule.ready
   sodium = (_sodiumModule as any).default || _sodiumModule
+
+  _blake3Instance = await createBLAKE3()
+
   _initialized = true
 }
 
 function assertReady(): void {
-  if (!_initialized || !sodium) {
+  if (!_initialized || !sodium || !_blake3Instance) {
     throw new Error('Crypto not initialized. Call initCrypto() first.')
   }
 }
 
-/** Crypto API exposed via Comlink from the Web Worker thread. */
 const api: CryptoApi = {
   async init() {
     await initCrypto()
   },
+
+  // ── Base64 ──────────────────────────────────────────────────
 
   async bytesToBase64(bytes: Uint8Array): Promise<string> {
     assertReady()
@@ -45,41 +55,47 @@ const api: CryptoApi = {
     return sodium.from_base64(b64, sodium.base64_variants.ORIGINAL)
   },
 
+  // ── Key Derivation ──────────────────────────────────────────
+
   async deriveKeysFromPassword(
     password: string,
     saltB64: string,
     params: Argon2Params
   ): Promise<DerivedKeys> {
     assertReady()
+    const salt = await this.base64ToBytes(saltB64)
 
-    try {
-      const salt = await this.base64ToBytes(saltB64)
+    // Import argon2id lazily to keep initial load fast
+    const { argon2id } = await import('hash-wasm')
 
-      const masterKey = await argon2id({
-        password,
-        salt,
-        parallelism: params.p_cost,
-        iterations: params.t_cost,
-        memorySize: params.m_cost,
-        hashLength: params.output_len,
-        outputType: 'binary',
-      })
+    const masterKey = await argon2id({
+      password,
+      salt,
+      parallelism: params.p_cost,
+      iterations: params.t_cost,
+      memorySize: params.m_cost,
+      hashLength: params.output_len,
+      outputType: 'binary',
+    })
 
-      const authKey = sodium.crypto_kdf_derive_from_key(32, 1, 'UoozerAu', masterKey)
+    // Derive auth key from master key via HKDF-like KDF
+    const authKey = sodium.crypto_kdf_derive_from_key(32, 1, 'UoozerAu', masterKey)
 
-      return { masterKey, authKey }
-    } catch (err) {
-      throw err
-    }
+    return { masterKey, authKey }
   },
 
-  /** Generates a 256-bit random Data Encryption Key. */
+  async deriveRecoveryAuthKey(recoveryKey: Uint8Array): Promise<Uint8Array> {
+    assertReady()
+    return sodium.crypto_generichash(32, recoveryKey, null)
+  },
+
+  // ── DEK Operations ──────────────────────────────────────────
+
   async generateDek(): Promise<Uint8Array> {
     assertReady()
     return sodium.randombytes_buf(32)
   },
 
-  /** Wraps a DEK with XChaCha20-Poly1305 under the given key. */
   async wrapDek(dek: Uint8Array, key: Uint8Array): Promise<WrappedKey> {
     assertReady()
     const nonce = sodium.randombytes_buf(sodium.crypto_aead_xchacha20poly1305_ietf_NPUBBYTES)
@@ -93,7 +109,6 @@ const api: CryptoApi = {
     return { ciphertext, nonce }
   },
 
-  /** Unwraps a DEK; returns null if decryption fails (wrong key). */
   async unwrapDek(wrapped: WrappedKey, key: Uint8Array): Promise<Uint8Array | null> {
     assertReady()
     try {
@@ -109,46 +124,143 @@ const api: CryptoApi = {
     }
   },
 
-  /** Generates a 256-bit recovery key and its human-readable hex display string. */
-  async generateRecoveryKey(): Promise<{ key: Uint8Array; display: string }> {
-    assertReady()
-    const key = sodium.randombytes_buf(32)
-    const hex = Array.from(key)
-      .map((b) => (b as number).toString(16).padStart(2, '0'))
-      .join('')
-    const display = hex.match(/.{1,8}/g)?.join('-') ?? hex
-    return { key, display }
-  },
-
-  /** Derives a recovery auth key from the raw recovery key via BLAKE2b. */
-  async deriveRecoveryAuthKey(recoveryKey: Uint8Array): Promise<Uint8Array> {
-    assertReady()
-    return sodium.crypto_generichash(32, recoveryKey, null)
-  },
+  // ── Key Pairs ───────────────────────────────────────────────
 
   async generateKeyPair(): Promise<KeyPair> {
     assertReady()
     return sodium.crypto_sign_keypair()
   },
 
-  async blake2bHash(data: Uint8Array): Promise<string> {
+  // ── Metadata Encryption (XChaCha20-Poly1305) ────────────────
+
+  async encryptMetadata(plaintext: Uint8Array, key: Uint8Array): Promise<EncryptedMetadata> {
     assertReady()
-    const hash = sodium.crypto_generichash(32, data, null)
-    return this.bytesToBase64(hash)
+    const nonce = sodium.randombytes_buf(sodium.crypto_aead_xchacha20poly1305_ietf_NPUBBYTES)
+    const ciphertext = sodium.crypto_aead_xchacha20poly1305_ietf_encrypt(
+      plaintext,
+      null,
+      null,
+      nonce,
+      key
+    )
+    return Comlink.transfer({ ciphertext, nonce }, [ciphertext.buffer, nonce.buffer])
   },
 
-  /** Returns a 256-bit BLAKE3 hash as a hex string. */
+  async decryptMetadata(
+    ciphertext: Uint8Array,
+    nonce: Uint8Array,
+    key: Uint8Array
+  ): Promise<Uint8Array | null> {
+    assertReady()
+    try {
+      const plaintext = sodium.crypto_aead_xchacha20poly1305_ietf_decrypt(
+        null,
+        ciphertext,
+        null,
+        nonce,
+        key
+      )
+      return Comlink.transfer(plaintext, [plaintext.buffer])
+    } catch {
+      return null
+    }
+  },
+
+  // ── File Streaming Encryption (secretstream) ────────────────
+
+  async initFileEncryption(key: Uint8Array): Promise<Uint8Array> {
+    assertReady()
+    const { state, header } = sodium.crypto_secretstream_xchacha20poly1305_init_push(key)
+    _encryptState = state
+    return Comlink.transfer(header, [header.buffer])
+  },
+
+  async encryptFileChunk(plaintext: Uint8Array, isFinal: boolean): Promise<EncryptedChunkResult> {
+    assertReady()
+    if (!_encryptState) throw new Error('Encryption stream not initialized')
+
+    const tag = isFinal
+      ? sodium.crypto_secretstream_xchacha20poly1305_TAG_FINAL
+      : sodium.crypto_secretstream_xchacha20poly1305_TAG_MESSAGE
+
+    const ciphertext = sodium.crypto_secretstream_xchacha20poly1305_push(
+      _encryptState,
+      plaintext,
+      null,
+      tag
+    )
+
+    // Compute BLAKE3 hash of the ciphertext INSIDE the worker before transferring
+    _blake3Instance.init()
+    _blake3Instance.update(ciphertext)
+    const hex = _blake3Instance.digest(32, 'hex')
+
+    if (!hex || hex.length !== 64) {
+      throw new Error('BLAKE3 hash failed: invalid hex length')
+    }
+    const blake3Hash = sodium.from_hex(hex)
+
+    if (isFinal) {
+      _encryptState = null
+    }
+
+    return Comlink.transfer({ ciphertext, blake3Hash }, [ciphertext.buffer, blake3Hash.buffer])
+  },
+
+  async initFileDecryption(header: Uint8Array, key: Uint8Array): Promise<void> {
+    assertReady()
+    _decryptState = sodium.crypto_secretstream_xchacha20poly1305_init_pull(header, key)
+  },
+
+  async decryptFileChunk(ciphertext: Uint8Array): Promise<Uint8Array> {
+    assertReady()
+    if (!_decryptState) throw new Error('Decryption stream not initialized')
+
+    const { message } = sodium.crypto_secretstream_xchacha20poly1305_pull(
+      _decryptState,
+      ciphertext,
+      null
+    )
+
+    return Comlink.transfer(message, [message.buffer])
+  },
+
+  async cleanupFileStream(): Promise<void> {
+    _encryptState = null
+    _decryptState = null
+  },
+
+  // ── BLAKE3 Hashing (replaces blake2b entirely) ──────────────
+
   async blake3Hash(data: Uint8Array): Promise<string> {
     assertReady()
-    return await blake3(data, 32)
+    _blake3Instance.init()
+    _blake3Instance.update(data)
+    return _blake3Instance.digest(32, 'hex')
   },
+
+  async blake3HashBytes(data: Uint8Array): Promise<Uint8Array> {
+    assertReady()
+    _blake3Instance.init()
+    _blake3Instance.update(data)
+    const hex = _blake3Instance.digest(32, 'hex')
+
+    if (!hex || hex.length !== 64) {
+      throw new Error('BLAKE3 hash failed: invalid hex length')
+    }
+    return sodium.from_hex(hex)
+  },
+
+  // ── Security ────────────────────────────────────────────────
+
   async zeroize(arrays: (Uint8Array | null | undefined)[]): Promise<void> {
     for (const arr of arrays) {
       if (arr) arr.fill(0)
     }
   },
 
-  /** Generates the full crypto bundle needed for signup: keys, wrapped DEK, and recovery material. */
+  // ── Signup Bundle ───────────────────────────────────────────
+
   async generateSignupBundle(
     password: string,
     saltB64: string,
@@ -181,7 +293,16 @@ const api: CryptoApi = {
     }
   },
 
-  /** Serializes a signup bundle into the server-expected request format. */
+  async generateRecoveryKey(): Promise<{ key: Uint8Array; display: string }> {
+    assertReady()
+    const key = sodium.randombytes_buf(32)
+    const hex = Array.from(key)
+      .map((b) => (b as number).toString(16).padStart(2, '0'))
+      .join('')
+    const display = hex.match(/.{1,8}/g)?.join('-') ?? hex
+    return { key, display }
+  },
+
   async bundleForSignupRequest(bundle: SignupCryptoBundle, deviceName: string) {
     return {
       auth_key: await this.bytesToBase64(bundle.authKey),

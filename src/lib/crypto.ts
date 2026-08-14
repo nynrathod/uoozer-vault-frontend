@@ -27,18 +27,23 @@
  */
 
 import * as Comlink from 'comlink'
-import type { Argon2Params, CryptoApi, SignupCryptoBundle, WrappedKey } from '../lib/crypto-types'
+import type {
+  Argon2Params,
+  CryptoApi,
+  SignupCryptoBundle,
+  WrappedKey,
+  EncryptedMetadata,
+  EncryptedChunkResult,
+} from './crypto-types'
 
 const worker = new Worker(new URL('../workers/crypto.worker.ts', import.meta.url), {
   type: 'module',
 })
 
-worker.onerror = (e: ErrorEvent) => {}
-
-worker.onmessageerror = (e) => {}
 const cryptoApi = Comlink.wrap<CryptoApi>(worker)
 
-/** Decoded JWT payload with standard registered claims. */
+// ── JWT Helpers ──────────────────────────────────────────────
+
 export interface JwtPayload {
   sub: string
   sid: string
@@ -50,18 +55,14 @@ export interface JwtPayload {
   jti?: string
 }
 
-/** Decodes a JWT token's payload without verification (client-side only). */
 export function decodeJwt<T = JwtPayload>(token: string): T {
   const parts = token.split('.')
-  if (parts.length !== 3) {
-    throw new Error('Invalid JWT format')
-  }
+  if (parts.length !== 3) throw new Error('Invalid JWT format')
   const payloadB64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
   const payloadJson = atob(payloadB64)
   return JSON.parse(payloadJson) as T
 }
 
-/** Returns true if the JWT has expired or will expire within 5 seconds. */
 export function isJwtExpired(token: string): boolean {
   try {
     const payload = decodeJwt(token)
@@ -72,7 +73,6 @@ export function isJwtExpired(token: string): boolean {
   }
 }
 
-/** Returns the absolute expiry timestamp (ms) of a JWT, or 0 if invalid. */
 export function getJwtExpiry(token: string): number {
   try {
     const payload = decodeJwt(token)
@@ -82,18 +82,9 @@ export function getJwtExpiry(token: string): number {
   }
 }
 
-export const initCrypto = async () => {
-  try {
-    const result = await cryptoApi.init()
+// ── Crypto Re-exports ────────────────────────────────────────
 
-    return result
-  } catch (err) {
-    if (err instanceof Error) {
-    }
-
-    throw err
-  }
-}
+export const initCrypto = () => cryptoApi.init()
 export const bytesToBase64 = (b: Uint8Array) => cryptoApi.bytesToBase64(b)
 export const base64ToBytes = (b: string) => cryptoApi.base64ToBytes(b)
 export const deriveKeysFromPassword = (p: string, s: string, params: Argon2Params) =>
@@ -102,7 +93,6 @@ export const generateDek = () => cryptoApi.generateDek()
 export const wrapDek = (d: Uint8Array, k: Uint8Array) => cryptoApi.wrapDek(d, k)
 export const unwrapDek = (w: WrappedKey, k: Uint8Array) => cryptoApi.unwrapDek(w, k)
 export const generateKeyPair = () => cryptoApi.generateKeyPair()
-export const blake2bHash = (d: Uint8Array) => cryptoApi.blake2bHash(d)
 export const zeroize = (...arrays: (Uint8Array | null | undefined)[]) => cryptoApi.zeroize(arrays)
 export const generateSignupBundle = (p: string, s: string, params: Argon2Params) =>
   cryptoApi.generateSignupBundle(p, s, params)
@@ -110,4 +100,67 @@ export const bundleForSignupRequest = (bundle: SignupCryptoBundle, deviceName: s
   cryptoApi.bundleForSignupRequest(bundle, deviceName)
 export const deriveRecoveryAuthKey = (recoveryKey: Uint8Array) =>
   cryptoApi.deriveRecoveryAuthKey(recoveryKey)
+
+// ── BLAKE3 (replaces blake2b) ────────────────────────────────
+
 export const blake3Hash = (d: Uint8Array) => cryptoApi.blake3Hash(d)
+export const blake3HashBytes = (d: Uint8Array) => cryptoApi.blake3HashBytes(d)
+
+// ── Metadata Encryption (XChaCha20-Poly1305) ─────────────────
+
+export const encryptMetadata = (
+  plaintext: Uint8Array,
+  key: Uint8Array
+): Promise<EncryptedMetadata> => cryptoApi.encryptMetadata(plaintext, key)
+
+export const decryptMetadata = (
+  ciphertext: Uint8Array,
+  nonce: Uint8Array,
+  key: Uint8Array
+): Promise<Uint8Array | null> => cryptoApi.decryptMetadata(ciphertext, nonce, key)
+
+// ── File Streaming Encryption (secretstream) ─────────────────
+
+export const initFileEncryption = (key: Uint8Array): Promise<Uint8Array> =>
+  cryptoApi.initFileEncryption(key)
+
+export const encryptFileChunk = (
+  plaintext: Uint8Array,
+  isFinal: boolean
+): Promise<EncryptedChunkResult> => cryptoApi.encryptFileChunk(plaintext, isFinal)
+
+export const initFileDecryption = (header: Uint8Array, key: Uint8Array): Promise<void> =>
+  cryptoApi.initFileDecryption(header, key)
+
+export const decryptFileChunk = (ciphertext: Uint8Array): Promise<Uint8Array> =>
+  cryptoApi.decryptFileChunk(ciphertext)
+
+export const cleanupFileStream = (): Promise<void> => cryptoApi.cleanupFileStream()
+
+// ── High-level metadata helpers ──────────────────────────────
+
+/** Encrypts a JSON-serializable metadata object and returns base64 strings for the API. */
+export async function encryptMetadataObject(
+  obj: Record<string, unknown>,
+  dek: Uint8Array
+): Promise<{ encryptedMetadata: string; metadataNonce: string }> {
+  const jsonBytes = new TextEncoder().encode(JSON.stringify(obj))
+  const { ciphertext, nonce } = await encryptMetadata(jsonBytes, dek)
+  const encryptedMetadata = await bytesToBase64(ciphertext)
+  const metadataNonce = await bytesToBase64(nonce)
+  return { encryptedMetadata, metadataNonce }
+}
+
+/** Decrypts a base64 metadata blob back into a typed object. */
+export async function decryptMetadataObject<T = Record<string, unknown>>(
+  encryptedMetadataB64: string,
+  metadataNonceB64: string,
+  dek: Uint8Array
+): Promise<T | null> {
+  const ciphertext = await base64ToBytes(encryptedMetadataB64)
+  const nonce = await base64ToBytes(metadataNonceB64)
+  const plaintext = await decryptMetadata(ciphertext, nonce, dek)
+  if (!plaintext) return null
+  const json = new TextDecoder().decode(plaintext)
+  return JSON.parse(json) as T
+}
