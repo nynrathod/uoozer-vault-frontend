@@ -80,22 +80,27 @@ export const FileRow = memo(function FileRow({
         setIsDragging(true)
       }}
       onDragEnter={(e) => {
-        if (isFolder) {
+        // Only handle internal vault items
+        if (isFolder && Array.from(e.dataTransfer.types).includes('text/plain')) {
           e.preventDefault()
           setDragOverId(item.id)
         }
       }}
       onDragOver={(e) => {
-        if (isFolder) {
+        // Only prevent default for internal vault items
+        if (isFolder && Array.from(e.dataTransfer.types).includes('text/plain')) {
           e.preventDefault()
           e.stopPropagation()
         }
       }}
       onDragLeave={(e) => {
-        if (isFolder && !e.currentTarget.contains(e.relatedTarget as Node)) setDragOverId(null)
+        if (isFolder && Array.from(e.dataTransfer.types).includes('text/plain')) {
+          if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverId(null)
+        }
       }}
       onDrop={(e) => {
-        if (isFolder) {
+        // Only handle the drop if it's an internal vault item
+        if (isFolder && Array.from(e.dataTransfer.types).includes('text/plain')) {
           e.preventDefault()
           e.stopPropagation()
           setDragOverId(null)
@@ -105,6 +110,7 @@ export const FileRow = memo(function FileRow({
           if (draggedId && draggedId !== item.id)
             moveItem(draggedId, item.id, draggedType === 'folder')
         }
+        // If it's an OS file, do nothing here. Let it bubble up to VaultPage.
       }}
       onDragEnd={() => {
         setDragOverId(null)

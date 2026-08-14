@@ -76,22 +76,24 @@ export const FileCard = memo(function FileCard({
         setIsDragging(true)
       }}
       onDragEnter={(e) => {
-        if (isFolder) {
+        if (isFolder && Array.from(e.dataTransfer.types).includes('text/plain')) {
           e.preventDefault()
           setDragOverId(item.id)
         }
       }}
       onDragOver={(e) => {
-        if (isFolder) {
+        if (isFolder && Array.from(e.dataTransfer.types).includes('text/plain')) {
           e.preventDefault()
           e.stopPropagation()
         }
       }}
       onDragLeave={(e) => {
-        if (isFolder && !e.currentTarget.contains(e.relatedTarget as Node)) setDragOverId(null)
+        if (isFolder && Array.from(e.dataTransfer.types).includes('text/plain')) {
+          if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverId(null)
+        }
       }}
       onDrop={(e) => {
-        if (isFolder) {
+        if (isFolder && Array.from(e.dataTransfer.types).includes('text/plain')) {
           e.preventDefault()
           e.stopPropagation()
           setDragOverId(null)

@@ -143,11 +143,46 @@ export function VaultPage() {
     }
   }
 
+  const dragCounter = useRef(0)
+
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    // Only trigger for files dragged from the OS, not internal vault items
+    const isFileDrag = Array.from(e.dataTransfer.types).includes('Files')
+    if (!isFileDrag) return
+
+    e.preventDefault()
+    e.stopPropagation()
+    dragCounter.current++
+    if (dragCounter.current === 1) {
+      setIsDragging(true)
+    }
+  }, [])
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    const isFileDrag = Array.from(e.dataTransfer.types).includes('Files')
+    if (!isFileDrag) return
+
+    e.preventDefault()
+    e.stopPropagation()
+    dragCounter.current--
+    if (dragCounter.current <= 0) {
+      dragCounter.current = 0
+      setIsDragging(false)
+    }
+  }, [])
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    // Prevent default to allow drop
+    e.preventDefault()
+    e.stopPropagation()
+  }, [])
+
   const handleDrop = useCallback(
     async (e: React.DragEvent) => {
       e.preventDefault()
       e.stopPropagation()
-      setIsDragging(false)
+      dragCounter.current = 0
+      setIsDragging(false) // Hide overlay immediately
 
       const items = e.dataTransfer.items
       const files: File[] = []
@@ -177,12 +212,6 @@ export function VaultPage() {
     [uploadFiles, currentFolderId]
   )
 
-  const handleDragLeave = (e: React.DragEvent) => {
-    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-      setIsDragging(false)
-    }
-  }
-
   if (isError) {
     return (
       <div className="flex h-full flex-col items-center justify-center p-8 text-center">
@@ -199,11 +228,9 @@ export function VaultPage() {
   return (
     <div
       className="bg-background relative flex h-full overflow-hidden"
-      onDragOver={(e) => {
-        e.preventDefault()
-        setIsDragging(true)
-      }}
+      onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
       <input
@@ -294,16 +321,19 @@ export function VaultPage() {
       </div>
 
       {isDragging && (
-        <div className="bg-background/50 animate-fade-in pointer-events-none absolute inset-0 z-50 flex flex-col items-center justify-center gap-5 backdrop-blur-[3px]">
+        <div
+          className="bg-background/50 animate-fade-in absolute inset-0 z-50 flex flex-col items-center justify-center gap-5 backdrop-blur-[3px]"
+          onClick={() => {
+            dragCounter.current = 0
+            setIsDragging(false)
+          }}
+        >
           <div className="relative flex h-20 w-20 items-center justify-center">
             <div className="border-primary/20 absolute inset-0 animate-ping rounded-full border-2"></div>
-            <div className="border-primary/10 absolute inset-2 rounded-full border"></div>
-
             <div className="bg-primary text-primary-foreground shadow-primary/20 relative flex h-16 w-16 scale-100 items-center justify-center rounded-full shadow-xl transition-transform duration-200">
               <Upload className="h-8 w-8" strokeWidth={1.5} />
             </div>
           </div>
-
           <div className="text-center">
             <p className="text-foreground text-lg font-semibold tracking-tight">Drop to upload</p>
             <p className="text-muted-foreground mt-1 max-w-xs text-sm">
