@@ -10,7 +10,7 @@ import { cn, formatBytes } from '@lib/utils'
 /** Shape of a file or folder entry used in search results. */
 interface SearchableItem {
   id: string
-  encryptedName: string
+  name: string
   type: 'file' | 'folder'
   size?: number
 }
@@ -48,21 +48,21 @@ export function SearchCommand() {
   const allItems = useMemo<SearchableItem[]>(() => {
     const folderItems = folders.map((f) => ({
       id: f.id,
-      encryptedName: f.encryptedName,
+      name: f.name,
       type: 'folder' as const,
     }))
     const fileItems = files.map((f) => ({
       id: f.id,
-      encryptedName: f.encryptedName,
+      name: f.name,
       type: 'file' as const,
-      size: f.size,
+      size: f.totalSize,
     }))
     return [...folderItems, ...fileItems]
   }, [files, folders])
 
   const filtered = useMemo(() => {
     if (!query.trim()) return allItems
-    return allItems.filter((item) => item.encryptedName.toLowerCase().includes(query.toLowerCase()))
+    return allItems.filter((item) => item.name.toLowerCase().includes(query.toLowerCase()))
   }, [query, allItems])
 
   const handleSelect = (item: SearchableItem) => {
@@ -134,7 +134,7 @@ export function SearchCommand() {
                           strokeWidth={1.8}
                         />
                         <span className="text-foreground truncate text-[13px] font-medium">
-                          {item.encryptedName}
+                          {item.name}
                         </span>
                       </button>
                     )
@@ -171,7 +171,7 @@ export function SearchCommand() {
                           strokeWidth={1.8}
                         />
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-[13px] font-medium">{item.encryptedName}</p>
+                          <p className="truncate text-[13px] font-medium">{item.name}</p>
                         </div>
                         <span className="text-muted-foreground/50 text-[11px] tabular-nums">
                           {formatBytes(item.size ?? 0)}

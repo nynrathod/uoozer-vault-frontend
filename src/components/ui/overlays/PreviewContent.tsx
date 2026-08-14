@@ -1,9 +1,11 @@
+import { useEffect, useState } from 'react'
 import { Button } from '@ui/Button'
 import { Loader2, Download } from 'lucide-react'
 import { cn } from '@lib/utils'
-import { MOCK_URLS } from '@lib/constants'
 import { useFileStore, selectFileById } from '@stores/fileStore'
 import { usePreviewStore } from '@stores/previewStore'
+import { useAuthStore } from '@stores/authStore'
+import { downloadFile } from '@services/files/downloadOrchestrator'
 import { FileIcon } from '@/components/features/vault/fileList/FileIcon'
 
 /** Renders file preview by MIME type (image, PDF, text, or generic fallback). */
@@ -14,13 +16,40 @@ export function PreviewContent() {
   const setLoading = usePreviewStore((s) => s.setLoading)
 
   const file = useFileStore(selectFileById(fileId))
+  const dek = useAuthStore((s) => s.cryptoState.dek)
+
+  const [blobUrl, setBlobUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!fileId || !dek || !file) return
+
+    let objectUrl: string | null = null
+    const fetchFile = async () => {
+      try {
+        setLoading(true)
+        setBlobUrl(null)
+        const blob = await downloadFile({ dek, fileId })
+        objectUrl = URL.createObjectURL(blob)
+        setBlobUrl(objectUrl)
+      } catch (error) {
+        console.error('Failed to load preview:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchFile()
+
+    return () => {
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+    }
+  }, [fileId, dek, file, setLoading])
 
   if (!file) return null
 
-  const isImage = file.encryptedMimeType?.startsWith('image/')
-  const isPdf = file.encryptedMimeType === 'application/pdf'
-  const isText =
-    file.encryptedMimeType?.startsWith('text/') || file.encryptedMimeType === 'application/document'
+  const isImage = file.mimeType?.startsWith('image/')
+  const isPdf = file.mimeType === 'application/pdf'
+  const isText = file.mimeType?.startsWith('text/') || file.mimeType === 'application/document'
 
   const contentAreaClasses = isFullscreen
     ? 'flex-1 flex items-center justify-center p-4 md:p-8 overflow-hidden relative bg-black/95'
@@ -52,8 +81,8 @@ export function PreviewContent() {
       >
         {isImage && (
           <img
-            src={MOCK_URLS.UNSPLASH_IMAGE}
-            alt={file.encryptedName}
+            src={blobUrl ?? ''}
+            alt={file.name}
             className={cn(
               'max-h-full max-w-full object-contain transition-opacity duration-300',
               isLoading ? 'opacity-0' : 'opacity-100'
@@ -61,9 +90,9 @@ export function PreviewContent() {
             onLoad={() => setLoading(false)}
           />
         )}
-        {isPdf && (
+        {isPdf && blobUrl && (
           <object
-            data={`${MOCK_URLS.DUMMY_PDF}#toolbar=1&navpanes=0`}
+            data={blobUrl}
             type="application/pdf"
             className={cn(
               'h-full w-full transition-opacity duration-300',
@@ -75,8 +104,8 @@ export function PreviewContent() {
                 Your browser does not support inline PDFs.
               </p>
               <a
-                href={MOCK_URLS.DUMMY_PDF}
-                download
+                href={blobUrl}
+                download={file.name}
                 className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg px-4 py-2 text-sm font-medium transition-colors"
               >
                 Download PDF
@@ -84,25 +113,15 @@ export function PreviewContent() {
             </div>
           </object>
         )}
-        {isText && (
-          <div
+        {isText && blobUrl && (
+          <iframe
+            src={blobUrl}
             className={cn(
-              'h-full w-full overflow-y-auto p-6 text-left transition-opacity duration-300 md:p-8',
+              'h-full w-full bg-white transition-opacity duration-300',
               isLoading ? 'opacity-0' : 'opacity-100'
             )}
-          >
-            <h1 className="text-foreground mb-6 text-xl font-bold md:text-2xl">
-              {file.encryptedName}
-            </h1>
-            <div className="prose prose-sm text-muted-foreground max-w-none space-y-4 leading-relaxed">
-              <p>
-                This is a simulated text preview for <strong>{file.encryptedName}</strong>. In a
-                production zero-knowledge environment, the actual file content would be fetched in
-                encrypted chunks from the server, decrypted client-side using your Master Key, and
-                rendered securely here in the DOM.
-              </p>
-            </div>
-          </div>
+            title={file.name}
+          />
         )}
         {!isImage && !isPdf && !isText && (
           <div className="flex flex-col items-center justify-center p-8 text-center">
@@ -113,7 +132,7 @@ export function PreviewContent() {
               )}
             >
               <FileIcon
-                mimeType={file.encryptedMimeType}
+                mimeType={file.mimeType}
                 size="lg"
                 className={cn(
                   'bg-transparent',
@@ -138,9 +157,13 @@ export function PreviewContent() {
               We can't show a preview for this file type in your browser. Please download it to view
               its contents.
             </p>
-            <Button variant="secondary" className="gap-1.5">
-              <Download className="h-4 w-4" /> Download file
-            </Button>
+            {blobUrl && (
+              <a href={blobUrl} download={file.name}>
+                <Button variant="secondary" className="gap-1.5">
+                  <Download className="h-4 w-4" /> Download file
+                </Button>
+              </a>
+            )}
           </div>
         )}
       </div>

@@ -13,13 +13,10 @@ import {
   Check,
 } from 'lucide-react'
 import { cn, formatBytes } from '@lib/utils'
-import { useClipboard } from '@hooks/useClipboard'
-import { useInlineRename } from '@hooks/useInlineRename'
+import { useItemActions } from '@hooks/useItemActions'
 import { useFileStore, selectFileById } from '@stores/fileStore'
 import { usePreviewStore } from '@stores/previewStore'
-import { MOCK_URLS } from '@lib/constants'
 
-/** Preview toolbar with file name, rename, share, download, fullscreen, and close actions. */
 export function PreviewHeader() {
   const fileId = usePreviewStore((s) => s.fileId)
   const isFullscreen = usePreviewStore((s) => s.isFullscreen)
@@ -29,28 +26,12 @@ export function PreviewHeader() {
   const close = usePreviewStore((s) => s.close)
 
   const file = useFileStore(selectFileById(fileId))
-  const renameItem = useFileStore((s) => s.renameItem)
-  const deleteItem = useFileStore((s) => s.deleteItem)
   const setShareTarget = useFileStore((s) => s.setShareTarget)
 
-  const { copied, copy } = useClipboard()
-  const {
-    name: previewName,
-    setName,
-    isSaving,
-    handleSubmit,
-  } = useInlineRename(
-    file?.encryptedName ?? '',
-    (newName) => {
-      if (file) renameItem(file.id, false, newName)
-      setEditing(false)
-    },
-    () => setEditing(false)
-  )
+  const { copied, handleCopyLink, handleDelete, name, setName, isSaving, handleSubmit } =
+    useItemActions(file, () => setEditing(false))
 
   if (!file) return null
-
-  const handleCopyLink = () => copy(`${MOCK_URLS.SHARE_LINK_BASE}${file.id}`)
 
   const headerClasses = isFullscreen
     ? 'h-16 flex items-center justify-between px-4 border-b border-white/10 text-white shrink-0 bg-[#0a0a0a]'
@@ -91,7 +72,7 @@ export function PreviewHeader() {
             )}
           >
             <FileIcon
-              mimeType={file.encryptedMimeType}
+              mimeType={file.mimeType}
               size="sm"
               className={cn(
                 'bg-transparent',
@@ -104,17 +85,16 @@ export function PreviewHeader() {
               <>
                 <input
                   autoFocus
-                  value={previewName}
+                  value={name}
                   onChange={(e) => setName(e.target.value)}
                   onClick={(e) => e.stopPropagation()}
+                  onBlur={handleSubmit}
+                  onFocus={(e) => e.target.select()}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleSubmit()
                     if (e.key === 'Escape') setEditing(false)
                   }}
-                  className={cn(
-                    'bg-background border-primary w-full max-w-[300px] rounded-md border px-1.5 py-0.5 text-sm font-semibold outline-none',
-                    isFullscreen && 'border-white/20 bg-white/10 text-white'
-                  )}
+                  className="bg-background border-primary w-full rounded-md border px-1.5 py-0.5 text-[13px] font-medium outline-none"
                 />
                 {isSaving ? (
                   <Loader2 className="text-primary h-4 w-4 shrink-0 animate-spin" />
@@ -129,17 +109,15 @@ export function PreviewHeader() {
               </>
             ) : (
               <div className="min-w-0" onDoubleClick={() => setEditing(true)}>
-                <p className="cursor-pointer truncate text-sm font-semibold">
-                  {file.encryptedName}
-                </p>
+                <p className="cursor-pointer truncate text-sm font-semibold">{file.name}</p>
                 <p
                   className={cn(
                     'truncate text-xs',
                     isFullscreen ? 'text-white/40' : 'text-muted-foreground/60'
                   )}
                 >
-                  {file.encryptedMimeType?.replace('application/', '').toUpperCase()} •{' '}
-                  {formatBytes(file.size)}
+                  {file.mimeType?.replace('application/', '').toUpperCase()} •{' '}
+                  {formatBytes(file.totalSize)}
                 </p>
               </div>
             )}
@@ -189,7 +167,7 @@ export function PreviewHeader() {
           item={file}
           isFolder={false}
           onRenameRequest={() => setEditing(true)}
-          onDelete={deleteItem}
+          onDelete={handleDelete}
           onShare={() => setShareTarget(file.id)}
           copied={copied}
           onCopyLink={handleCopyLink}

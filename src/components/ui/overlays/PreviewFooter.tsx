@@ -18,7 +18,7 @@ export function PreviewFooter() {
       <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-[12px]">
         <div className="text-muted-foreground flex items-center gap-2">
           <HardDrive className="h-3.5 w-3.5" /> Size{' '}
-          <span className="text-foreground ml-auto font-medium">{formatBytes(file.size)}</span>
+          <span className="text-foreground ml-auto font-medium">{formatBytes(file.totalSize)}</span>
         </div>
         <div className="text-muted-foreground flex items-center gap-2">
           <Calendar className="h-3.5 w-3.5" /> Modified{' '}
