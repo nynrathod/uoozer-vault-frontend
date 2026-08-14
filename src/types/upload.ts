@@ -1,47 +1,33 @@
-/** Tracks the encryption/upload status of a single chunk. */
+/** Tracks a single chunk's encryption + upload lifecycle. */
 export interface UploadChunk {
-  id: string
-  fileId: string
   index: number
-  totalChunks: number
+  segmentIndex: number
   status: 'pending' | 'encrypting' | 'uploading' | 'done' | 'error'
   progress: number
   size: number
+  ciphertextSize: number
   blake3Hash: string | null
+  r2Etag: string | null
+  r2Key: string | null
+  presignedUrl: string | null
+  error: string | null
   retries: number
 }
 
-/** Top-level upload entry with its chunk breakdown and aggregate progress. */
+/** Top-level upload entry tracked in the upload store. */
 export interface UploadFile {
   id: string
-  localFile: File
-  encryptedName: string
-  encryptedMimeType: string
+  file: File
+  fileId: string | null
+  versionId: string | null
   folderId: string | null
   totalSize: number
+  totalChunks: number
   chunks: UploadChunk[]
-  status: 'pending' | 'encrypting' | 'uploading' | 'processing' | 'done' | 'error' | 'cancelled'
+  status: 'queued' | 'encrypting' | 'uploading' | 'completing' | 'done' | 'error' | 'cancelled'
   overallProgress: number
-  errorMessage?: string
-  createdAt: number
-}
-
-export interface PresignedUrlRequest {
-  fileId: string
-  chunkIndex: number
-  contentLength: number
-}
-
-/** R2 presigned URL for direct chunk upload. */
-export interface PresignedUrlResponse {
-  url: string
-  key: string
-  expiresAt: string
-}
-
-/** Returned by the upload handler after a successful PUT to R2. */
-export interface ChunkUploadResult {
-  chunkIndex: number
-  etag: string
-  blake3Hash: string
+  errorMessage: string | null
+  startedAt: number
+  completedAt: number | null
+  deduplicated: boolean
 }

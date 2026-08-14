@@ -19,17 +19,26 @@ export type {
 export type {
   FileItem,
   FileVersion,
-  FileChunk,
-  FilePreview,
   FileViewMode,
   FileSortField,
   FileSortOrder,
+  BackendFileResponse,
+  BackendListFilesResponse,
+  ChunkUploadUrl,
+  CreateFileRequest,
+  CreateFileResponse,
+  CompleteUploadRequest,
+  DownloadManifest,
+  DownloadChunkInfo,
+  ChunkPlan,
+  ResumeInfo,
 } from './files'
-export type { Folder, FolderTreeNode, CreateFolderInput, RenameFolderInput } from './folders'
 export type {
-  UploadChunk,
-  UploadFile,
-  PresignedUrlRequest,
-  PresignedUrlResponse,
-  ChunkUploadResult,
-} from './upload'
+  Folder,
+  FolderTreeNode,
+  BackendFolderResponse,
+  CreateFolderRequest,
+  UpdateFolderRequest,
+  FolderMetadata,
+} from './folders'
+export type { UploadChunk, UploadFile } from './upload'
