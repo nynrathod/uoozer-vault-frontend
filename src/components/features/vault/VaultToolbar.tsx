@@ -1,11 +1,9 @@
 import {
   ArrowUpDown,
-  Plus,
   FolderPlus,
   Upload,
-  FileText,
-  Presentation,
-  FileSpreadsheet,
+  FileUp,
+  FolderUp,
   List,
   LayoutGrid,
   Download,
@@ -16,48 +14,48 @@ import {
 } from 'lucide-react'
 import { useCallback, useMemo } from 'react'
 import { useFileStore } from '@stores/fileStore'
-import { useUIStore } from '@stores/uiStore'
+import { useVaultActions } from '@hooks/useVaultActions'
 import { Button } from '@ui/Button'
 import { DropdownMenu, DropdownItem, DropdownSeparator, DropdownLabel } from '@ui/DropdownMenu'
 
-const NEW_FOLDER_ICON = <FolderPlus className="h-4 w-4" />
-const UPLOAD_ICON = <Upload className="h-4 w-4" />
-const NEW_DOC_ICON = <FileText className="h-4 w-4" />
-const NEW_PPT_ICON = <Presentation className="h-4 w-4" />
-const NEW_XLS_ICON = <FileSpreadsheet className="h-4 w-4" />
+interface VaultToolbarProps {
+  onUploadFiles: () => void
+  onUploadFolder: () => void
+  onNewFolder: () => void
+}
 
-/** Vault action bar: sort controls, item count, new/upload buttons, and bulk selection actions. */
-export function VaultToolbar() {
+export function VaultToolbar({ onUploadFiles, onUploadFolder, onNewFolder }: VaultToolbarProps) {
   const files = useFileStore((s) => s.files)
   const folders = useFileStore((s) => s.folders)
   const selectedFileIds = useFileStore((s) => s.selectedFileIds)
   const clearFileSelection = useFileStore((s) => s.clearSelection)
-  const deleteItem = useFileStore((s) => s.deleteItem)
-
   const sortField = useFileStore((s) => s.sortField)
   const sortOrder = useFileStore((s) => s.sortOrder)
   const setSort = useFileStore((s) => s.setSort)
   const viewMode = useFileStore((s) => s.viewMode)
   const toggleViewMode = useFileStore((s) => s.toggleViewMode)
   const setEditingId = useFileStore((s) => s.setEditingId)
-  const setUploadPanelOpen = useUIStore((s) => s.setUploadPanelOpen)
+
+  const { deleteItem, isDeleting, bulkDelete } = useVaultActions()
 
   const hasSelection = selectedFileIds.size > 0
-
   const itemCount = useMemo(() => files.size + folders.size, [files, folders])
 
   const handleBulkDelete = useCallback(() => {
-    selectedFileIds.forEach((id) => deleteItem(id, folders.has(id)))
+    const items = Array.from(selectedFileIds).map((id) => ({
+      id,
+      isFolder: folders.has(id),
+    }))
+    bulkDelete(items)
     clearFileSelection()
-  }, [selectedFileIds, deleteItem, folders, clearFileSelection])
+  }, [selectedFileIds, bulkDelete, folders, clearFileSelection])
 
   const handleNewFolder = useCallback(() => setEditingId('new'), [setEditingId])
-  const handleUploadClick = useCallback(() => setUploadPanelOpen(true), [setUploadPanelOpen])
 
   return (
-    <div className="border-border/60 flex shrink-0 items-center justify-between border-b px-4 py-2">
+    <div className="border-border/60 flex h-[52px] shrink-0 items-center justify-between border-b px-4 py-2">
       {hasSelection ? (
-        <div className="flex w-full items-center justify-between">
+        <div className="animate-fade-in flex w-full items-center justify-between">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
@@ -78,6 +76,7 @@ export function VaultToolbar() {
               size="sm"
               className="text-destructive hover:bg-destructive/10 h-8 gap-1.5 rounded-lg text-[13px]"
               onClick={handleBulkDelete}
+              disabled={isDeleting}
             >
               <Trash2 className="h-4 w-4" /> <span className="hidden sm:inline">Delete</span>
             </Button>
@@ -142,28 +141,34 @@ export function VaultToolbar() {
           </div>
 
           <div className="flex items-center gap-1">
+            <Button
+              variant="default"
+              size="sm"
+              className="bg-foreground text-background hover:bg-foreground/90 h-8 gap-1.5 rounded-lg px-3 text-[13px] font-medium"
+              onClick={onNewFolder}
+            >
+              <FolderPlus className="h-4 w-4" strokeWidth={2.5} /> New Folder
+            </Button>
+
             <DropdownMenu
               trigger={
                 <Button
-                  variant="default"
+                  variant="outline"
                   size="sm"
-                  className="bg-foreground text-background hover:bg-foreground/90 h-8 gap-1.5 rounded-lg px-3 text-[13px] font-medium"
+                  className="border-border hover:bg-secondary h-8 gap-1.5 rounded-lg px-3 text-[13px] font-medium"
                 >
-                  <Plus className="h-4 w-4" strokeWidth={2.5} /> New
+                  <Upload className="h-4 w-4" /> Upload <ChevronDown className="h-3 w-3" />
                 </Button>
               }
             >
-              <DropdownItem icon={NEW_FOLDER_ICON} onClick={handleNewFolder}>
-                New Folder
+              <DropdownItem icon={<FileUp className="h-4 w-4" />} onClick={onUploadFiles}>
+                Upload Files
               </DropdownItem>
-              <DropdownItem icon={UPLOAD_ICON} onClick={handleUploadClick}>
-                Upload File
+              <DropdownItem icon={<FolderUp className="h-4 w-4" />} onClick={onUploadFolder}>
+                Upload Folder
               </DropdownItem>
-              <DropdownSeparator />
-              <DropdownItem icon={NEW_DOC_ICON}>New Document</DropdownItem>
-              <DropdownItem icon={NEW_PPT_ICON}>New Presentation</DropdownItem>
-              <DropdownItem icon={NEW_XLS_ICON}>New Spreadsheet</DropdownItem>
             </DropdownMenu>
+
             <div className="bg-border/70 mx-1 hidden h-5 w-px sm:block" />
             <Button
               variant={viewMode === 'list' ? 'secondary' : 'ghost'}
