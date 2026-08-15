@@ -26,6 +26,7 @@ import type {
   LoginCredentials,
   SignupCredentials,
   Argon2Params,
+  User,
 } from '@/types/auth'
 import {
   AuthError,
@@ -240,18 +241,18 @@ class AuthService {
     }
   }
 
-  async changePassword(
-    newPassword: string,
-    currentSalt: string,
-    currentArgonParams: Argon2Params,
-    dek: Uint8Array
-  ): Promise<{ wrapped_dek: string; wrapped_dek_nonce: string }> {
+  async changePassword(newPassword: string, dek: Uint8Array): Promise<void> {
     await this.ensureCryptoReady()
+
+    const email = tokenManager.getUserEmail()
+    if (!email) throw new Error('Session expired.')
+
+    const preloginResp = await this.prelogin(email)
 
     const { masterKey: newMasterKey, authKey: newAuthKey } = await deriveKeysFromPassword(
       newPassword,
-      currentSalt,
-      currentArgonParams
+      preloginResp.salt,
+      preloginResp.argon2_params
     )
 
     const newWrappedDek = await wrapDek(dek, newMasterKey)
@@ -267,8 +268,6 @@ class AuthService {
         new_wrapped_dek: newWrappedDekB64,
         new_wrapped_dek_nonce: newWrappedDekNonceB64,
       })
-
-      return { wrapped_dek: newWrappedDekB64, wrapped_dek_nonce: newWrappedDekNonceB64 }
     } catch (error: any) {
       throw this._handleError(error)
     }
@@ -453,6 +452,51 @@ class AuthService {
     tokenManager.setHasSession(true)
 
     return { masterKey: newMasterKey, dek }
+  }
+
+  async updateProfile(payload: { full_name?: string; avatar_url?: string }): Promise<void> {
+    try {
+      await apiClient.patch('/api/v1/auth/profile', payload)
+    } catch (error: any) {
+      throw this._handleError(error)
+    }
+  }
+
+  async deleteAvatar(): Promise<void> {
+    try {
+      await apiClient.delete('/api/v1/auth/avatar')
+    } catch (error: any) {
+      throw this._handleError(error)
+    }
+  }
+
+  async getMe(): Promise<User> {
+    try {
+      const { data } = await apiClient.get('/api/v1/auth/me')
+      return {
+        id: data.id,
+        email: data.email,
+        fullName: data.full_name || '',
+        avatarUrl: data.avatar_url || undefined,
+        createdAt: '',
+        updatedAt: '',
+      }
+    } catch (error: any) {
+      throw this._handleError(error)
+    }
+  }
+
+  async uploadAvatar(file: File): Promise<string> {
+    const formData = new FormData()
+    formData.append('file', file)
+    try {
+      const { data } = await apiClient.post('/api/v1/auth/avatar', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      return data.avatar_url
+    } catch (error: any) {
+      throw this._handleError(error)
+    }
   }
 }
 

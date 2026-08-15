@@ -61,7 +61,7 @@ export function SettingsPage() {
 
         <ScrollArea className="flex-1">
           <div className="max-w-2xl px-4 py-6 lg:px-8 lg:py-8">
-            {activeTab === 'general' && <ProfileSection user={user} />}
+            {activeTab === 'general' && <ProfileSection />}
             {activeTab === 'security' && <SecuritySection />}
             {activeTab === 'notifications' && <NotificationsSection />}
             {activeTab === 'appearance' && (

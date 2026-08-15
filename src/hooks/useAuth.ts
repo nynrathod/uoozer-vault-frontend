@@ -283,6 +283,73 @@ export function useAuth() {
     }
   }, [navigate, storeLogout])
 
+  const updateProfile = useCallback(
+    async (fullName: string, avatarUrl?: string) => {
+      try {
+        await authService.updateProfile({ full_name: fullName, avatar_url: avatarUrl })
+        const currentUser = useAuthStore.getState().user
+        if (currentUser) {
+          setUser({
+            ...currentUser,
+            fullName,
+            ...(avatarUrl ? { avatarUrl } : {}),
+          })
+        }
+
+        toast.success('Profile updated successfully')
+      } catch (error: any) {
+        toast.error(error.message || 'Failed to update profile')
+        throw error
+      }
+    },
+    [setUser]
+  )
+
+  const uploadAvatar = useCallback(
+    async (file: File) => {
+      try {
+        const avatarUrl = await authService.uploadAvatar(file)
+        const currentUser = useAuthStore.getState().user
+        if (currentUser) {
+          setUser({ ...currentUser, avatarUrl })
+        }
+        toast.success('Avatar updated successfully')
+        return avatarUrl
+      } catch (error: any) {
+        toast.error(error.message || 'Failed to upload avatar')
+        throw error
+      }
+    },
+    [setUser]
+  )
+
+  const removeAvatar = useCallback(async () => {
+    try {
+      await authService.deleteAvatar()
+      const currentUser = useAuthStore.getState().user
+      if (currentUser) {
+        setUser({ ...currentUser, avatarUrl: undefined })
+      }
+      toast.success('Profile picture removed')
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to remove avatar')
+      throw error
+    }
+  }, [setUser])
+
+  const changePassword = useCallback(async (newPassword: string) => {
+    try {
+      const dek = useAuthStore.getState().cryptoState.dek
+      if (!dek) throw new Error('Vault is locked. Please unlock to change password.')
+
+      await authService.changePassword(newPassword, dek)
+      toast.success('Password updated successfully')
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to change password')
+      throw error
+    }
+  }, [])
+
   return {
     user,
     isAuthenticated,
@@ -301,6 +368,11 @@ export function useAuth() {
     completeRecovery,
     unlock,
     logout,
+
+    updateProfile,
+    changePassword,
+    uploadAvatar,
+    removeAvatar,
 
     clearLoginError: () => setLoginError(null),
     clearSignupError: () => setSignupError(null),

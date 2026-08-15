@@ -53,7 +53,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set((state) => ({ cryptoState: { ...state.cryptoState, dek }, isCryptoReady: !!dek })),
 
   initialize: async () => {
-    // Deduplicate concurrent calls (e.g. React Strict Mode double-mount)
     if (_initPromise) return _initPromise
 
     if (!hasSession) {
@@ -65,7 +64,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       try {
         await authService.ensureCryptoReady()
 
-        // Attempt silent unlock via the IndexedDB-stored device key
         const deviceKeyB64 = await tokenManager.getDeviceKey()
         const deviceWrappedDek = await tokenManager.getDeviceWrappedDek()
 
@@ -83,10 +81,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           } catch (e) {}
         }
 
-        // Validate refresh token via API; only runs once per mount
         const restored = await authService.tryRestoreSession()
         if (!restored) {
           await get().logout()
+        } else {
+          try {
+            const profile = await authService.getMe()
+            set({ user: profile })
+          } catch (e) {
+            console.warn('Failed to fetch user profile', e)
+          }
         }
       } catch (error) {
         await get().logout()
