@@ -20,12 +20,14 @@ import { EmptyState } from '@/components/ui/feedback/EmptyState'
 import { FilePreviewDialog } from '@/components/ui/overlays/FilePreviewDialog'
 import { ShareDialog } from '@/components/ui/overlays/ShareDialog'
 import { VersionHistoryDialog } from '@/components/ui/overlays/VersionHistoryDialog'
-import { VaultLoader } from '@/components/ui/feedback/VaultLoader'
 import { VaultToolbar } from '@/components/features/vault/VaultToolbar'
 import { useVaultFiles } from '@hooks/useVaultFiles'
 import { useFileUpload } from '@hooks/useFileUpload'
 import { useQueryClient } from '@tanstack/react-query'
 import type { Folder } from '@/types/folders'
+import { UploadQueue } from '@/components/features'
+import { VaultSkeleton } from '@/components/features/vault/fileList/VaultSkeleton'
+import { useDelayedLoading } from '@/hooks/useDelayedLoading'
 
 // Helper to recursively read dropped folders (for drag-and-drop)
 function readAllEntries(dirReader: any): Promise<any[]> {
@@ -73,12 +75,11 @@ export function VaultPage() {
   const previewFileId = usePreviewStore((s) => s.fileId)
   const openPreview = usePreviewStore((s) => s.open)
 
-  const { isLoading, isError, error, refresh } = useVaultFiles(currentFolderId)
+  const { isLoading, isError, error, refresh, breadcrumbPath } = useVaultFiles(currentFolderId)
   const { uploadFiles } = useFileUpload()
 
   const files = useFileStore(useShallow(selectCurrentFiles))
   const folders = useFileStore(useShallow(selectCurrentFolders))
-  const breadcrumbPath = useFileStore(useShallow(selectBreadcrumbPath))
   const folderCounts = useFileStore(useShallow(selectFolderCounts))
 
   const shareTargetId = useFileStore((s) => s.shareTargetId)
@@ -122,6 +123,8 @@ export function VaultPage() {
 
     setEditingId(tempId)
   }, [currentFolderId, queryClient, setEditingId])
+
+  const showSkeleton = useDelayedLoading(isLoading, 300)
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -271,10 +274,10 @@ export function VaultPage() {
           />
 
           <div className="relative flex-1 overflow-hidden">
-            {isLoading ? (
-              <div className="flex h-full items-center justify-center">
-                <VaultLoader size={48} />
-              </div>
+            {showSkeleton ? (
+              <VaultSkeleton viewMode={viewMode} />
+            ) : isLoading ? (
+              <div className="bg-background h-full w-full"></div>
             ) : files.length === 0 && folders.length === 0 ? (
               <EmptyState />
             ) : viewMode === 'list' ? (
@@ -342,6 +345,7 @@ export function VaultPage() {
           </div>
         </div>
       )}
+      <UploadQueue />
     </div>
   )
 }

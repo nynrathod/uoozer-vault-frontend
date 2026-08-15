@@ -8,11 +8,11 @@ interface UploadState {
   updateChunk: (uploadId: string, chunkIndex: string, patch: Partial<UploadChunk>) => void
   removeUpload: (id: string) => void
   clearCompleted: () => void
+  retryUpload: (id: string) => void
   getUpload: (id: string) => UploadFile | undefined
   getAllUploads: () => UploadFile[]
 }
 
-/** Tracks in-flight uploads with per-chunk progress and zero-knowledge encryption state. */
 export const useUploadStore = create<UploadState>((set, get) => ({
   uploads: new Map(),
 
@@ -63,6 +63,22 @@ export const useUploadStore = create<UploadState>((set, get) => ({
           next.set(id, upload)
         }
       }
+      return { uploads: next }
+    }),
+
+  retryUpload: (id) =>
+    set((s) => {
+      const existing = s.uploads.get(id)
+      if (!existing || existing.status !== 'error') return s
+
+      const next = new Map(s.uploads)
+      next.set(id, {
+        ...existing,
+        status: 'queued',
+        overallProgress: 0,
+        errorMessage: null,
+        chunks: existing.chunks.map((c) => ({ ...c, status: 'pending', progress: 0, error: null })),
+      })
       return { uploads: next }
     }),
 

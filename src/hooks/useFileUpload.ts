@@ -1,6 +1,5 @@
 import { useCallback, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
 import { useAuthStore } from '@stores/authStore'
 import { useUploadStore } from '@stores/uploadStore'
 import { uploadFile } from '@services/files/uploadOrchestrator'
@@ -23,33 +22,27 @@ export function useFileUpload() {
   const uploadFiles = useCallback(
     async (files: File[], currentFolderId: string | null) => {
       if (!dek) {
-        toast.error('Vault is locked. Please unlock to upload files.')
         return
       }
 
       const folderMap = new Map<string, string | null>()
       folderMap.set('', currentFolderId)
 
-      // 1. Parse paths and create folders sequentially if needed
       for (const file of files) {
         const rawPath = (file as any).path || (file as any).webkitRelativePath || ''
-
-        // Normalize path: replace backslashes, remove leading slashes, remove drive letters
         let normalizedPath = rawPath
           .replace(/\\/g, '/')
           .replace(/^[a-zA-Z]:/, '')
           .replace(/^\/+/, '')
 
-        // If it doesn't contain a slash, it's a loose file at the root
         if (!normalizedPath.includes('/')) {
           ;(file as any)._targetFolderId = currentFolderId
           continue
         }
 
         const parts = normalizedPath.split('/').filter((p: string) => p && p !== '.' && p !== '..')
-        parts.pop() // Remove filename
+        parts.pop()
 
-        // If no directory parts remain, it's a loose file
         if (parts.length === 0) {
           ;(file as any)._targetFolderId = currentFolderId
           continue
@@ -77,18 +70,17 @@ export function useFileUpload() {
               currentParent = folder.folder_id
             } catch (err) {
               console.error('Failed to create folder:', part, err)
-              toast.error(`Failed to create folder: ${part}`)
             }
           }
         }
         ;(file as any)._targetFolderId = currentParent
       }
 
-      // 2. Upload files SEQUENTIALLY
+      const validUploads: { upload: UploadFile; file: File }[] = []
+
       for (const file of files) {
         const validation = validateFile(file)
         if (!validation.valid) {
-          toast.error(`${file.name}: ${validation.errors[0].message}`)
           continue
         }
 
@@ -127,6 +119,12 @@ export function useFileUpload() {
         }
 
         addUpload(upload)
+        validUploads.push({ upload, file })
+      }
+
+      for (const { upload, file } of validUploads) {
+        const uploadId = upload.id
+        const targetFolderId = upload.folderId
 
         const controller = new AbortController()
         abortControllers.current.set(uploadId, controller)
@@ -155,30 +153,21 @@ export function useFileUpload() {
             overallProgress: 100,
           })
 
-          if (result.deduplicated) {
-            toast.success(`${file.name} — already uploaded (deduplicated)`)
-          } else {
-            toast.success(`${file.name} uploaded successfully`)
-          }
+          queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FILES.LIST] })
+          queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FOLDERS.LIST] })
         } catch (error: any) {
           if (controller.signal.aborted) {
             updateUpload(uploadId, { status: 'cancelled' })
-            toast.info(`${file.name} upload cancelled`)
           } else {
             updateUpload(uploadId, {
               status: 'error',
               errorMessage: error.message ?? 'Upload failed',
             })
-            toast.error(`${file.name}: ${error.message ?? 'Upload failed'}`)
           }
         } finally {
           abortControllers.current.delete(uploadId)
         }
       }
-
-      // Refresh file list
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FILES.LIST] })
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FOLDERS.LIST] })
     },
     [dek, addUpload, updateUpload, updateChunk, queryClient]
   )

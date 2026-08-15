@@ -70,6 +70,25 @@ async function mapFolderResponse(backend: BackendFolderResponse, dek: Uint8Array
   }
 }
 
+/** Recursively fetches the parent chain of a folder for the breadcrumb */
+async function fetchBreadcrumbPath(folderId: string, dek: Uint8Array): Promise<Folder[]> {
+  const path: Folder[] = []
+  let currentId: string | null = folderId
+
+  while (currentId) {
+    try {
+      const backendFolder = await folderService.getById(currentId)
+      const folder = await mapFolderResponse(backendFolder, dek)
+      path.unshift(folder)
+      currentId = folder.parentId
+    } catch (e) {
+      console.error('Failed to fetch breadcrumb folder', e)
+      break
+    }
+  }
+  return path
+}
+
 /** Hook for fetching and managing vault files/folders with zero-knowledge decryption. */
 export function useVaultFiles(folderId: string | null) {
   const queryClient = useQueryClient()
@@ -102,7 +121,15 @@ export function useVaultFiles(folderId: string | null) {
     staleTime: 10_000,
   })
 
-  // Direct sync from React Query cache to Zustand
+  const breadcrumbQuery = useQuery({
+    queryKey: ['breadcrumb', folderId],
+    queryFn: async () => {
+      if (!dek || !folderId) return []
+      return fetchBreadcrumbPath(folderId, dek)
+    },
+    enabled: !!dek && !!folderId,
+  })
+
   useEffect(() => {
     if (filesQuery.data) {
       setFiles(filesQuery.data.files)
@@ -122,6 +149,7 @@ export function useVaultFiles(folderId: string | null) {
   const refresh = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FILES.LIST] })
     queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FOLDERS.LIST] })
+    queryClient.invalidateQueries({ queryKey: ['breadcrumb'] })
   }, [queryClient])
 
   return {
@@ -129,5 +157,6 @@ export function useVaultFiles(folderId: string | null) {
     isError: filesQuery.isError || foldersQuery.isError,
     error: filesQuery.error || foldersQuery.error,
     refresh,
+    breadcrumbPath: breadcrumbQuery.data ?? [], // Expose breadcrumb data
   }
 }
