@@ -28,6 +28,7 @@ export const FileRow = memo(function FileRow({
     isFolder,
     copied,
     handleCopyLink,
+    handleDownload,
     handleDelete,
     name,
     setName,
@@ -186,21 +187,20 @@ export const FileRow = memo(function FileRow({
       <div
         className={cn(
           'relative z-40 hidden items-center justify-start gap-0.5 md:flex',
-          'translate-x-2 opacity-0 transition-all duration-200 ease-out', // Slide-in effect
-          'group-hover:translate-x-0 group-hover:opacity-100', // Animate on hover
-          isMenuActive ? 'translate-x-0 opacity-100' : '', // Keep visible if menu is open
+          'translate-x-2 opacity-0 transition-all duration-200 ease-out',
+          'group-hover:translate-x-0 group-hover:opacity-100',
+          isMenuActive ? 'translate-x-0 opacity-100' : '',
           isOtherMenuActive ? 'opacity-0' : ''
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        {!isFolder && (
-          <button
-            className="text-muted-foreground hover:bg-accent hover:text-foreground flex h-8 w-8 cursor-pointer items-center justify-center rounded-md"
-            title="Download"
-          >
-            <Download className="h-4 w-4" />
-          </button>
-        )}
+        <button
+          onClick={handleDownload}
+          className="text-muted-foreground hover:bg-accent hover:text-foreground flex h-8 w-8 cursor-pointer items-center justify-center rounded-md"
+          title="Download"
+        >
+          <Download className="h-4 w-4" />
+        </button>
         <button
           onClick={handleCopyLink}
           className="text-muted-foreground hover:bg-accent hover:text-foreground flex h-8 w-8 cursor-pointer items-center justify-center rounded-md"
@@ -221,6 +221,7 @@ export const FileRow = memo(function FileRow({
           isFolder={isFolder}
           onRenameRequest={() => setEditingId(item.id)}
           onDelete={handleDelete}
+          onDownload={handleDownload}
           onShare={() => setShareTarget(item.id)}
           copied={copied}
           onCopyLink={handleCopyLink}

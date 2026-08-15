@@ -28,8 +28,16 @@ export function PreviewHeader() {
   const file = useFileStore(selectFileById(fileId))
   const setShareTarget = useFileStore((s) => s.setShareTarget)
 
-  const { copied, handleCopyLink, handleDelete, name, setName, isSaving, handleSubmit } =
-    useItemActions(file, () => setEditing(false))
+  const {
+    copied,
+    handleCopyLink,
+    handleDownload,
+    handleDelete,
+    name,
+    setName,
+    isSaving,
+    handleSubmit,
+  } = useItemActions(file, () => setEditing(false))
 
   if (!file) return null
 
@@ -143,13 +151,19 @@ export function PreviewHeader() {
           <Share2 className="h-4 w-4" /> Share
         </Button>
 
-        <Button variant="ghost" size="icon" className={cn(iconBtnClasses, 'h-9 w-9 md:hidden')}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn(iconBtnClasses, 'h-9 w-9 md:hidden')}
+          onClick={handleDownload}
+        >
           <Download className="h-4 w-4" />
         </Button>
         <Button
           variant="ghost"
           size="sm"
           className={cn(iconBtnClasses, 'hidden h-9 gap-1.5 px-3 font-medium md:flex')}
+          onClick={handleDownload}
         >
           <Download className="h-4 w-4" /> Download
         </Button>
@@ -168,6 +182,7 @@ export function PreviewHeader() {
           isFolder={false}
           onRenameRequest={() => setEditing(true)}
           onDelete={handleDelete}
+          onDownload={handleDownload}
           onShare={() => setShareTarget(file.id)}
           copied={copied}
           onCopyLink={handleCopyLink}

@@ -21,6 +21,7 @@ interface FileActionsMenuProps {
   isFolder: boolean
   onRenameRequest: () => void
   onDelete: () => void
+  onDownload: () => void
   onShare: () => void
   trigger: React.ReactNode
   copied: boolean
@@ -35,6 +36,7 @@ export const FileActionsMenu = memo(function FileActionsMenu({
   isFolder,
   onRenameRequest,
   onDelete,
+  onDownload,
   onShare,
   trigger,
   copied,
@@ -49,7 +51,9 @@ export const FileActionsMenu = memo(function FileActionsMenu({
     <>
       <DropdownMenu trigger={trigger} open={open} onOpenChange={onOpenChange}>
         {!isFolder && <DropdownItem icon={<Eye className="h-4 w-4" />}>Preview</DropdownItem>}
-        {!isFolder && <DropdownItem icon={<Download className="h-4 w-4" />}>Download</DropdownItem>}
+        <DropdownItem icon={<Download className="h-4 w-4" />} onClick={onDownload}>
+          Download
+        </DropdownItem>
         <DropdownItem icon={<Edit3 className="h-4 w-4" />} onClick={onRenameRequest}>
           Rename
         </DropdownItem>

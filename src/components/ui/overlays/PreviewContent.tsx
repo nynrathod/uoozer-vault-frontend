@@ -7,8 +7,9 @@ import { usePreviewStore } from '@stores/previewStore'
 import { useAuthStore } from '@stores/authStore'
 import { downloadFile } from '@services/files/downloadOrchestrator'
 import { FileIcon } from '@/components/features/vault/fileList/FileIcon'
+import { ZipPreview } from './ZipPreview'
 
-/** Renders file preview by MIME type (image, PDF, text, or generic fallback). */
+/** Renders file preview by MIME type (image, PDF, text, ZIP, or generic fallback). */
 export function PreviewContent() {
   const fileId = usePreviewStore((s) => s.fileId)
   const isFullscreen = usePreviewStore((s) => s.isFullscreen)
@@ -20,8 +21,13 @@ export function PreviewContent() {
 
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
 
+  const isZip =
+    file?.mimeType === 'application/zip' ||
+    file?.mimeType === 'application/x-zip-compressed' ||
+    file?.name.toLowerCase().endsWith('.zip')
+
   useEffect(() => {
-    if (!fileId || !dek || !file) return
+    if (!fileId || !dek || !file || isZip) return
 
     let objectUrl: string | null = null
     const fetchFile = async () => {
@@ -43,9 +49,13 @@ export function PreviewContent() {
     return () => {
       if (objectUrl) URL.revokeObjectURL(objectUrl)
     }
-  }, [fileId, dek, file, setLoading])
+  }, [fileId, dek, file, setLoading, isZip])
 
   if (!file) return null
+
+  if (isZip) {
+    return <ZipPreview fileId={file.id} fileName={file.name} />
+  }
 
   const isImage = file.mimeType?.startsWith('image/')
   const isPdf = file.mimeType === 'application/pdf'

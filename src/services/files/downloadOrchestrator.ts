@@ -1,16 +1,16 @@
 /**
  * Download Orchestrator
- *
- * Handles the full zero-knowledge chunked download flow:
- * 1. Get download manifest (presigned GET URLs + encryption header)
- * 2. Initialize secretstream decryption with DEK
- * 3. Download each chunk from R2
- * 4. Decrypt each chunk sequentially
- * 5. Assemble into a Blob for download/preview
  */
 
+import { ZipWriter, BlobReader, BlobWriter } from '@zip.js/zip.js'
 import { fileService } from './fileService'
-import { initFileDecryption, decryptFileChunk, cleanupFileStream } from '@lib/crypto'
+import { folderService } from '@services/folders/folderService'
+import {
+  initFileDecryption,
+  decryptFileChunk,
+  cleanupFileStream,
+  decryptMetadataObject,
+} from '@lib/crypto'
 
 export interface DownloadOptions {
   dek: Uint8Array
@@ -20,20 +20,15 @@ export interface DownloadOptions {
   signal?: AbortSignal
 }
 
-/** Downloads and decrypts a file, returning a Blob. */
+/** Downloads and decrypts a single file, returning a Blob. */
 export async function downloadFile(options: DownloadOptions): Promise<Blob> {
   const { dek, fileId, versionId, onProgress, signal } = options
-
-  // ── 1. Get download manifest ────────────────────────────────
   const manifest = await fileService.getDownloadManifest(fileId, versionId)
 
-  // Actually, the manifest returns encryption_header as base64 string
-  // We need to decode it to bytes for initFileDecryption
   const { base64ToBytes } = await import('@lib/crypto')
   const header = await base64ToBytes(manifest.encryption_header)
   await initFileDecryption(header, dek)
 
-  // ── 3. Download + decrypt chunks sequentially ───────────────
   const decryptedChunks: Uint8Array[] = []
   let downloadedBytes = 0
 
@@ -42,22 +37,14 @@ export async function downloadFile(options: DownloadOptions): Promise<Blob> {
       await cleanupFileStream()
       throw new Error('Download cancelled')
     }
-
-    // Download encrypted chunk from R2
     const ciphertext = await fileService.downloadChunkFromR2(chunkInfo.presigned_url)
-
-    // Decrypt chunk
     const plaintext = await decryptFileChunk(ciphertext)
     decryptedChunks.push(plaintext)
-
     downloadedBytes += chunkInfo.chunk_size
     onProgress?.(downloadedBytes, manifest.total_size)
   }
 
-  // ── 4. Clean up decryption state ────────────────────────────
   await cleanupFileStream()
-
-  // ── 5. Assemble into Blob ───────────────────────────────────
   return new Blob(decryptedChunks as BlobPart[])
 }
 
@@ -67,10 +54,60 @@ export async function downloadFileToDisk(
   options: DownloadOptions
 ): Promise<void> {
   const blob = await downloadFile(options)
+  triggerBrowserDownload(fileName, blob)
+}
+
+export async function downloadFolderAsZip(
+  folderId: string,
+  folderName: string,
+  dek: Uint8Array
+): Promise<void> {
+  async function addFolderContentsToZip(
+    currentFolderId: string | null,
+    zipWriter: ZipWriter<Blob>,
+    basePath: string
+  ) {
+    const filesRes = await fileService.list(currentFolderId)
+    for (const backendFile of filesRes.files) {
+      const metadata = await decryptMetadataObject<{ name: string }>(
+        backendFile.encrypted_metadata,
+        backendFile.metadata_nonce,
+        dek
+      )
+      const fileName = metadata?.name || 'Unnamed File'
+
+      const blob = await downloadFile({ dek, fileId: backendFile.file_id })
+
+      const fullPath = basePath ? `${basePath}/${fileName}` : fileName
+      await zipWriter.add(fullPath, new BlobReader(blob))
+    }
+
+    const foldersRes = await folderService.list(currentFolderId)
+    for (const backendFolder of foldersRes) {
+      const folderMetadata = await decryptMetadataObject<{ name: string }>(
+        backendFolder.encrypted_metadata,
+        backendFolder.metadata_nonce,
+        dek
+      )
+      const subFolderName = folderMetadata?.name || 'Unnamed Folder'
+      const newBasePath = basePath ? `${basePath}/${subFolderName}` : subFolderName
+      await addFolderContentsToZip(backendFolder.folder_id, zipWriter, newBasePath)
+    }
+  }
+
+  const zipWriter = new ZipWriter(new BlobWriter('application/zip'), { useWebWorkers: true })
+
+  await addFolderContentsToZip(folderId, zipWriter, '')
+
+  const zipBlob = await zipWriter.close()
+  triggerBrowserDownload(`${folderName}.zip`, zipBlob)
+}
+
+function triggerBrowserDownload(filename: string, blob: Blob) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = fileName
+  a.download = filename
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)

@@ -21,9 +21,7 @@ export function useFileUpload() {
 
   const uploadFiles = useCallback(
     async (files: File[], currentFolderId: string | null) => {
-      if (!dek) {
-        return
-      }
+      if (!dek) return
 
       const folderMap = new Map<string, string | null>()
       folderMap.set('', currentFolderId)
@@ -80,9 +78,7 @@ export function useFileUpload() {
 
       for (const file of files) {
         const validation = validateFile(file)
-        if (!validation.valid) {
-          continue
-        }
+        if (!validation.valid) continue
 
         const uploadId = crypto.randomUUID()
         const totalChunks = validation.totalChunks
@@ -131,17 +127,14 @@ export function useFileUpload() {
 
         try {
           updateUpload(uploadId, { status: 'encrypting' })
-
           const result = await uploadFile(file, {
             dek,
             folderId: targetFolderId,
             signal: controller.signal,
-            onProgress: (_uploadId, chunkIndex, progress) => {
-              updateChunk(uploadId, String(chunkIndex), { progress })
-            },
-            onChunkStatus: (_uploadId, chunkIndex, status) => {
-              updateChunk(uploadId, String(chunkIndex), { status })
-            },
+            onProgress: (_uploadId, chunkIndex, progress) =>
+              updateChunk(uploadId, String(chunkIndex), { progress }),
+            onChunkStatus: (_uploadId, chunkIndex, status) =>
+              updateChunk(uploadId, String(chunkIndex), { status }),
           })
 
           updateUpload(uploadId, {
@@ -174,9 +167,7 @@ export function useFileUpload() {
 
   const cancelUpload = useCallback((uploadId: string) => {
     const controller = abortControllers.current.get(uploadId)
-    if (controller) {
-      controller.abort()
-    }
+    if (controller) controller.abort()
   }, [])
 
   return { uploadFiles, cancelUpload }

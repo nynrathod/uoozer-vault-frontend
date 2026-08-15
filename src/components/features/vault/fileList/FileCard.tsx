@@ -29,6 +29,7 @@ export const FileCard = memo(function FileCard({
     isFolder,
     copied,
     handleCopyLink,
+    handleDownload,
     handleDelete,
     name,
     setName,
@@ -174,6 +175,7 @@ export const FileCard = memo(function FileCard({
           isFolder={isFolder}
           onRenameRequest={() => onRenameRequest?.(item.id)}
           onDelete={handleDelete}
+          onDownload={handleDownload}
           onShare={() => setShareTarget(item.id)}
           copied={copied}
           onCopyLink={handleCopyLink}
