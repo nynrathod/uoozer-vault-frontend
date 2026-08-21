@@ -2,8 +2,8 @@
  * Upload Orchestrator (Streaming, Memory-Safe, Real-Time Progress)
  *
  * Uses XMLHttpRequest to get true byte-level upload progress.
- * Encrypts chunks sequentially, uploads them in parallel, and
- * immediately zeroizes memory upon successful upload.
+ * Encrypts chunks sequentially, stores them in IndexedDB to prevent memory crashes,
+ * uploads them in parallel, and immediately deletes them from disk on success.
  */
 
 import { fileService } from './fileService'
@@ -17,8 +17,8 @@ import {
 } from '@lib/crypto'
 import { validateFile, sanitizeFileName } from '@lib/fileValidation'
 import { UPLOAD_CONFIG } from '@config/upload.config'
+import { uploadDb } from '@services/upload/uploadDatabase'
 import type { CreateFileRequest, ChunkPlan } from '@/types/files'
-import { uploadDb } from '../upload/uploadDatabase'
 
 export interface UploadProgressCallback {
   (uploadedBytes: number, speedBps: number, etaSeconds: number): void
@@ -50,6 +50,7 @@ function sleep(ms: number): Promise<void> {
 
 /**
  * Uploads a single chunk to R2 using XHR for real-time progress tracking.
+ * Handles 403 Forbidden by refreshing the presigned URL.
  */
 function uploadChunkXHR(
   presignedUrl: string,
@@ -63,7 +64,6 @@ function uploadChunkXHR(
     xhr.open('PUT', presignedUrl, true)
     xhr.setRequestHeader('Content-Type', 'application/octet-stream')
 
-    // Real-time progress event
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable) {
         onChunkProgress(event.loaded)
@@ -87,7 +87,6 @@ function uploadChunkXHR(
     xhr.onerror = () => reject(new Error('Network error during chunk upload'))
     xhr.onabort = () => reject(new DOMException('Upload aborted', 'AbortError'))
 
-    // Connect external abort signal
     if (signal.aborted) {
       xhr.abort()
     } else {
@@ -98,34 +97,40 @@ function uploadChunkXHR(
   })
 }
 
-/** Uploads a single chunk with retry, backoff, and stall detection. */
+/** Uploads a single chunk with retry, backoff, stall detection, and URL refresh. */
 async function uploadSingleChunk(
   presignedUrl: string,
   ciphertext: Uint8Array,
   chunkIndex: number,
+  versionId: string,
   signal: AbortSignal,
   onChunkProgress: (loaded: number) => void
 ): Promise<{ etag: string }> {
   let lastError: Error | null = null
+  let currentUrl = presignedUrl
 
   for (let attempt = 0; attempt < UPLOAD_CONFIG.MAX_RETRIES; attempt++) {
     if (signal.aborted) throw new Error('Upload cancelled')
 
     try {
-      const etag = await uploadChunkXHR(
-        presignedUrl,
-        ciphertext,
-        chunkIndex,
-        signal,
-        onChunkProgress
-      )
+      const etag = await uploadChunkXHR(currentUrl, ciphertext, chunkIndex, signal, onChunkProgress)
       return { etag }
     } catch (error: any) {
       if (error.name === 'AbortError' && signal.aborted) throw error
 
       lastError = error
 
-      // Don't retry 4xx fatal errors
+      // If presigned URL expired (403), refresh it
+      if (error.message.includes('403')) {
+        const resumeInfo = await fileService.getResumeInfo(versionId)
+        const freshUrlInfo = resumeInfo.upload_urls?.find((u) => u.chunk_index === chunkIndex)
+        if (freshUrlInfo) {
+          currentUrl = freshUrlInfo.presigned_url
+          continue // Retry immediately with new URL
+        }
+      }
+
+      // Don't retry 4xx fatal errors (except 429/403)
       if (error.message.includes('R2 rejected chunk')) {
         throw error
       }
@@ -135,9 +140,7 @@ async function uploadSingleChunk(
         UPLOAD_CONFIG.RETRY_BASE_DELAY * Math.pow(2, attempt)
       )
       await sleep(delay + Math.random() * 100) // Jitter
-
-      // Reset progress for this chunk on retry
-      onChunkProgress(0)
+      onChunkProgress(0) // Reset progress for retry
     }
   }
 
@@ -183,10 +186,11 @@ export async function uploadFile(file: File, options: UploadOptions): Promise<Up
     dek
   )
 
-  const uploadId = crypto.randomUUID() // Generate ID for DB tracking
+  const uploadId = crypto.randomUUID()
   const header = await initFileEncryption(dek)
   const totalChunks = validation.totalChunks
   const chunkPlans: ChunkPlan[] = []
+  const chunkSizes: number[] = []
 
   // 3. Encrypt chunks sequentially and store in IndexedDB (NOT MEMORY)
   for (let i = 0; i < totalChunks; i++) {
@@ -206,7 +210,8 @@ export async function uploadFile(file: File, options: UploadOptions): Promise<Up
       chunk_blake3: await bytesToBase64(blake3Hash),
     })
 
-    // STORE IN INDEXEDDB AND ZEROIZE MEMORY IMMEDIATELY
+    chunkSizes[i] = ciphertext.byteLength
+
     await uploadDb.chunks.put({ id: `${uploadId}-${i}`, data: ciphertext })
     ciphertext.fill(0)
     plaintext.fill(0)
@@ -235,9 +240,25 @@ export async function uploadFile(file: File, options: UploadOptions): Promise<Up
   // 5. Handle dedup hit
   if (createResp.deduplicated) {
     await cleanupFileStream()
-    await uploadDb.chunks.where('id').startsWith(`${uploadId}-`).delete() // Clean DB
+    await uploadDb.deleteUpload(uploadId) // Clean IDB
     return { fileId: createResp.file_id, versionId: createResp.version_id, deduplicated: true }
   }
+
+  // Save state to IndexedDB for crash recovery
+  await uploadDb.saveUpload({
+    uploadId,
+    fileId: createResp.file_id,
+    versionId: createResp.version_id,
+    folderId,
+    fileName: sanitizedName,
+    fileSize: file.size,
+    totalChunks,
+    encryptionHeader: await bytesToBase64(header),
+    plaintextBlake3: await bytesToBase64(plaintextBlake3),
+    status: 'uploading',
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  })
 
   // 6. Upload chunks to R2 in parallel
   const uploadUrls = createResp.upload_urls
@@ -248,9 +269,12 @@ export async function uploadFile(file: File, options: UploadOptions): Promise<Up
   const updateOverallProgress = () => {
     let uploadedBytes = 0
     for (let i = 0; i < totalChunks; i++) uploadedBytes += chunkProgress[i]
+
     const elapsed = (Date.now() - startTime) / 1000
     const speed = uploadedBytes / elapsed
-    const eta = speed > 0 ? (file.size - uploadedBytes) / speed : 0
+    const remainingBytes = file.size - uploadedBytes
+    const eta = speed > 0 ? remainingBytes / speed : 0
+
     onProgress?.(uploadedBytes, speed, eta)
   }
 
@@ -258,7 +282,7 @@ export async function uploadFile(file: File, options: UploadOptions): Promise<Up
     return async () => {
       onChunkStatus?.(urlInfo.chunk_index, 'uploading')
 
-      // RETRIEVE CIPHERTEXT FROM INDEXEDDB
+      // Retrieve ciphertext from IndexedDB
       const chunkRecord = await uploadDb.chunks.get(`${uploadId}-${urlInfo.chunk_index}`)
       if (!chunkRecord) throw new Error('Ciphertext missing in IndexedDB')
       const ciphertext = chunkRecord.data
@@ -267,17 +291,18 @@ export async function uploadFile(file: File, options: UploadOptions): Promise<Up
         urlInfo.presigned_url,
         ciphertext,
         urlInfo.chunk_index,
+        createResp.version_id,
         signal!,
         (loaded) => {
-          chunkProgress[urlInfo.chunk_index] = Math.min(loaded, ciphertext.byteLength)
+          chunkProgress[urlInfo.chunk_index] = Math.min(loaded, chunkSizes[urlInfo.chunk_index])
           updateOverallProgress()
         }
       )
 
-      chunkProgress[urlInfo.chunk_index] = ciphertext.byteLength
+      chunkProgress[urlInfo.chunk_index] = chunkSizes[urlInfo.chunk_index]
       updateOverallProgress()
 
-      // ZEROIZE AND DELETE FROM DB
+      // Zeroize and delete from IDB immediately
       ciphertext.fill(0)
       await uploadDb.chunks.delete(`${uploadId}-${urlInfo.chunk_index}`)
 
@@ -286,7 +311,13 @@ export async function uploadFile(file: File, options: UploadOptions): Promise<Up
     }
   })
 
-  await runWithConcurrency(uploadTasks, UPLOAD_CONFIG.MAX_CONCURRENT_UPLOADS)
+  try {
+    await runWithConcurrency(uploadTasks, UPLOAD_CONFIG.MAX_CONCURRENT_UPLOADS)
+  } catch (error) {
+    // Update state to paused/error so it can be resumed later
+    await uploadDb.saveUpload({ ...(await uploadDb.getUpload(uploadId))!, status: 'paused' })
+    throw error
+  }
 
   if (signal?.aborted) throw new Error('Upload cancelled')
 
@@ -297,6 +328,80 @@ export async function uploadFile(file: File, options: UploadOptions): Promise<Up
   })
 
   await cleanupFileStream()
+  await uploadDb.deleteUpload(uploadId)
 
   return { fileId: createResp.file_id, versionId: createResp.version_id, deduplicated: false }
+}
+
+/**
+ * Resumes an interrupted upload from IndexedDB.
+ */
+export async function resumeUpload(
+  uploadId: string,
+  options: UploadOptions
+): Promise<UploadResult> {
+  const state = await uploadDb.getUpload(uploadId)
+  if (!state || !state.fileId || !state.versionId) throw new Error('Cannot resume: missing state')
+
+  const { dek, signal, onProgress, onChunkStatus } = options
+
+  const resumeInfo = await fileService.getResumeInfo(state.versionId)
+  if (resumeInfo.missing_chunks.length === 0) {
+    await fileService.completeUpload(state.fileId, { version_id: state.versionId, r2_etags: {} })
+    await uploadDb.deleteUpload(uploadId)
+    return { fileId: state.fileId, versionId: state.versionId, deduplicated: false }
+  }
+
+  const r2Etags: Record<string, string> = {}
+  const chunkProgress = new Array(state.totalChunks).fill(0)
+  const startTime = Date.now()
+
+  const updateOverallProgress = () => {
+    let uploadedBytes = 0
+    for (let i = 0; i < state.totalChunks; i++) uploadedBytes += chunkProgress[i]
+    const elapsed = (Date.now() - startTime) / 1000
+    const speed = uploadedBytes / elapsed
+    const eta = speed > 0 ? (state.fileSize - uploadedBytes) / speed : 0
+    onProgress?.(uploadedBytes, speed, eta)
+  }
+
+  const uploadTasks = resumeInfo.upload_urls!.map((urlInfo) => {
+    return async () => {
+      onChunkStatus?.(urlInfo.chunk_index, 'uploading')
+      const chunkRecord = await uploadDb.chunks.get(`${uploadId}-${urlInfo.chunk_index}`)
+      if (!chunkRecord) throw new Error('Ciphertext missing in IndexedDB')
+      const ciphertext = chunkRecord.data
+
+      const result = await uploadSingleChunk(
+        urlInfo.presigned_url,
+        ciphertext,
+        urlInfo.chunk_index,
+        state.versionId!,
+        signal!,
+        (loaded) => {
+          chunkProgress[urlInfo.chunk_index] = Math.min(loaded, ciphertext.byteLength)
+          updateOverallProgress()
+        }
+      )
+
+      chunkProgress[urlInfo.chunk_index] = ciphertext.byteLength
+      updateOverallProgress()
+
+      ciphertext.fill(0)
+      await uploadDb.chunks.delete(`${uploadId}-${urlInfo.chunk_index}`)
+      r2Etags[String(urlInfo.chunk_index)] = result.etag
+      onChunkStatus?.(urlInfo.chunk_index, 'done')
+    }
+  })
+
+  await runWithConcurrency(uploadTasks, UPLOAD_CONFIG.MAX_CONCURRENT_UPLOADS)
+
+  await fileService.completeUpload(state.fileId, {
+    version_id: state.versionId,
+    r2_etags: r2Etags,
+  })
+
+  await uploadDb.deleteUpload(uploadId)
+
+  return { fileId: state.fileId, versionId: state.versionId, deduplicated: false }
 }

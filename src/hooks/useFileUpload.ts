@@ -1,5 +1,6 @@
 import { useCallback, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { useAuthStore } from '@stores/authStore'
 import { useUploadStore } from '@stores/uploadStore'
 import { uploadFile } from '@services/files/uploadOrchestrator'
@@ -7,6 +8,7 @@ import { validateFile } from '@lib/fileValidation'
 import { QUERY_KEYS } from '@lib/constants'
 import { folderService } from '@services/folders/folderService'
 import { encryptMetadataObject } from '@lib/crypto'
+import { UPLOAD_CONFIG, JUNK_FILES } from '@config/upload.config'
 import type { UploadFile } from '@/types/upload'
 
 /** Manages file upload lifecycle: validation, encryption, upload, progress. */
@@ -21,24 +23,42 @@ export function useFileUpload() {
 
   const uploadFiles = useCallback(
     async (files: File[], currentFolderId: string | null) => {
-      if (!dek) return
+      if (!dek || files.length === 0) return
+
+      const validFiles: File[] = []
+      const seenPaths = new Set<string>()
+
+      for (const file of files) {
+        const path = (file as any).webkitRelativePath || file.name
+        const basename = path.split('/').pop() || path
+
+        if (JUNK_FILES.includes(basename) || basename.startsWith('.')) continue
+
+        if (seenPaths.has(path)) continue
+        seenPaths.add(path)
+
+        const depth = path.split('/').length
+        if (depth > UPLOAD_CONFIG.MAX_FOLDER_DEPTH) {
+          toast.error(`Path too deep (max 32 levels): ${path}`)
+          continue
+        }
+
+        validFiles.push(file)
+      }
+
+      if (validFiles.length === 0) return
 
       const folderMap = new Map<string, string | null>()
       folderMap.set('', currentFolderId)
 
-      for (const file of files) {
-        const rawPath = (file as any).path || (file as any).webkitRelativePath || ''
-        let normalizedPath = rawPath
-          .replace(/\\/g, '/')
-          .replace(/^[a-zA-Z]:/, '')
-          .replace(/^\/+/, '')
-
-        if (!normalizedPath.includes('/')) {
+      for (const file of validFiles) {
+        const rawPath = (file as any).webkitRelativePath || ''
+        if (!rawPath.includes('/')) {
           ;(file as any)._targetFolderId = currentFolderId
           continue
         }
 
-        const parts = normalizedPath.split('/').filter((p: string) => p && p !== '.' && p !== '..')
+        const parts = rawPath.split('/').filter((p: string) => p && p !== '.' && p !== '..')
         parts.pop()
 
         if (parts.length === 0) {
@@ -76,9 +96,12 @@ export function useFileUpload() {
 
       const validUploads: { upload: UploadFile; file: File }[] = []
 
-      for (const file of files) {
+      for (const file of validFiles) {
         const validation = await validateFile(file)
-        if (!validation.valid) continue
+        if (!validation.valid) {
+          toast.error(`Skipping ${file.name}: ${validation.errors[0].message}`)
+          continue
+        }
 
         const uploadId = crypto.randomUUID()
         const totalChunks = validation.totalChunks
@@ -97,7 +120,7 @@ export function useFileUpload() {
             segmentIndex: 0,
             status: 'pending' as const,
             progress: 0,
-            size: Math.min(4 * 1024 * 1024, file.size - i * 4 * 1024 * 1024),
+            size: Math.min(UPLOAD_CONFIG.CHUNK_SIZE, file.size - i * UPLOAD_CONFIG.CHUNK_SIZE),
             ciphertextSize: 0,
             blake3Hash: null,
             r2Etag: null,
@@ -118,61 +141,64 @@ export function useFileUpload() {
         validUploads.push({ upload, file })
       }
 
-      for (const { upload, file } of validUploads) {
-        const uploadId = upload.id
-        const targetFolderId = upload.folderId
+      const fileQueue = [...validUploads]
 
-        const controller = new AbortController()
-        abortControllers.current.set(uploadId, controller)
+      const processFileQueue = async () => {
+        while (fileQueue.length > 0) {
+          const item = fileQueue.shift()
+          if (!item) break
 
-        try {
-          updateUpload(uploadId, { status: 'encrypting' })
-          const result = await uploadFile(file, {
-            dek,
-            folderId: targetFolderId,
-            signal: controller.signal,
+          const { upload, file } = item
+          const uploadId = upload.id
+          const targetFolderId = upload.folderId
 
-            // Map the new byte-based progress to the store's overall progress (0-100)
-            onProgress: (uploadedBytes, speedBps, etaSeconds) => {
-              const overallProgress = Math.min(99, Math.round((uploadedBytes / file.size) * 100))
-              updateUpload(uploadId, {
-                overallProgress,
-                // If you want to display speed/ETA in your UI later, add these to your UploadFile type:
-                // speedBps,
-                // etaSeconds
-              })
-            },
+          const controller = new AbortController()
+          abortControllers.current.set(uploadId, controller)
 
-            onChunkStatus: (chunkIndex, status) => {
-              // This is still useful for the UI to know which specific chunks are done
-              updateChunk(uploadId, String(chunkIndex), { status })
-            },
-          })
-
-          updateUpload(uploadId, {
-            status: 'done',
-            fileId: result.fileId,
-            versionId: result.versionId,
-            deduplicated: result.deduplicated,
-            completedAt: Date.now(),
-            overallProgress: 100, // Force 100% on success
-          })
-
-          queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FILES.LIST] })
-          queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FOLDERS.LIST] })
-        } catch (error: any) {
-          if (controller.signal.aborted) {
-            updateUpload(uploadId, { status: 'cancelled' })
-          } else {
-            updateUpload(uploadId, {
-              status: 'error',
-              errorMessage: error.message ?? 'Upload failed',
+          try {
+            updateUpload(uploadId, { status: 'encrypting' })
+            const result = await uploadFile(file, {
+              dek,
+              folderId: targetFolderId,
+              signal: controller.signal,
+              onProgress: (uploadedBytes, speedBps, etaSeconds) => {
+                const overallProgress = Math.min(99, Math.round((uploadedBytes / file.size) * 100))
+                updateUpload(uploadId, { overallProgress })
+              },
+              onChunkStatus: (chunkIndex, status) => {
+                updateChunk(uploadId, String(chunkIndex), { status })
+              },
             })
+
+            updateUpload(uploadId, {
+              status: 'done',
+              fileId: result.fileId,
+              versionId: result.versionId,
+              deduplicated: result.deduplicated,
+              completedAt: Date.now(),
+              overallProgress: 100,
+            })
+
+            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FILES.LIST] })
+            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FOLDERS.LIST] })
+          } catch (error: any) {
+            if (controller.signal.aborted) {
+              updateUpload(uploadId, { status: 'paused' })
+            } else {
+              updateUpload(uploadId, {
+                status: 'error',
+                errorMessage: error.message ?? 'Upload failed',
+              })
+            }
+          } finally {
+            abortControllers.current.delete(uploadId)
           }
-        } finally {
-          abortControllers.current.delete(uploadId)
         }
       }
+
+      await Promise.all(
+        Array.from({ length: UPLOAD_CONFIG.MAX_CONCURRENT_FILES }, () => processFileQueue())
+      )
     },
     [dek, addUpload, updateUpload, updateChunk, queryClient]
   )

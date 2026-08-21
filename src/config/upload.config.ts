@@ -1,4 +1,3 @@
-// src/config/upload.ts
 /**
  * Centralized configuration for file uploads.
  * This is the single source of truth for limits, timeouts, and retry logic.
@@ -6,8 +5,10 @@
 export const UPLOAD_CONFIG = {
   CHUNK_SIZE: 4 * 1024 * 1024, // 4MB
   MAX_CONCURRENT_UPLOADS: 4, // Parallel chunk uploads to R2
+  MAX_CONCURRENT_FILES: 3, // Parallel files in a bulk/folder upload
   MAX_FILE_SIZE: 10 * 1024 * 1024 * 1024, // 10GB frontend hard limit
   MAX_CHUNKS_PER_FILE: 50_000,
+  MAX_FOLDER_DEPTH: 32, // Prevent excessively deep nesting
   SECRETSTREAM_OVERHEAD: 17,
 
   // Network & Retry
@@ -22,6 +23,16 @@ export const UPLOAD_CONFIG = {
   // Stall detection
   STALL_TIMEOUT: 30_000, // 30s without progress = stalled
 } as const
+
+// Auto-filter junk files during folder uploads
+export const JUNK_FILES = [
+  '.DS_Store',
+  'Thumbs.db',
+  'ehthumbs.db',
+  'desktop.ini',
+  '.Spotlight-V100',
+  '.Trashes',
+]
 
 // Windows reserved names and forbidden characters
 export const BLOCKED_FILE_NAMES = [

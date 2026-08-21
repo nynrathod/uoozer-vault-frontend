@@ -8,10 +8,8 @@ export interface PersistedUploadState {
   fileName: string
   fileSize: number
   totalChunks: number
-  uploadedChunks: number[]
   encryptionHeader: string
   plaintextBlake3: string
-  chunkPlans: any[]
   status: 'queued' | 'uploading' | 'paused' | 'error'
   createdAt: number
   updatedAt: number
@@ -23,7 +21,8 @@ export interface PersistedChunk {
 }
 
 /**
- * IndexedDB wrapper for persisting upload state across browser sessions.
+ * IndexedDB wrapper for persisting upload state and encrypted chunks.
+ * This enables crash recovery and keeps memory footprint O(1).
  */
 export class UploadDatabase extends Dexie {
   uploads!: Table<PersistedUploadState, string>
@@ -51,6 +50,7 @@ export class UploadDatabase extends Dexie {
 
   async deleteUpload(uploadId: string) {
     await this.uploads.delete(uploadId)
+    await this.chunks.where('id').startsWith(`${uploadId}-`).delete()
   }
 }
 
