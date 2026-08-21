@@ -34,7 +34,7 @@ export function PreviewContent() {
       try {
         setLoading(true)
         setBlobUrl(null)
-        const blob = await downloadFile({ dek, fileId })
+        const { blob } = await downloadFile({ dek, fileId })
         objectUrl = URL.createObjectURL(blob)
         setBlobUrl(objectUrl)
       } catch (error) {

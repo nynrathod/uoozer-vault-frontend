@@ -34,6 +34,7 @@ import type {
   WrappedKey,
   EncryptedMetadata,
   EncryptedChunkResult,
+  EncryptedFileHeader,
 } from './crypto-types'
 
 const worker = new Worker(new URL('../workers/crypto.worker.ts', import.meta.url), {
@@ -121,21 +122,23 @@ export const decryptMetadata = (
 
 // ── File Streaming Encryption (secretstream) ─────────────────
 
-export const initFileEncryption = (key: Uint8Array): Promise<Uint8Array> =>
+export const initFileEncryption = (key: Uint8Array): Promise<EncryptedFileHeader> =>
   cryptoApi.initFileEncryption(key)
 
 export const encryptFileChunk = (
+  streamId: string,
   plaintext: Uint8Array,
   isFinal: boolean
-): Promise<EncryptedChunkResult> => cryptoApi.encryptFileChunk(plaintext, isFinal)
+): Promise<EncryptedChunkResult> => cryptoApi.encryptFileChunk(streamId, plaintext, isFinal)
 
-export const initFileDecryption = (header: Uint8Array, key: Uint8Array): Promise<void> =>
+export const initFileDecryption = (header: Uint8Array, key: Uint8Array): Promise<string> =>
   cryptoApi.initFileDecryption(header, key)
 
-export const decryptFileChunk = (ciphertext: Uint8Array): Promise<Uint8Array> =>
-  cryptoApi.decryptFileChunk(ciphertext)
+export const decryptFileChunk = (streamId: string, ciphertext: Uint8Array): Promise<Uint8Array> =>
+  cryptoApi.decryptFileChunk(streamId, ciphertext)
 
-export const cleanupFileStream = (): Promise<void> => cryptoApi.cleanupFileStream()
+export const cleanupFileStream = (streamId?: string): Promise<void> =>
+  cryptoApi.cleanupFileStream(streamId)
 
 // ── High-level metadata helpers ──────────────────────────────
 

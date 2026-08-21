@@ -1,116 +1,192 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useCallback } from 'react'
 import { useUploadStore } from '@stores/uploadStore'
-import { uploadDb } from '@services/upload/uploadDatabase'
-import { resumeUpload } from '@services/files/uploadOrchestrator'
 import { useAuthStore } from '@stores/authStore'
+import { uploadDb, type PersistedUploadState } from '@services/upload/uploadDatabase'
+import { uploadSync } from '@services/upload/uploadSync'
+import { networkMonitor } from '@services/upload/networkMonitor'
+import { fileService } from '@services/files/fileService'
+import { cancelUpload } from '@services/files/uploadOrchestrator'
 
-/**
- * Hook to manage upload lifecycle, network changes, and persistence.
- */
 export function useUploadManager() {
   const abortControllers = useRef<Map<string, AbortController>>(new Map())
-  const dek = useAuthStore((s) => s.cryptoState.dek)
+  const resumeHandlers = useRef<Map<string, (state: PersistedUploadState) => void>>(new Map())
+
+  const registerResumeHandler = useCallback(
+    (uploadId: string, handler: (state: PersistedUploadState) => void) => {
+      resumeHandlers.current.set(uploadId, handler)
+    },
+    []
+  )
+
+  const unregisterResumeHandler = useCallback((uploadId: string) => {
+    resumeHandlers.current.delete(uploadId)
+  }, [])
 
   useEffect(() => {
-    if (!dek) return
-
-    const resumePending = async () => {
+    const resumeInterrupted = async () => {
       const pending = await uploadDb.getPendingUploads()
-      for (const p of pending) {
-        if (p.status === 'paused' || p.status === 'error') {
-          // Re-queue in UI store
-          useUploadStore.getState().updateUpload(p.uploadId, { status: 'queued' })
+      const dek = useAuthStore.getState().cryptoState.dek
+      if (!dek) return
 
-          const controller = new AbortController()
-          abortControllers.current.set(p.uploadId, controller)
+      for (const upload of pending) {
+        useUploadStore.getState().updateUpload(upload.uploadId, {
+          status: upload.status === 'uploading' ? 'paused' : upload.status,
+          overallProgress: Math.round((upload.uploadedChunks.length / upload.totalChunks) * 100),
+        })
+      }
+    }
+    resumeInterrupted()
 
-          try {
-            useUploadStore.getState().updateUpload(p.uploadId, { status: 'uploading' })
-
-            const result = await resumeUpload(p.uploadId, {
-              dek,
-              folderId: p.folderId,
-              signal: controller.signal,
-              onProgress: (uploadedBytes, speed, eta) => {
-                const overallProgress = Math.min(99, Math.round((uploadedBytes / p.fileSize) * 100))
-                useUploadStore.getState().updateUpload(p.uploadId, { overallProgress })
-              },
-              onChunkStatus: (chunkIndex, status) => {
-                useUploadStore.getState().updateChunk(p.uploadId, String(chunkIndex), { status })
-              },
-            })
-
-            useUploadStore.getState().updateUpload(p.uploadId, {
-              status: 'done',
-              fileId: result.fileId,
-              versionId: result.versionId,
-              completedAt: Date.now(),
-              overallProgress: 100,
-            })
-          } catch (error: any) {
-            if (controller.signal.aborted) {
-              useUploadStore.getState().updateUpload(p.uploadId, { status: 'paused' })
-            } else {
-              useUploadStore
-                .getState()
-                .updateUpload(p.uploadId, { status: 'error', errorMessage: error.message })
-            }
-          } finally {
-            abortControllers.current.delete(p.uploadId)
+    const unsubscribeNetwork = networkMonitor.subscribe((isOnline) => {
+      const uploads = useUploadStore.getState().uploads
+      if (!isOnline) {
+        abortControllers.current.forEach((controller) => {
+          if (!controller.signal.aborted) controller.abort()
+        })
+        uploads.forEach((u) => {
+          if (u.status === 'uploading' || u.status === 'encrypting') {
+            useUploadStore.getState().updateUpload(u.id, { status: 'paused' })
           }
+        })
+      } else {
+        uploads.forEach((u) => {
+          if (u.status === 'paused' || u.status === 'error') {
+            const handler = resumeHandlers.current.get(u.id)
+            if (handler) {
+              uploadDb.getUpload(u.id).then((state) => {
+                if (state) handler(state)
+              })
+            }
+          }
+        })
+      }
+    })
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        if (/Mobi|Android/i.test(navigator.userAgent)) {
+          abortControllers.current.forEach((controller) => {
+            if (!controller.signal.aborted) controller.abort()
+          })
         }
       }
     }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
 
-    resumePending()
-
-    const handleOffline = () => {
-      abortControllers.current.forEach((controller) => controller.abort())
-    }
-
-    const handleOnline = () => {
-      // Trigger resume logic for paused/error uploads
-      resumePending()
-    }
-
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      const hasActiveUploads = Array.from(useUploadStore.getState().uploads.values()).some(
-        (u) => u.status === 'uploading' || u.status === 'queued'
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      const uploads = useUploadStore.getState().uploads
+      const hasActive = Array.from(uploads.values()).some(
+        (u) => u.status === 'uploading' || u.status === 'encrypting'
       )
-      if (hasActiveUploads) {
-        e.preventDefault()
-        e.returnValue = 'Uploads are in progress. Are you sure you want to leave?'
-        return e.returnValue
+      if (hasActive) {
+        event.preventDefault()
+        event.returnValue = ''
+        abortControllers.current.forEach((controller) => {
+          if (!controller.signal.aborted) controller.abort()
+        })
       }
     }
-
-    window.addEventListener('offline', handleOffline)
-    window.addEventListener('online', handleOnline)
     window.addEventListener('beforeunload', handleBeforeUnload)
 
-    return () => {
-      window.removeEventListener('offline', handleOffline)
-      window.removeEventListener('online', handleOnline)
-      window.removeEventListener('beforeunload', handleBeforeUnload)
-    }
-  }, [dek])
-
-  const cancelUpload = async (uploadId: string, fileId?: string, versionId?: string) => {
-    const controller = abortControllers.current.get(uploadId)
-    controller?.abort()
-    abortControllers.current.delete(uploadId)
-
-    if (fileId && versionId) {
-      try {
-        await fetch(`/api/v1/files/${fileId}/versions/${versionId}/cancel`, { method: 'POST' })
-      } catch (err) {
-        console.error('Failed to cancel upload on backend', err)
+    const handlePageHide = async () => {
+      const uploads = useUploadStore.getState().uploads
+      const activeUploads = Array.from(uploads.values()).filter(
+        (u) => u.status === 'uploading' || u.status === 'encrypting'
+      )
+      for (const upload of activeUploads) {
+        if (upload.fileId && upload.versionId) {
+          try {
+            await fileService.cancelUpload(upload.fileId, upload.versionId)
+          } catch {}
+        }
       }
     }
+    window.addEventListener('pagehide', handlePageHide)
 
-    await uploadDb.deleteUpload(uploadId)
-    useUploadStore.getState().removeUpload(uploadId)
+    return () => {
+      unsubscribeNetwork()
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      window.removeEventListener('pagehide', handlePageHide)
+    }
+  }, [])
+
+  const pauseUpload = useCallback((uploadId: string) => {
+    const controller = abortControllers.current.get(uploadId)
+    if (controller && !controller.signal.aborted) {
+      controller.abort()
+    }
+    useUploadStore.getState().updateUpload(uploadId, { status: 'paused' })
+    uploadSync.notifyUpdate(uploadId)
+  }, [])
+
+  const resumeUpload = useCallback(async (uploadId: string) => {
+    const state = await uploadDb.getUpload(uploadId)
+    if (!state) return
+
+    const dek = useAuthStore.getState().cryptoState.dek
+    if (!dek) {
+      useUploadStore.getState().updateUpload(uploadId, {
+        status: 'error',
+        errorMessage: 'Vault is locked. Please unlock to resume.',
+      })
+      return
+    }
+
+    const handler = resumeHandlers.current.get(uploadId)
+    if (handler) handler(state)
+  }, [])
+
+  const cancelUploadById = useCallback(
+    async (uploadId: string, fileId?: string, versionId?: string) => {
+      const controller = abortControllers.current.get(uploadId)
+      if (controller && !controller.signal.aborted) controller.abort()
+      abortControllers.current.delete(uploadId)
+
+      if (fileId && versionId) {
+        try {
+          await cancelUpload(fileId, versionId)
+        } catch (error) {
+          console.warn('Server cancel failed', error)
+        }
+      }
+
+      await uploadDb.deleteUpload(uploadId)
+      useUploadStore.getState().removeUpload(uploadId)
+      uploadSync.notifyRemove(uploadId)
+    },
+    []
+  )
+
+  const retryUpload = useCallback(async (uploadId: string) => {
+    const state = await uploadDb.getUpload(uploadId)
+    if (!state) return
+
+    await uploadDb.patchUpload(uploadId, {
+      status: 'queued',
+      lastError: null,
+    })
+
+    const handler = resumeHandlers.current.get(uploadId)
+    if (handler) handler(state)
+  }, [])
+
+  const registerController = useCallback((uploadId: string, controller: AbortController) => {
+    abortControllers.current.set(uploadId, controller)
+  }, [])
+
+  const unregisterController = useCallback((uploadId: string) => {
+    abortControllers.current.delete(uploadId)
+  }, [])
+
+  return {
+    pauseUpload,
+    resumeUpload,
+    cancelUpload: cancelUploadById,
+    retryUpload,
+    registerController,
+    unregisterController,
+    registerResumeHandler,
+    unregisterResumeHandler,
   }
-
-  return { cancelUpload }
 }

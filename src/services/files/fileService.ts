@@ -191,4 +191,43 @@ export const fileService = {
       throw handleApiError(error, 'Failed to permanently delete file.')
     }
   },
+
+  async cancelUpload(fileId: string, versionId: string): Promise<void> {
+    try {
+      await apiClient.post(`/api/v1/files/${fileId}/versions/${versionId}/cancel`)
+    } catch (error: any) {
+      throw handleApiError(error, 'Failed to cancel upload.')
+    }
+  },
+
+  async bulkCancelUploads(uploads: Array<{ file_id: string; version_id: string }>): Promise<void> {
+    try {
+      await apiClient.post('/api/v1/files/bulk-cancel', { uploads })
+    } catch (error: any) {
+      throw handleApiError(error, 'Failed to bulk cancel uploads.')
+    }
+  },
+
+  async cleanupOrphanedUploads(): Promise<{ deleted: number }> {
+    try {
+      const { data } = await apiClient.post('/api/v1/files/cleanup-orphans', {})
+      return data
+    } catch (error: any) {
+      throw handleApiError(error, 'Failed to cleanup orphaned uploads.')
+    }
+  },
+
+  async getDownloadManifestWithCheck(
+    fileId: string,
+    versionId?: string
+  ): Promise<DownloadManifest> {
+    try {
+      const { data } = await apiClient.get(`/api/v1/files/${fileId}/download`, {
+        params: versionId ? { version_id: versionId, verify: true } : { verify: true },
+      })
+      return data
+    } catch (error: any) {
+      throw handleApiError(error, 'Failed to get download manifest.')
+    }
+  },
 }

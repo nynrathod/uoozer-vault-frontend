@@ -83,11 +83,15 @@ export interface CryptoApi {
   ): Promise<Uint8Array | null>
 
   // File streaming encryption (crypto_secretstream_xchacha20poly1305)
-  initFileEncryption(key: Uint8Array): Promise<Uint8Array>
-  encryptFileChunk(plaintext: Uint8Array, isFinal: boolean): Promise<EncryptedChunkResult>
-  initFileDecryption(header: Uint8Array, key: Uint8Array): Promise<void>
-  decryptFileChunk(ciphertext: Uint8Array): Promise<Uint8Array>
-  cleanupFileStream(): Promise<void>
+  initFileEncryption(key: Uint8Array): Promise<EncryptedFileHeader>
+  encryptFileChunk(
+    streamId: string,
+    plaintext: Uint8Array,
+    isFinal: boolean
+  ): Promise<EncryptedChunkResult>
+  initFileDecryption(header: Uint8Array, key: Uint8Array): Promise<string>
+  decryptFileChunk(streamId: string, ciphertext: Uint8Array): Promise<Uint8Array>
+  cleanupFileStream(streamId?: string): Promise<void>
 
   // Hashing — BLAKE3 only (replaces blake2b)
   blake3Hash(data: Uint8Array): Promise<string>
@@ -118,4 +122,24 @@ export interface CryptoApi {
     device_pubkey: string
     device_name: string
   }>
+}
+
+/** Per-file symmetric header used to derive chunk-level encryption keys. */
+export interface EncryptedFileHeader {
+  header: Uint8Array
+  streamId: string
+}
+
+/** Single encrypted chunk with its AEAD authentication tag. */
+export interface EncryptedChunk {
+  ciphertext: Uint8Array
+  tag: Uint8Array
+}
+
+/** Tracks in-memory crypto state including an optional recovery key during account recovery. */
+export interface CryptoState {
+  isReady: boolean
+  masterKey: Uint8Array | null
+  dek: Uint8Array | null
+  recoveryKey: Uint8Array | null
 }

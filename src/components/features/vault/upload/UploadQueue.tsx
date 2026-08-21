@@ -10,18 +10,21 @@ import {
   Copy,
   Check,
   Upload,
+  Pause,
+  Play,
+  RotateCcw,
 } from 'lucide-react'
 import { useUploadStore } from '@stores/uploadStore'
 import { cn } from '@lib/utils'
 import { Button } from '@ui/Button'
-import { Tabs, TabsList, TabsTrigger } from '@ui/Tabs' // <-- Import Global Tabs
+import { Tabs, TabsList, TabsTrigger } from '@ui/Tabs'
 import { useClipboard } from '@hooks/useClipboard'
+import { useUploadManager } from '@hooks/useUploadManager'
 import { MOCK_URLS } from '@lib/constants'
 import type { UploadFile } from '@/types/upload'
 
 type TabId = 'all' | 'completed' | 'failed'
 
-/** Maps upload status to a user-facing label */
 function getStatusText(status: UploadFile['status']): string {
   switch (status) {
     case 'queued':
@@ -38,6 +41,8 @@ function getStatusText(status: UploadFile['status']): string {
       return 'Failed'
     case 'cancelled':
       return 'Cancelled'
+    case 'paused':
+      return 'Paused'
     default:
       return ''
   }
@@ -45,10 +50,12 @@ function getStatusText(status: UploadFile['status']): string {
 
 function UploadRow({ upload }: { upload: UploadFile }) {
   const { copied, copy } = useClipboard()
+  const { pauseUpload, resumeUpload, cancelUpload, retryUpload } = useUploadManager()
 
   const isDone = upload.status === 'done'
   const isError = upload.status === 'error' || upload.status === 'cancelled'
-  const isActive = !isDone && !isError
+  const isPaused = upload.status === 'paused'
+  const isActive = !isDone && !isError && !isPaused
 
   return (
     <div className="border-border/40 hover:bg-accent/30 group flex items-start gap-3 rounded-lg border p-2.5 transition-colors">
@@ -60,7 +67,7 @@ function UploadRow({ upload }: { upload: UploadFile }) {
         ) : isError ? (
           <AlertCircle className="text-destructive h-4 w-4" />
         ) : (
-          <File className="text-muted-foreground/50 h-5 w-5" strokeWidth={1.5} />
+          <Pause className="text-muted-foreground h-4 w-4" />
         )}
       </div>
 
@@ -70,7 +77,13 @@ function UploadRow({ upload }: { upload: UploadFile }) {
           <span
             className={cn(
               'shrink-0 text-[11px] font-medium',
-              isDone ? 'text-emerald-500' : isError ? 'text-destructive' : 'text-muted-foreground'
+              isDone
+                ? 'text-emerald-500'
+                : isError
+                  ? 'text-destructive'
+                  : isPaused
+                    ? 'text-amber-500'
+                    : 'text-muted-foreground'
             )}
           >
             {isDone ? 'Done' : isError ? 'Failed' : getStatusText(upload.status)}
@@ -80,18 +93,16 @@ function UploadRow({ upload }: { upload: UploadFile }) {
         <div className="bg-primary/20 relative mt-2 h-1.5 w-full overflow-hidden rounded-full">
           {isActive ? (
             <div
-              className="bg-primary absolute inset-y-0 left-0 w-full rounded-full"
-              style={{
-                animation: 'progress 1s infinite linear',
-                transformOrigin: '0% 50%',
-              }}
-            ></div>
+              className="bg-primary absolute inset-y-0 left-0 rounded-full"
+              style={{ width: `${upload.overallProgress}%`, transition: 'width 300ms ease-out' }}
+            />
           ) : (
             <div
               className={cn(
-                'absolute inset-y-0 left-0 w-full rounded-full transition-all duration-300',
+                'absolute inset-y-0 left-0 rounded-full transition-all duration-300',
                 isError ? 'bg-destructive' : 'bg-emerald-500'
               )}
+              style={{ width: `${upload.overallProgress}%` }}
             />
           )}
         </div>
@@ -101,29 +112,79 @@ function UploadRow({ upload }: { upload: UploadFile }) {
         )}
       </div>
 
-      {isDone && upload.fileId && (
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className="text-muted-foreground hover:bg-accent hover:text-primary h-6 w-6 shrink-0 rounded-md opacity-0 group-hover:opacity-100"
-          onClick={() => copy(`${MOCK_URLS.SHARE_LINK_BASE}${upload.fileId}`)}
-          title="Copy link"
-        >
-          {copied ? (
-            <Check className="h-3.5 w-3.5 text-emerald-500" />
-          ) : (
-            <Copy className="h-3.5 w-3.5" />
-          )}
-        </Button>
-      )}
+      <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+        {isActive && (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="h-6 w-6 rounded-md"
+            onClick={() => pauseUpload(upload.id)}
+            title="Pause"
+          >
+            <Pause className="h-3.5 w-3.5" />
+          </Button>
+        )}
+        {isPaused && (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="h-6 w-6 rounded-md"
+            onClick={() => resumeUpload(upload.id)}
+            title="Resume"
+          >
+            <Play className="h-3.5 w-3.5" />
+          </Button>
+        )}
+        {isError && (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="h-6 w-6 rounded-md"
+            onClick={() => retryUpload(upload.id)}
+            title="Retry"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+          </Button>
+        )}
+        {!isDone && (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive h-6 w-6 rounded-md"
+            onClick={() =>
+              cancelUpload(upload.id, upload.fileId || undefined, upload.versionId || undefined)
+            }
+            title="Cancel"
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        )}
+        {isDone && upload.fileId && (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="text-muted-foreground hover:bg-accent hover:text-primary h-6 w-6 rounded-md"
+            onClick={() => copy(`${MOCK_URLS.SHARE_LINK_BASE}${upload.fileId}`)}
+            title="Copy link"
+          >
+            {copied ? (
+              <Check className="h-3.5 w-3.5 text-emerald-500" />
+            ) : (
+              <Copy className="h-3.5 w-3.5" />
+            )}
+          </Button>
+        )}
+      </div>
     </div>
   )
 }
 
-/** Floating panel showing active, completed, and failed uploads with per-item progress. */
 export function UploadQueue() {
   const uploadsMap = useUploadStore((s) => s.uploads)
   const clearCompleted = useUploadStore((s) => s.clearCompleted)
+  const pauseUpload = useUploadStore((s) => s.pauseUpload)
+  const resumeUpload = useUploadStore((s) => s.resumeUpload)
+  const retryUpload = useUploadStore((s) => s.retryUpload)
 
   const [isMinimized, setIsMinimized] = useState(false)
   const [activeTab, setActiveTab] = useState<TabId>('all')
@@ -142,7 +203,7 @@ export function UploadQueue() {
           acc.active.push(u)
         } else if (u.status === 'done') {
           acc.completed.push(u)
-        } else if (u.status === 'error' || u.status === 'cancelled') {
+        } else if (u.status === 'error' || u.status === 'cancelled' || u.status === 'paused') {
           acc.failed.push(u)
         }
         return acc

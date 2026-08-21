@@ -8,6 +8,8 @@ interface UploadState {
   updateChunk: (uploadId: string, chunkIndex: string, patch: Partial<UploadChunk>) => void
   removeUpload: (id: string) => void
   clearCompleted: () => void
+  pauseUpload: (id: string) => void
+  resumeUpload: (id: string) => void
   retryUpload: (id: string) => void
   getUpload: (id: string) => UploadFile | undefined
   getAllUploads: () => UploadFile[]
@@ -29,6 +31,48 @@ export const useUploadStore = create<UploadState>((set, get) => ({
       if (!existing) return s
       const next = new Map(s.uploads)
       next.set(id, { ...existing, ...patch })
+      return { uploads: next }
+    }),
+
+  pauseUpload: (id) =>
+    set((s) => {
+      const existing = s.uploads.get(id)
+      if (!existing) return s
+      const next = new Map(s.uploads)
+      next.set(id, { ...existing, status: 'paused' })
+      return { uploads: next }
+    }),
+
+  resumeUpload: (id) =>
+    set((s) => {
+      const existing = s.uploads.get(id)
+      if (!existing || existing.status !== 'paused') return s
+      const next = new Map(s.uploads)
+      next.set(id, {
+        ...existing,
+        status: 'queued',
+        errorMessage: null,
+      })
+      return { uploads: next }
+    }),
+
+  retryUpload: (id) =>
+    set((s) => {
+      const existing = s.uploads.get(id)
+      if (!existing || (existing.status !== 'error' && existing.status !== 'cancelled')) return s
+      const next = new Map(s.uploads)
+      next.set(id, {
+        ...existing,
+        status: 'queued',
+        overallProgress: 0,
+        errorMessage: null,
+        chunks: existing.chunks.map((c) => ({
+          ...c,
+          status: 'pending' as const,
+          progress: 0,
+          error: null,
+        })),
+      })
       return { uploads: next }
     }),
 
@@ -63,22 +107,6 @@ export const useUploadStore = create<UploadState>((set, get) => ({
           next.set(id, upload)
         }
       }
-      return { uploads: next }
-    }),
-
-  retryUpload: (id) =>
-    set((s) => {
-      const existing = s.uploads.get(id)
-      if (!existing || existing.status !== 'error') return s
-
-      const next = new Map(s.uploads)
-      next.set(id, {
-        ...existing,
-        status: 'queued',
-        overallProgress: 0,
-        errorMessage: null,
-        chunks: existing.chunks.map((c) => ({ ...c, status: 'pending', progress: 0, error: null })),
-      })
       return { uploads: next }
     }),
 

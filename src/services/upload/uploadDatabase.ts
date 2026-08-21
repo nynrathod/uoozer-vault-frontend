@@ -8,49 +8,74 @@ export interface PersistedUploadState {
   fileName: string
   fileSize: number
   totalChunks: number
+  uploadedChunks: number[]
   encryptionHeader: string
   plaintextBlake3: string
-  status: 'queued' | 'uploading' | 'paused' | 'error'
+  streamId: string | null
+  chunkPlans: Array<{
+    chunk_index: number
+    segment_index: number
+    chunk_size: number
+    chunk_blake3: string
+  }>
+  status: 'queued' | 'uploading' | 'paused' | 'error' | 'done' | 'cancelled'
+  lastError: string | null
   createdAt: number
   updatedAt: number
 }
 
-export interface PersistedChunk {
-  id: string // Format: `${uploadId}-${chunkIndex}`
-  data: Uint8Array
-}
-
-/**
- * IndexedDB wrapper for persisting upload state and encrypted chunks.
- * This enables crash recovery and keeps memory footprint O(1).
- */
 export class UploadDatabase extends Dexie {
   uploads!: Table<PersistedUploadState, string>
-  chunks!: Table<PersistedChunk, string>
 
   constructor() {
     super('UoozerVaultUploads')
-    this.version(2).stores({
-      uploads: 'uploadId, status, createdAt',
-      chunks: 'id', // Store raw bytes here
+    this.version(3).stores({
+      uploads: 'uploadId, status, createdAt, versionId',
     })
   }
 
-  async saveUpload(state: PersistedUploadState) {
+  async saveUpload(state: PersistedUploadState): Promise<void> {
     await this.uploads.put({ ...state, updatedAt: Date.now() })
+  }
+
+  async patchUpload(uploadId: string, patch: Partial<PersistedUploadState>): Promise<void> {
+    const existing = await this.uploads.get(uploadId)
+    if (!existing) return
+    await this.uploads.put({ ...existing, ...patch, updatedAt: Date.now() })
+  }
+
+  async appendUploadedChunk(uploadId: string, chunkIndex: number): Promise<void> {
+    const existing = await this.uploads.get(uploadId)
+    if (!existing) return
+    if (!existing.uploadedChunks.includes(chunkIndex)) {
+      existing.uploadedChunks.push(chunkIndex)
+      existing.uploadedChunks.sort((a, b) => a - b)
+    }
+    await this.uploads.put({ ...existing, updatedAt: Date.now() })
   }
 
   async getUpload(uploadId: string): Promise<PersistedUploadState | undefined> {
     return this.uploads.get(uploadId)
   }
 
+  async getByVersionId(versionId: string): Promise<PersistedUploadState | undefined> {
+    return this.uploads.where('versionId').equals(versionId).first()
+  }
+
   async getPendingUploads(): Promise<PersistedUploadState[]> {
     return this.uploads.where('status').anyOf(['queued', 'uploading', 'paused', 'error']).toArray()
   }
 
-  async deleteUpload(uploadId: string) {
+  async getAllUploads(): Promise<PersistedUploadState[]> {
+    return this.uploads.toArray()
+  }
+
+  async deleteUpload(uploadId: string): Promise<void> {
     await this.uploads.delete(uploadId)
-    await this.chunks.where('id').startsWith(`${uploadId}-`).delete()
+  }
+
+  async deleteOlderThan(timestamp: number): Promise<number> {
+    return this.uploads.where('createdAt').below(timestamp).delete()
   }
 }
 
