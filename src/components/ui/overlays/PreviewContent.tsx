@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react'
 import { Button } from '@ui/Button'
-import { Loader2, Download } from 'lucide-react'
+import { Loader2, Download, AlertCircle, Lock } from 'lucide-react'
 import { cn } from '@lib/utils'
 import { useFileStore, selectFileById } from '@stores/fileStore'
 import { usePreviewStore } from '@stores/previewStore'
 import { useAuthStore } from '@stores/authStore'
-import { downloadFile } from '@services/files/downloadOrchestrator'
+import { downloadFile, DownloadError } from '@services/files/downloadOrchestrator'
 import { FileIcon } from '@/components/features/vault/fileList/FileIcon'
 import { ZipPreview } from './ZipPreview'
 
-/** Renders file preview by MIME type (image, PDF, text, ZIP, or generic fallback). */
+const previewCache = new Map<string, string>()
+
 export function PreviewContent() {
   const fileId = usePreviewStore((s) => s.fileId)
   const isFullscreen = usePreviewStore((s) => s.isFullscreen)
@@ -20,11 +21,9 @@ export function PreviewContent() {
   const dek = useAuthStore((s) => s.cryptoState.dek)
 
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
-  const isZip =
-    file?.mimeType === 'application/zip' ||
-    file?.mimeType === 'application/x-zip-compressed' ||
-    file?.name.toLowerCase().endsWith('.zip')
+  const isZip = file?.mimeType === 'application/zip' || file?.name.toLowerCase().endsWith('.zip')
 
   useEffect(() => {
     if (!fileId || !dek || !file || isZip) return
@@ -33,12 +32,25 @@ export function PreviewContent() {
     const fetchFile = async () => {
       try {
         setLoading(true)
+        setError(null)
         setBlobUrl(null)
+
+        if (previewCache.has(fileId)) {
+          setBlobUrl(previewCache.get(fileId)!)
+          setLoading(false)
+          return
+        }
+
         const { blob } = await downloadFile({ dek, fileId })
         objectUrl = URL.createObjectURL(blob)
+        previewCache.set(fileId, objectUrl)
         setBlobUrl(objectUrl)
-      } catch (error) {
-        console.error('Failed to load preview:', error)
+      } catch (err) {
+        if (err instanceof DownloadError) {
+          setError(err.message)
+        } else {
+          setError('Failed to load preview.')
+        }
       } finally {
         setLoading(false)
       }
@@ -47,15 +59,14 @@ export function PreviewContent() {
     fetchFile()
 
     return () => {
-      if (objectUrl) URL.revokeObjectURL(objectUrl)
+      if (objectUrl && !previewCache.has(fileId)) {
+        URL.revokeObjectURL(objectUrl)
+      }
     }
   }, [fileId, dek, file, setLoading, isZip])
 
   if (!file) return null
-
-  if (isZip) {
-    return <ZipPreview fileId={file.id} fileName={file.name} />
-  }
+  if (isZip) return <ZipPreview fileId={file.id} fileName={file.name} />
 
   const isImage = file.mimeType?.startsWith('image/')
   const isPdf = file.mimeType === 'application/pdf'
@@ -65,27 +76,42 @@ export function PreviewContent() {
     ? 'flex-1 flex items-center justify-center p-4 md:p-8 overflow-hidden relative bg-black/95'
     : 'flex-1 flex items-center justify-center p-4 md:p-6 overflow-hidden relative bg-muted/40'
 
+  if (!dek) {
+    return (
+      <div className={contentAreaClasses}>
+        <div className="flex flex-col items-center gap-4 text-center">
+          <Lock className="text-muted-foreground h-10 w-10" />
+          <h3 className="text-lg font-semibold">Vault Locked</h3>
+          <p className="text-muted-foreground text-sm">
+            Please unlock your vault to preview files.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className={contentAreaClasses}>
+        <div className="flex flex-col items-center gap-4 text-center">
+          <AlertCircle className="text-destructive h-10 w-10" />
+          <h3 className="text-lg font-semibold">Preview Failed</h3>
+          <p className="text-muted-foreground max-w-sm text-sm">{error}</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className={contentAreaClasses}>
       {isLoading && (
-        <div
-          className={cn(
-            'absolute inset-0 flex items-center justify-center',
-            isFullscreen ? 'bg-black/95' : 'bg-muted/30'
-          )}
-        >
-          <Loader2
-            className={cn(
-              'h-8 w-8 animate-spin',
-              isFullscreen ? 'text-muted-foreground' : 'text-muted-foreground'
-            )}
-          />
+        <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+          <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
         </div>
       )}
-
       <div
         className={cn(
-          'bg-card border-border/50 flex h-full max-h-full w-full max-w-full flex-col items-center justify-center overflow-hidden rounded-xl border shadow-lg',
+          'border-border/50 bg-card flex h-full w-full max-w-full flex-col items-center justify-center overflow-hidden rounded-xl border shadow-lg',
           isFullscreen && 'max-h-[85vh] max-w-5xl'
         )}
       >
@@ -94,7 +120,7 @@ export function PreviewContent() {
             src={blobUrl ?? ''}
             alt={file.name}
             className={cn(
-              'max-h-full max-w-full object-contain transition-opacity duration-300',
+              'max-h-full max-w-full object-contain transition-opacity',
               isLoading ? 'opacity-0' : 'opacity-100'
             )}
             onLoad={() => setLoading(false)}
@@ -105,7 +131,7 @@ export function PreviewContent() {
             data={blobUrl}
             type="application/pdf"
             className={cn(
-              'h-full w-full transition-opacity duration-300',
+              'h-full w-full transition-opacity',
               isLoading ? 'opacity-0' : 'opacity-100'
             )}
           >
@@ -116,7 +142,7 @@ export function PreviewContent() {
               <a
                 href={blobUrl}
                 download={file.name}
-                className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+                className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg px-4 py-2 text-sm font-medium"
               >
                 Download PDF
               </a>
@@ -127,7 +153,7 @@ export function PreviewContent() {
           <iframe
             src={blobUrl}
             className={cn(
-              'h-full w-full bg-white transition-opacity duration-300',
+              'h-full w-full bg-white transition-opacity',
               isLoading ? 'opacity-0' : 'opacity-100'
             )}
             title={file.name}
@@ -135,35 +161,15 @@ export function PreviewContent() {
         )}
         {!isImage && !isPdf && !isText && (
           <div className="flex flex-col items-center justify-center p-8 text-center">
-            <div
-              className={cn(
-                'mb-5 flex h-20 w-20 items-center justify-center rounded-2xl',
-                isFullscreen ? 'bg-white/10' : 'bg-secondary'
-              )}
-            >
+            <div className="bg-secondary mb-5 flex h-20 w-20 items-center justify-center rounded-2xl">
               <FileIcon
                 mimeType={file.mimeType}
                 size="lg"
-                className={cn(
-                  'bg-transparent',
-                  isFullscreen ? 'text-muted-foreground' : 'text-muted-foreground'
-                )}
+                className="text-muted-foreground bg-transparent"
               />
             </div>
-            <h3
-              className={cn(
-                'mb-1 text-lg font-semibold',
-                isFullscreen ? 'text-foreground' : 'text-foreground'
-              )}
-            >
-              No preview available
-            </h3>
-            <p
-              className={cn(
-                'mb-6 max-w-sm text-sm',
-                isFullscreen ? 'text-muted-foreground' : 'text-muted-foreground'
-              )}
-            >
+            <h3 className="text-foreground mb-1 text-lg font-semibold">No preview available</h3>
+            <p className="text-muted-foreground mb-6 max-w-sm text-sm">
               We can't show a preview for this file type in your browser. Please download it to view
               its contents.
             </p>

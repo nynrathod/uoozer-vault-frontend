@@ -9,6 +9,7 @@ import { encryptMetadataObject } from '@lib/crypto'
 import { QUERY_KEYS } from '@lib/constants'
 import type { Folder } from '@/types/folders'
 import type { FileItem } from '@/types/files'
+import { useUploadStore } from '@/stores/uploadStore'
 
 export function useVaultActions() {
   const queryClient = useQueryClient()
@@ -21,7 +22,6 @@ export function useVaultActions() {
     )
   }
 
-  // ── Create Folder Mutation ──────────────────────────────────
   const createFolderMutation = useMutation({
     mutationFn: async ({
       name,
@@ -41,34 +41,31 @@ export function useVaultActions() {
       })
     },
     onSuccess: (backendFolder, variables) => {
-      // Swap the temp folder with the real folder IN THE CACHE
       updateFolderCache(variables.parentId, (old) =>
         old.map((f) =>
           f.id === variables.tempId
-            ? {
-                id: backendFolder.folder_id,
-                uid: f.uid,
-                parentId: backendFolder.parent_folder_id,
-                name: variables.name,
-                encryptedMetadata: backendFolder.encrypted_metadata,
-                metadataNonce: backendFolder.metadata_nonce,
-                createdAt: backendFolder.created_at,
-                updatedAt: backendFolder.updated_at,
-              }
+            ? { ...f, id: backendFolder.folder_id, parentId: backendFolder.parent_folder_id }
             : f
         )
       )
     },
     onError: (error: any, variables) => {
-      // Remove the temp folder from the cache on error
       updateFolderCache(variables.parentId, (old) => old.filter((f) => f.id !== variables.tempId))
       toast.error(error.message ?? 'Failed to create folder')
     },
   })
 
-  // ── Delete Mutation ─────────────────────────────────────────
   const deleteItemMutation = useMutation({
     mutationFn: async ({ id, isFolder }: { id: string; isFolder: boolean }) => {
+      useUploadStore
+        .getState()
+        .getAllUploads()
+        .forEach((u) => {
+          if (u.fileId === id) useUploadStore.getState().removeUpload(u.id)
+        })
+
+      if (usePreviewStore.getState().fileId === id) closePreview()
+
       if (isFolder) return folderService.delete(id)
       return fileService.delete(id)
     },
@@ -80,19 +77,54 @@ export function useVaultActions() {
       } else {
         queryClient.setQueriesData<{ files: FileItem[]; total: number }>(
           { queryKey: [QUERY_KEYS.FILES.LIST] },
-          (old) => {
-            if (!old) return old
-            return { ...old, files: old.files.filter((f) => f.id !== id) }
-          }
+          (old) => (old ? { ...old, files: old.files.filter((f) => f.id !== id) } : old)
         )
-        closePreview()
       }
     },
-    onSuccess: (_data, { isFolder }) => {
-      toast.success(`${isFolder ? 'Folder' : 'File'} deleted successfully`)
+    onSuccess: (_data, { isFolder }) =>
+      toast.success(`${isFolder ? 'Folder' : 'File'} deleted successfully`),
+    onError: (error: any, { isFolder, id }) => {
+      if (error?.code === 'NOT_FOUND') {
+        toast.success(`${isFolder ? 'Folder' : 'File'} deleted successfully`)
+      } else {
+        toast.error(error.message ?? `Failed to delete ${isFolder ? 'folder' : 'file'}`)
+      }
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FILES.LIST] })
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FOLDERS.LIST] })
     },
-    onError: (error: any, { isFolder }) => {
-      toast.error(error.message ?? `Failed to delete ${isFolder ? 'folder' : 'file'}`)
+  })
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (items: { id: string; isFolder: boolean }[]) => {
+      const batchSize = 100
+      for (let i = 0; i < items.length; i += batchSize) {
+        const batch = items.slice(i, i + batchSize)
+        const file_ids = batch.filter((i) => !i.isFolder).map((i) => i.id)
+        const folder_ids = batch.filter((i) => i.isFolder).map((i) => i.id)
+        if (file_ids.length > 0 || folder_ids.length > 0) {
+          await fileService.bulkDelete({ file_ids, folder_ids })
+        }
+      }
+      return null
+    },
+    onMutate: async (items) => {
+      items.forEach(({ id, isFolder }) => {
+        if (isFolder) {
+          queryClient.setQueriesData<Folder[]>(
+            { queryKey: [QUERY_KEYS.FOLDERS.LIST] },
+            (old = []) => old.filter((f) => f.id !== id)
+          )
+        } else {
+          queryClient.setQueriesData<{ files: FileItem[]; total: number }>(
+            { queryKey: [QUERY_KEYS.FILES.LIST] },
+            (old) => (old ? { ...old, files: old.files.filter((f) => f.id !== id) } : old)
+          )
+        }
+      })
+    },
+    onSuccess: () => toast.success('Items deleted successfully'),
+    onError: (error: any) => {
+      toast.error(error.message ?? 'Failed to delete items')
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FILES.LIST] })
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FOLDERS.LIST] })
     },
@@ -155,41 +187,6 @@ export function useVaultActions() {
     },
     onError: (error: any, { isFolder }) => {
       toast.error(error.message ?? `Failed to rename ${isFolder ? 'folder' : 'file'}`)
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FILES.LIST] })
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FOLDERS.LIST] })
-    },
-  })
-
-  const bulkDeleteMutation = useMutation({
-    mutationFn: async (items: { id: string; isFolder: boolean }[]) => {
-      const file_ids = items.filter((i) => !i.isFolder).map((i) => i.id)
-      const folder_ids = items.filter((i) => i.isFolder).map((i) => i.id)
-      if (file_ids.length === 0 && folder_ids.length === 0) return null
-      return fileService.bulkDelete({ file_ids, folder_ids })
-    },
-    onMutate: async (items) => {
-      items.forEach(({ id, isFolder }) => {
-        if (isFolder) {
-          queryClient.setQueriesData<Folder[]>(
-            { queryKey: [QUERY_KEYS.FOLDERS.LIST] },
-            (old = []) => old.filter((f) => f.id !== id)
-          )
-        } else {
-          queryClient.setQueriesData<{ files: FileItem[]; total: number }>(
-            { queryKey: [QUERY_KEYS.FILES.LIST] },
-            (old) => {
-              if (!old) return old
-              return { ...old, files: old.files.filter((f) => f.id !== id) }
-            }
-          )
-        }
-      })
-    },
-    onSuccess: () => {
-      toast.success('Items deleted successfully')
-    },
-    onError: (error: any) => {
-      toast.error(error.message ?? 'Failed to delete items')
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FILES.LIST] })
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FOLDERS.LIST] })
     },

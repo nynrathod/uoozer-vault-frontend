@@ -80,4 +80,12 @@ export const folderService = {
       throw handleApiError(error, 'Failed to permanently delete folder.')
     }
   },
+  async bulkCreate(req: CreateFolderRequest[]): Promise<BackendFolderResponse[]> {
+    try {
+      const { data } = await apiClient.post('/api/v1/folders/bulk', { folders: req })
+      return data
+    } catch (error: any) {
+      throw handleApiError(error, 'Failed to bulk create folders.')
+    }
+  },
 }

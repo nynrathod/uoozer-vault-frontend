@@ -10,7 +10,7 @@ import {
 import { validateFile, sanitizeFileName } from '@lib/fileValidation'
 import { UPLOAD_CONFIG } from '@config/upload.config'
 import { uploadSync } from '@services/upload/uploadSync'
-import type { CreateFileRequest, ChunkPlan, ResumeInfo } from '@/types/files'
+import type { CreateFileRequest, ChunkPlan, ResumeInfo, CreateFileResponse } from '@/types/files'
 import { uploadDb, type PersistedUploadState } from '../upload/uploadDatabase'
 
 export interface UploadProgressCallback {
@@ -25,12 +25,17 @@ export interface UploadOptions {
   onPersisted?: (state: PersistedUploadState) => void
   signal?: AbortSignal
   resumeState?: PersistedUploadState
+  preInitData?: CreateFileResponse
 }
 
 export interface UploadResult {
   fileId: string
   versionId: string
   deduplicated: boolean
+  r2Etags: Record<string, string>
+  plaintextBlake3: string
+  encryptionHeader: string
+  chunkHashes: Record<string, string>
 }
 
 async function readFileChunk(file: File, start: number, end: number): Promise<Uint8Array> {
@@ -144,7 +149,16 @@ function isAbortError(error: unknown): boolean {
 }
 
 export async function uploadFile(file: File, options: UploadOptions): Promise<UploadResult> {
-  const { dek, folderId, onProgress, onChunkStatus, onPersisted, signal, resumeState } = options
+  const {
+    dek,
+    folderId,
+    onProgress,
+    onChunkStatus,
+    onPersisted,
+    signal,
+    resumeState,
+    preInitData,
+  } = options
 
   const controller = new AbortController()
   if (signal) {
@@ -199,6 +213,28 @@ export async function uploadFile(file: File, options: UploadOptions): Promise<Up
     } else {
       throw new Error('Failed to get resume URLs from server.')
     }
+  } else if (preInitData) {
+    fileId = preInitData.file_id
+    versionId = preInitData.version_id
+    uploadUrls = preInitData.upload_urls
+    deduplicated = preInitData.deduplicated
+
+    const initResult = await initFileEncryption(dek)
+    streamId = initResult.streamId
+    encryptionHeaderB64 = await bytesToBase64(initResult.header)
+
+    if (deduplicated) {
+      await cleanupFileStream(streamId)
+      return {
+        fileId,
+        versionId,
+        deduplicated: true,
+        r2Etags: {},
+        plaintextBlake3: '',
+        encryptionHeader: '',
+        chunkHashes: {},
+      }
+    }
   } else {
     const initResult = await initFileEncryption(dek)
     streamId = initResult.streamId
@@ -235,7 +271,7 @@ export async function uploadFile(file: File, options: UploadOptions): Promise<Up
 
   if (internalSignal.aborted) throw new DOMException('Upload cancelled', 'AbortError')
 
-  if (!resumeState) {
+  if (!resumeState && !preInitData) {
     const createReq: CreateFileRequest = {
       folder_id: folderId,
       encrypted_metadata: encryptedMetadata,
@@ -255,7 +291,15 @@ export async function uploadFile(file: File, options: UploadOptions): Promise<Up
 
     if (deduplicated) {
       await cleanupFileStream(streamId)
-      return { fileId, versionId, deduplicated: true }
+      return {
+        fileId: createResp.file_id,
+        versionId: createResp.version_id,
+        deduplicated: true,
+        r2Etags: {},
+        plaintextBlake3: '',
+        encryptionHeader: '',
+        chunkHashes: {},
+      }
     }
   }
 
@@ -362,16 +406,25 @@ export async function uploadFile(file: File, options: UploadOptions): Promise<Up
 
   if (internalSignal.aborted) throw new DOMException('Upload cancelled', 'AbortError')
 
-  await fileService.completeUpload(fileId, {
-    version_id: versionId,
-    r2_etags: r2Etags,
-  })
-
   await cleanupFileStream(streamId)
   await uploadDb.patchUpload(persistedState.uploadId, { status: 'done' })
   uploadSync.notifyUpdate(persistedState.uploadId)
 
-  return { fileId, versionId, deduplicated: false }
+  return {
+    fileId,
+    versionId,
+    deduplicated: false,
+    r2Etags,
+    plaintextBlake3,
+    encryptionHeader: encryptionHeaderB64,
+    chunkHashes: chunkPlans.reduce(
+      (acc, c) => {
+        acc[String(c.chunk_index)] = c.chunk_blake3
+        return acc
+      },
+      {} as Record<string, string>
+    ),
+  }
 }
 
 export async function cancelUpload(fileId: string, versionId: string): Promise<void> {

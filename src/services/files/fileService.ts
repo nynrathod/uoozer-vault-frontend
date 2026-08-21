@@ -230,4 +230,23 @@ export const fileService = {
       throw handleApiError(error, 'Failed to get download manifest.')
     }
   },
+
+  async bulkInitUploads(req: CreateFileRequest[]): Promise<CreateFileResponse[]> {
+    try {
+      const { data } = await apiClient.post('/api/v1/files/bulk-init', { files: req })
+      return data.results
+    } catch (error: any) {
+      throw handleApiError(error, 'Failed to bulk initialize uploads.')
+    }
+  },
+
+  async bulkCompleteUploads(
+    uploads: { file_id: string; version_id: string; r2_etags: Record<string, string> }[]
+  ): Promise<void> {
+    try {
+      await apiClient.post('/api/v1/files/bulk-complete', { uploads })
+    } catch (error: any) {
+      throw handleApiError(error, 'Failed to bulk complete uploads.')
+    }
+  },
 }
