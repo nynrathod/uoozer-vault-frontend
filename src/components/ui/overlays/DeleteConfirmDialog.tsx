@@ -6,6 +6,7 @@ interface DeleteConfirmDialogProps {
   onOpenChange: (open: boolean) => void
   itemName: string
   isFolder: boolean
+  isPermanent?: boolean
   onConfirm: () => void
 }
 
@@ -15,14 +16,16 @@ export function DeleteConfirmDialog({
   onOpenChange,
   itemName,
   isFolder,
+  isPermanent,
   onConfirm,
 }: DeleteConfirmDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogHeader>
         <DialogTitle>Delete {isFolder ? 'folder' : 'file'}</DialogTitle>
+        //{' '}
         <DialogDescription>
-          Are you sure you want to delete &ldquo;{itemName}&rdquo;? This action cannot be undone.
+          {isPermanent ? `This will permanently delete...` : `Are you sure you want to delete...`}
         </DialogDescription>
       </DialogHeader>
       <DialogFooter>

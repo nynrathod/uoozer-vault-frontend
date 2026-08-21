@@ -6,6 +6,7 @@ export interface BackendFolderResponse {
   metadata_nonce: string
   created_at: string
   updated_at: string
+  deleted_at?: string | null
 }
 
 /** Folder metadata (encrypted client-side, never sent in plaintext). */
@@ -24,6 +25,7 @@ export interface Folder {
   metadataNonce: string
   createdAt: string
   updatedAt: string
+  deletedAt?: string | null
   // Decrypted client-side
   name: string
 }

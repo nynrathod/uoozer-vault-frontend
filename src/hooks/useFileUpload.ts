@@ -77,7 +77,7 @@ export function useFileUpload() {
       const validUploads: { upload: UploadFile; file: File }[] = []
 
       for (const file of files) {
-        const validation = validateFile(file)
+        const validation = await validateFile(file)
         if (!validation.valid) continue
 
         const uploadId = crypto.randomUUID()
@@ -131,10 +131,22 @@ export function useFileUpload() {
             dek,
             folderId: targetFolderId,
             signal: controller.signal,
-            onProgress: (_uploadId, chunkIndex, progress) =>
-              updateChunk(uploadId, String(chunkIndex), { progress }),
-            onChunkStatus: (_uploadId, chunkIndex, status) =>
-              updateChunk(uploadId, String(chunkIndex), { status }),
+
+            // Map the new byte-based progress to the store's overall progress (0-100)
+            onProgress: (uploadedBytes, speedBps, etaSeconds) => {
+              const overallProgress = Math.min(99, Math.round((uploadedBytes / file.size) * 100))
+              updateUpload(uploadId, {
+                overallProgress,
+                // If you want to display speed/ETA in your UI later, add these to your UploadFile type:
+                // speedBps,
+                // etaSeconds
+              })
+            },
+
+            onChunkStatus: (chunkIndex, status) => {
+              // This is still useful for the UI to know which specific chunks are done
+              updateChunk(uploadId, String(chunkIndex), { status })
+            },
           })
 
           updateUpload(uploadId, {
@@ -143,7 +155,7 @@ export function useFileUpload() {
             versionId: result.versionId,
             deduplicated: result.deduplicated,
             completedAt: Date.now(),
-            overallProgress: 100,
+            overallProgress: 100, // Force 100% on success
           })
 
           queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FILES.LIST] })

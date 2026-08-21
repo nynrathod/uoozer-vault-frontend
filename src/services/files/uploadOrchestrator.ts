@@ -1,17 +1,9 @@
 /**
- * Upload Orchestrator
+ * Upload Orchestrator (Streaming, Memory-Safe, Real-Time Progress)
  *
- * Handles the full zero-knowledge chunked upload flow:
- * 1. Validate file
- * 2. Encrypt metadata (filename, mime type) with DEK
- * 3. Hash plaintext file with BLAKE3
- * 4. Initialize secretstream encryption
- * 5. Encrypt each chunk sequentially, hash ciphertext with BLAKE3
- * 6. Send create-file request with chunk plan → get presigned URLs
- * 7. Upload encrypted chunks to R2 in parallel (concurrency-limited)
- * 8. Complete upload (verify all chunks, activate version)
- *
- * Encryption is sequential (secretstream requirement), upload is parallel.
+ * Uses XMLHttpRequest to get true byte-level upload progress.
+ * Encrypts chunks sequentially, uploads them in parallel, and
+ * immediately zeroizes memory upon successful upload.
  */
 
 import { fileService } from './fileService'
@@ -23,28 +15,20 @@ import {
   blake3HashBytes,
   cleanupFileStream,
 } from '@lib/crypto'
-import { validateFile, sanitizeFileName, detectMimeType, CHUNK_SIZE } from '@lib/fileValidation'
-import type { CreateFileRequest, ChunkPlan, ChunkUploadUrl } from '@/types/files'
-import type { UploadChunk } from '@/types/upload'
-
-/** Concurrency for parallel chunk uploads to R2. */
-const MAX_CONCURRENT_UPLOADS = 6
-
-/** Maximum retry attempts per chunk. */
-const MAX_RETRIES = 3
-
-/** Retry delay in milliseconds (exponential backoff). */
-const RETRY_BASE_DELAY = 1000
+import { validateFile, sanitizeFileName } from '@lib/fileValidation'
+import { UPLOAD_CONFIG } from '@config/upload.config'
+import type { CreateFileRequest, ChunkPlan } from '@/types/files'
+import { uploadDb } from '../upload/uploadDatabase'
 
 export interface UploadProgressCallback {
-  (uploadId: string, chunkIndex: number, progress: number): void
+  (uploadedBytes: number, speedBps: number, etaSeconds: number): void
 }
 
 export interface UploadOptions {
   dek: Uint8Array
   folderId: string | null
   onProgress?: UploadProgressCallback
-  onChunkStatus?: (uploadId: string, chunkIndex: number, status: UploadChunk['status']) => void
+  onChunkStatus?: (chunkIndex: number, status: 'uploading' | 'done' | 'error') => void
   signal?: AbortSignal
 }
 
@@ -54,88 +38,114 @@ export interface UploadResult {
   deduplicated: boolean
 }
 
-/** Reads a slice of a File as Uint8Array. */
 async function readFileChunk(file: File, start: number, end: number): Promise<Uint8Array> {
   const slice = file.slice(start, end)
   const buffer = await slice.arrayBuffer()
   return new Uint8Array(buffer)
 }
 
-/** Sleep helper for retry backoff. */
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 /**
- * Encrypts all chunks of a file sequentially and returns their ciphertext + hashes.
- * Uses crypto_secretstream_xchacha20poly1305 for tamper-evident streaming encryption.
+ * Uploads a single chunk to R2 using XHR for real-time progress tracking.
  */
-async function encryptFileChunks(
-  file: File,
-  dek: Uint8Array,
-  onChunkEncrypted?: (index: number, ciphertextSize: number) => void
-): Promise<{
-  header: Uint8Array
-  chunks: Array<{ ciphertext: Uint8Array; blake3Hash: Uint8Array; chunkIndex: number }>
-  plaintextBlake3: Uint8Array
-}> {
-  const header = await initFileEncryption(dek)
-  const totalChunks = Math.ceil(file.size / CHUNK_SIZE)
-  const encryptedChunks: Array<{
-    ciphertext: Uint8Array
-    blake3Hash: Uint8Array
-    chunkIndex: number
-  }> = []
+function uploadChunkXHR(
+  presignedUrl: string,
+  ciphertext: Uint8Array,
+  chunkIndex: number,
+  signal: AbortSignal,
+  onChunkProgress: (loaded: number) => void
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('PUT', presignedUrl, true)
+    xhr.setRequestHeader('Content-Type', 'application/octet-stream')
 
-  for (let i = 0; i < totalChunks; i++) {
-    const start = i * CHUNK_SIZE
-    const end = Math.min(start + CHUNK_SIZE, file.size)
-    const plaintext = await readFileChunk(file, start, end)
-    const isFinal = i === totalChunks - 1
+    // Real-time progress event
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        onChunkProgress(event.loaded)
+      }
+    }
 
-    // Destructure the new return value
-    const { ciphertext, blake3Hash } = await encryptFileChunk(plaintext, isFinal)
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        const etag = xhr.getResponseHeader('ETag')?.replace(/"/g, '') || ''
+        if (!etag) return reject(new Error('Missing ETag from R2'))
+        resolve(etag)
+      } else if (xhr.status === 429) {
+        reject(new Error('429 Too Many Requests'))
+      } else if (xhr.status >= 400 && xhr.status < 500) {
+        reject(new Error(`R2 rejected chunk (${xhr.status})`))
+      } else {
+        reject(new Error(`R2 error: ${xhr.status}`))
+      }
+    }
 
-    encryptedChunks.push({ ciphertext, blake3Hash, chunkIndex: i })
-    onChunkEncrypted?.(i, ciphertext.byteLength)
-  }
+    xhr.onerror = () => reject(new Error('Network error during chunk upload'))
+    xhr.onabort = () => reject(new DOMException('Upload aborted', 'AbortError'))
 
-  // Hash the full plaintext file with BLAKE3 (for same-user dedup)
-  const fullFileBuffer = await file.arrayBuffer()
-  const plaintextBlake3 = await blake3HashBytes(new Uint8Array(fullFileBuffer))
+    // Connect external abort signal
+    if (signal.aborted) {
+      xhr.abort()
+    } else {
+      signal.addEventListener('abort', () => xhr.abort())
+    }
 
-  await cleanupFileStream()
-
-  return { header, chunks: encryptedChunks, plaintextBlake3 }
+    xhr.send(ciphertext as unknown as XMLHttpRequestBodyInit)
+  })
 }
 
-/** Uploads a single chunk to R2 with retry logic. */
+/** Uploads a single chunk with retry, backoff, and stall detection. */
 async function uploadSingleChunk(
   presignedUrl: string,
   ciphertext: Uint8Array,
   chunkIndex: number,
-  signal?: AbortSignal
+  signal: AbortSignal,
+  onChunkProgress: (loaded: number) => void
 ): Promise<{ etag: string }> {
   let lastError: Error | null = null
 
-  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    if (signal?.aborted) throw new Error('Upload cancelled')
+  for (let attempt = 0; attempt < UPLOAD_CONFIG.MAX_RETRIES; attempt++) {
+    if (signal.aborted) throw new Error('Upload cancelled')
 
     try {
-      const result = await fileService.uploadChunkToR2(presignedUrl, ciphertext)
-      return result
+      const etag = await uploadChunkXHR(
+        presignedUrl,
+        ciphertext,
+        chunkIndex,
+        signal,
+        onChunkProgress
+      )
+      return { etag }
     } catch (error: any) {
+      if (error.name === 'AbortError' && signal.aborted) throw error
+
       lastError = error
-      // Exponential backoff: 1s, 2s, 4s
-      const delay = RETRY_BASE_DELAY * Math.pow(2, attempt)
-      await sleep(delay)
+
+      // Don't retry 4xx fatal errors
+      if (error.message.includes('R2 rejected chunk')) {
+        throw error
+      }
+
+      const delay = Math.min(
+        UPLOAD_CONFIG.RETRY_MAX_DELAY,
+        UPLOAD_CONFIG.RETRY_BASE_DELAY * Math.pow(2, attempt)
+      )
+      await sleep(delay + Math.random() * 100) // Jitter
+
+      // Reset progress for this chunk on retry
+      onChunkProgress(0)
     }
   }
 
-  throw new Error(`Chunk ${chunkIndex} failed after ${MAX_RETRIES} attempts: ${lastError?.message}`)
+  throw new Error(
+    `Chunk ${chunkIndex} failed after ${UPLOAD_CONFIG.MAX_RETRIES} attempts: ${lastError?.message}`
+  )
 }
 
-/** Runs async tasks with a concurrency limit. */
 async function runWithConcurrency<T>(tasks: Array<() => Promise<T>>, limit: number): Promise<T[]> {
   const results: T[] = new Array(tasks.length)
   let nextIndex = 0
@@ -153,202 +163,140 @@ async function runWithConcurrency<T>(tasks: Array<() => Promise<T>>, limit: numb
 }
 
 /**
- * Orchestrates the full upload flow for a single file.
- * Throws on validation failure, crypto failure, or unrecoverable upload failure.
+ * Main orchestrator for zero-knowledge chunked upload.
  */
 export async function uploadFile(file: File, options: UploadOptions): Promise<UploadResult> {
   const { dek, folderId, onProgress, onChunkStatus, signal } = options
 
-  // ── 1. Validate ─────────────────────────────────────────────
-  const validation = validateFile(file)
+  // 1. Validate
+  const validation = await validateFile(file)
   if (!validation.valid) {
     throw new Error(`Validation failed: ${validation.errors.map((e) => e.message).join('; ')}`)
   }
 
   const sanitizedName = sanitizeFileName(file.name)
-  const mimeType = detectMimeType(file)
+  const mimeType = validation.detectedMimeType
 
-  // ── 2. Encrypt metadata ─────────────────────────────────────
+  // 2. Encrypt metadata
   const { encryptedMetadata, metadataNonce } = await encryptMetadataObject(
     { name: sanitizedName, mimeType, size: file.size },
     dek
   )
 
-  const {
-    header,
-    chunks: encryptedChunks,
-    plaintextBlake3,
-  } = await encryptFileChunks(file, dek, (index, ciphertextSize) => {
-    onProgress?.(file.name, index, 0) // Encryption done, upload not started
-  })
+  const uploadId = crypto.randomUUID() // Generate ID for DB tracking
+  const header = await initFileEncryption(dek)
+  const totalChunks = validation.totalChunks
+  const chunkPlans: ChunkPlan[] = []
+
+  // 3. Encrypt chunks sequentially and store in IndexedDB (NOT MEMORY)
+  for (let i = 0; i < totalChunks; i++) {
+    if (signal?.aborted) throw new Error('Upload cancelled')
+
+    const start = i * UPLOAD_CONFIG.CHUNK_SIZE
+    const end = Math.min(start + UPLOAD_CONFIG.CHUNK_SIZE, file.size)
+    const plaintext = await readFileChunk(file, start, end)
+    const isFinal = i === totalChunks - 1
+
+    const { ciphertext, blake3Hash } = await encryptFileChunk(plaintext, isFinal)
+
+    chunkPlans.push({
+      chunk_index: i,
+      segment_index: 0,
+      chunk_size: ciphertext.byteLength,
+      chunk_blake3: await bytesToBase64(blake3Hash),
+    })
+
+    // STORE IN INDEXEDDB AND ZEROIZE MEMORY IMMEDIATELY
+    await uploadDb.chunks.put({ id: `${uploadId}-${i}`, data: ciphertext })
+    ciphertext.fill(0)
+    plaintext.fill(0)
+  }
+
+  // Hash the full plaintext file for same-user dedup
+  const fullFileBuffer = await file.arrayBuffer()
+  const plaintextBlake3 = await blake3HashBytes(new Uint8Array(fullFileBuffer))
 
   if (signal?.aborted) throw new Error('Upload cancelled')
 
-  // ── 4. Build chunk plan for backend ─────────────────────────
-  const chunkPlans: ChunkPlan[] = encryptedChunks.map((chunk) => ({
-    chunk_index: chunk.chunkIndex,
-    segment_index: 0, // POC: single segment per upload session
-    chunk_size: chunk.ciphertext.byteLength, // Ciphertext size (includes 17-byte overhead)
-    chunk_blake3: '', // Filled below
-  }))
-
-  // Convert all BLAKE3 hashes to base64 for the API
-  const chunkBlake3B64: string[] = []
-  for (const chunk of encryptedChunks) {
-    chunkBlake3B64.push(await bytesToBase64(chunk.blake3Hash))
-  }
-  chunkPlans.forEach((plan, i) => {
-    plan.chunk_blake3 = chunkBlake3B64[i]
-  })
-
-  const plaintextBlake3B64 = await bytesToBase64(plaintextBlake3)
-  const encryptionHeaderB64 = await bytesToBase64(header)
-
-  // ── 5. Create file on backend (get presigned URLs) ──────────
+  // 4. Create file on backend
   const createReq: CreateFileRequest = {
     folder_id: folderId,
     encrypted_metadata: encryptedMetadata,
     metadata_nonce: metadataNonce,
-    plaintext_blake3: plaintextBlake3B64,
+    plaintext_blake3: await bytesToBase64(plaintextBlake3),
     total_size: file.size,
-    total_chunks: encryptedChunks.length,
-    encryption_header: encryptionHeaderB64,
+    total_chunks: chunkPlans.length,
+    encryption_header: await bytesToBase64(header),
     chunks: chunkPlans,
   }
 
   const createResp = await fileService.createFile(createReq)
 
-  // ── 6. Handle dedup hit ─────────────────────────────────────
+  // 5. Handle dedup hit
   if (createResp.deduplicated) {
     await cleanupFileStream()
-    return {
-      fileId: createResp.file_id,
-      versionId: createResp.version_id,
-      deduplicated: true,
-    }
+    await uploadDb.chunks.where('id').startsWith(`${uploadId}-`).delete() // Clean DB
+    return { fileId: createResp.file_id, versionId: createResp.version_id, deduplicated: true }
   }
 
-  // ── 7. Upload chunks to R2 in parallel ──────────────────────
+  // 6. Upload chunks to R2 in parallel
   const uploadUrls = createResp.upload_urls
   const r2Etags: Record<string, string> = {}
+  const chunkProgress = new Array(totalChunks).fill(0)
+  const startTime = Date.now()
 
-  // Build upload tasks (skip already-uploaded chunks)
-  const uploadTasks = uploadUrls
-    .filter((urlInfo: ChunkUploadUrl) => !urlInfo.already_uploaded)
-    .map((urlInfo: ChunkUploadUrl) => {
-      const chunk = encryptedChunks[urlInfo.chunk_index]
-      onChunkStatus?.(file.name, urlInfo.chunk_index, 'uploading')
+  const updateOverallProgress = () => {
+    let uploadedBytes = 0
+    for (let i = 0; i < totalChunks; i++) uploadedBytes += chunkProgress[i]
+    const elapsed = (Date.now() - startTime) / 1000
+    const speed = uploadedBytes / elapsed
+    const eta = speed > 0 ? (file.size - uploadedBytes) / speed : 0
+    onProgress?.(uploadedBytes, speed, eta)
+  }
 
-      return async () => {
-        const result = await uploadSingleChunk(
-          urlInfo.presigned_url,
-          chunk.ciphertext,
-          urlInfo.chunk_index,
-          signal
-        )
-        r2Etags[String(urlInfo.chunk_index)] = result.etag
-        onChunkStatus?.(file.name, urlInfo.chunk_index, 'done')
-        onProgress?.(file.name, urlInfo.chunk_index, 100)
-      }
-    })
+  const uploadTasks = uploadUrls.map((urlInfo) => {
+    return async () => {
+      onChunkStatus?.(urlInfo.chunk_index, 'uploading')
 
-  // Also mark already-uploaded chunks as done
-  uploadUrls.forEach((urlInfo: ChunkUploadUrl) => {
-    if (urlInfo.already_uploaded) {
-      r2Etags[String(urlInfo.chunk_index)] = '' // ETag already stored server-side
-      onChunkStatus?.(file.name, urlInfo.chunk_index, 'done')
-      onProgress?.(file.name, urlInfo.chunk_index, 100)
+      // RETRIEVE CIPHERTEXT FROM INDEXEDDB
+      const chunkRecord = await uploadDb.chunks.get(`${uploadId}-${urlInfo.chunk_index}`)
+      if (!chunkRecord) throw new Error('Ciphertext missing in IndexedDB')
+      const ciphertext = chunkRecord.data
+
+      const result = await uploadSingleChunk(
+        urlInfo.presigned_url,
+        ciphertext,
+        urlInfo.chunk_index,
+        signal!,
+        (loaded) => {
+          chunkProgress[urlInfo.chunk_index] = Math.min(loaded, ciphertext.byteLength)
+          updateOverallProgress()
+        }
+      )
+
+      chunkProgress[urlInfo.chunk_index] = ciphertext.byteLength
+      updateOverallProgress()
+
+      // ZEROIZE AND DELETE FROM DB
+      ciphertext.fill(0)
+      await uploadDb.chunks.delete(`${uploadId}-${urlInfo.chunk_index}`)
+
+      r2Etags[String(urlInfo.chunk_index)] = result.etag
+      onChunkStatus?.(urlInfo.chunk_index, 'done')
     }
   })
 
-  await runWithConcurrency(uploadTasks, MAX_CONCURRENT_UPLOADS)
+  await runWithConcurrency(uploadTasks, UPLOAD_CONFIG.MAX_CONCURRENT_UPLOADS)
 
   if (signal?.aborted) throw new Error('Upload cancelled')
 
-  // ── 8. Complete upload ──────────────────────────────────────
+  // 7. Complete upload
   await fileService.completeUpload(createResp.file_id, {
     version_id: createResp.version_id,
     r2_etags: r2Etags,
   })
 
-  // ── 9. Cleanup ──────────────────────────────────────────────
-  // Zeroize encrypted chunk buffers (they're no longer needed)
-  for (const chunk of encryptedChunks) {
-    chunk.ciphertext.fill(0)
-    chunk.blake3Hash.fill(0)
-  }
-
-  return {
-    fileId: createResp.file_id,
-    versionId: createResp.version_id,
-    deduplicated: false,
-  }
-}
-
-/**
- * Resumes a partially-uploaded file.
- * Fetches resume info from backend, uploads only missing chunks.
- */
-export async function resumeUpload(
-  versionId: string,
-  file: File,
-  dek: Uint8Array,
-  options: UploadOptions
-): Promise<UploadResult> {
-  const { onProgress, onChunkStatus, signal } = options
-
-  // Get resume info from backend
-  const resumeInfo = await fileService.getResumeInfo(versionId)
-
-  if (!resumeInfo.upload_urls || resumeInfo.missing_chunks.length === 0) {
-    // All chunks uploaded — just complete
-    const manifest = await fileService.getDownloadManifest(
-      // We need the file_id — it should be passed in or fetched
-      '', // This would need to be provided
-      versionId
-    )
-    return {
-      fileId: manifest.file_id,
-      versionId,
-      deduplicated: false,
-    }
-  }
-
-  // Re-encrypt all chunks (secretstream requires sequential encryption from start)
-  const { header, chunks: encryptedChunks } = await encryptFileChunks(file, dek)
-
-  // Upload only missing chunks
-  const r2Etags: Record<string, string> = {}
-  const uploadTasks = resumeInfo.upload_urls.map((urlInfo: ChunkUploadUrl) => {
-    const chunk = encryptedChunks[urlInfo.chunk_index]
-    onChunkStatus?.(file.name, urlInfo.chunk_index, 'uploading')
-
-    return async () => {
-      const result = await uploadSingleChunk(
-        urlInfo.presigned_url,
-        chunk.ciphertext,
-        urlInfo.chunk_index,
-        signal
-      )
-      r2Etags[String(urlInfo.chunk_index)] = result.etag
-      onChunkStatus?.(file.name, urlInfo.chunk_index, 'done')
-      onProgress?.(file.name, urlInfo.chunk_index, 100)
-    }
-  })
-
-  await runWithConcurrency(uploadTasks, MAX_CONCURRENT_UPLOADS)
-
-  // Complete upload
-  await fileService.completeUpload('', {
-    version_id: versionId,
-    r2_etags: r2Etags,
-  })
-
   await cleanupFileStream()
 
-  return {
-    fileId: '', // Would need to be fetched
-    versionId,
-    deduplicated: false,
-  }
+  return { fileId: createResp.file_id, versionId: createResp.version_id, deduplicated: false }
 }

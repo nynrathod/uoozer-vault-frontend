@@ -15,7 +15,8 @@ export function useItemActions(
   item: FileItem | Folder | undefined | null,
   onRenameCancel?: () => void
 ) {
-  const { deleteItem, renameItem, createFolder } = useVaultActions()
+  const { deleteItem, renameItem, createFolder, restoreItem, permanentDeleteItem } =
+    useVaultActions()
   const { copied, copy } = useClipboard()
   const folders = useFileStore((s) => s.folders)
   const queryClient = useQueryClient()
@@ -27,6 +28,18 @@ export function useItemActions(
   const handleDelete = () => {
     if (!item || isNew) return
     deleteItem({ id: item.id, isFolder })
+  }
+
+  const isTrash = !!item?.deletedAt
+
+  const handleRestore = () => {
+    if (!item) return
+    restoreItem({ id: item.id, isFolder })
+  }
+
+  const handlePermanentDelete = () => {
+    if (!item) return
+    permanentDeleteItem({ id: item.id, isFolder })
   }
 
   const handleRename = async (newName: string): Promise<void> => {
@@ -97,7 +110,9 @@ export function useItemActions(
 
   return {
     isFolder,
-    handleDelete,
+    isTrash,
+    handleDelete: isTrash ? handlePermanentDelete : handleDelete,
+    handleRestore,
     handleCopyLink,
     handleDownload,
     copied,

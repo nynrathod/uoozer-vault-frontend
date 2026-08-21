@@ -37,6 +37,7 @@ async function mapFileResponse(backend: BackendFileResponse, dek: Uint8Array): P
     isUploading: backend.is_uploading,
     createdAt: backend.created_at,
     updatedAt: backend.updated_at,
+    deletedAt: backend.deleted_at,
     name,
     mimeType,
     version: 1,
@@ -66,6 +67,7 @@ async function mapFolderResponse(backend: BackendFolderResponse, dek: Uint8Array
     metadataNonce: backend.metadata_nonce,
     createdAt: backend.created_at,
     updatedAt: backend.updated_at,
+    deletedAt: backend.deleted_at,
     name,
   }
 }
@@ -90,7 +92,7 @@ async function fetchBreadcrumbPath(folderId: string, dek: Uint8Array): Promise<F
 }
 
 /** Hook for fetching and managing vault files/folders with zero-knowledge decryption. */
-export function useVaultFiles(folderId: string | null) {
+export function useVaultFiles(folderId: string | null, trashed: boolean = false) {
   const queryClient = useQueryClient()
   const dek = useAuthStore((s) => s.cryptoState.dek)
 
@@ -99,10 +101,12 @@ export function useVaultFiles(folderId: string | null) {
   const setCurrentFolderId = useFileStore((s) => s.setCurrentFolderId)
 
   const filesQuery = useQuery({
-    queryKey: [QUERY_KEYS.FILES.LIST, folderId],
+    // Add 'trashed' to the queryKey
+    queryKey: [QUERY_KEYS.FILES.LIST, folderId, trashed],
     queryFn: async () => {
       if (!dek) throw new Error('Vault is locked')
-      const response = await fileService.list(folderId)
+      // Pass 'trashed' to the service call (assuming limit=100, offset=0)
+      const response = await fileService.list(folderId, 100, 0, trashed)
       const mapped = await Promise.all(response.files.map((f) => mapFileResponse(f, dek)))
       return { files: mapped, total: response.total }
     },
@@ -111,10 +115,12 @@ export function useVaultFiles(folderId: string | null) {
   })
 
   const foldersQuery = useQuery({
-    queryKey: [QUERY_KEYS.FOLDERS.LIST, folderId],
+    // Add 'trashed' to the queryKey
+    queryKey: [QUERY_KEYS.FOLDERS.LIST, folderId, trashed],
     queryFn: async () => {
       if (!dek) throw new Error('Vault is locked')
-      const response = await folderService.list(folderId)
+      // Pass 'trashed' to the service call
+      const response = await folderService.list(folderId, trashed)
       return Promise.all(response.map((f) => mapFolderResponse(f, dek)))
     },
     enabled: !!dek,
@@ -157,6 +163,6 @@ export function useVaultFiles(folderId: string | null) {
     isError: filesQuery.isError || foldersQuery.isError,
     error: filesQuery.error || foldersQuery.error,
     refresh,
-    breadcrumbPath: breadcrumbQuery.data ?? [], // Expose breadcrumb data
+    breadcrumbPath: breadcrumbQuery.data ?? [],
   }
 }

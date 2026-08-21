@@ -24,7 +24,8 @@ export interface UploadFile {
   totalSize: number
   totalChunks: number
   chunks: UploadChunk[]
-  status: 'queued' | 'encrypting' | 'uploading' | 'completing' | 'done' | 'error' | 'cancelled'
+  status:
+    'queued' | 'encrypting' | 'uploading' | 'completing' | 'done' | 'error' | 'cancelled' | 'paused'
   overallProgress: number
   errorMessage: string | null
   startedAt: number

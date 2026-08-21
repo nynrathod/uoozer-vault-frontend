@@ -26,10 +26,12 @@ export const FileRow = memo(function FileRow({
 }: FileRowProps) {
   const {
     isFolder,
+    isTrash,
     copied,
     handleCopyLink,
     handleDownload,
     handleDelete,
+    handleRestore,
     name,
     setName,
     isSaving,
@@ -221,6 +223,7 @@ export const FileRow = memo(function FileRow({
           isFolder={isFolder}
           onRenameRequest={() => setEditingId(item.id)}
           onDelete={handleDelete}
+          onRestore={handleRestore}
           onDownload={handleDownload}
           onShare={() => setShareTarget(item.id)}
           copied={copied}

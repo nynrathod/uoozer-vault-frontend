@@ -195,6 +195,34 @@ export function useVaultActions() {
     },
   })
 
+  // ── Restore Mutation ────────────────────────────────────────
+  const restoreItemMutation = useMutation({
+    mutationFn: async ({ id, isFolder }: { id: string; isFolder: boolean }) => {
+      if (isFolder) return folderService.restore(id)
+      return fileService.restoreFile(id)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FILES.LIST] })
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FOLDERS.LIST] })
+      toast.success('Item restored successfully')
+    },
+    onError: (error: any) => toast.error(error.message ?? 'Failed to restore item'),
+  })
+
+  // ── Permanent Delete Mutation ───────────────────────────────
+  const permanentDeleteItemMutation = useMutation({
+    mutationFn: async ({ id, isFolder }: { id: string; isFolder: boolean }) => {
+      if (isFolder) return folderService.permanentDelete(id)
+      return fileService.permanentDelete(id)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FILES.LIST] })
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FOLDERS.LIST] })
+      toast.success('Item permanently deleted')
+    },
+    onError: (error: any) => toast.error(error.message ?? 'Failed to permanently delete item'),
+  })
+
   return {
     bulkDelete: bulkDeleteMutation.mutate,
     deleteItem: deleteItemMutation.mutate,
@@ -202,5 +230,8 @@ export function useVaultActions() {
     createFolder: createFolderMutation.mutateAsync,
     isDeleting: bulkDeleteMutation.isPending || deleteItemMutation.isPending,
     isRenaming: renameItemMutation.isPending,
+
+    restoreItem: restoreItemMutation.mutate,
+    permanentDeleteItem: permanentDeleteItemMutation.mutate,
   }
 }

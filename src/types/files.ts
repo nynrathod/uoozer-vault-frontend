@@ -15,6 +15,7 @@ export interface BackendFileResponse {
   total_size: number
   current_version_id: string | null
   is_uploading: boolean
+  deleted_at?: string | null
   created_at: string
   updated_at: string
 }
@@ -31,6 +32,7 @@ export interface FileItem {
   isUploading: boolean
   createdAt: string
   updatedAt: string
+  deletedAt?: string | null
   // Decrypted client-side — never sent to server in plaintext
   name: string
   mimeType: string

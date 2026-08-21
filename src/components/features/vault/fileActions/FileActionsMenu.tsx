@@ -1,17 +1,6 @@
 import { memo, useState } from 'react'
 import { DropdownMenu, DropdownItem, DropdownSeparator } from '@ui/DropdownMenu'
-import {
-  Download,
-  Share2,
-  Edit3,
-  Copy,
-  Move,
-  Trash2,
-  History,
-  Eye,
-  Star,
-  Check,
-} from 'lucide-react'
+import { Download, Share2, Edit3, Copy, Trash2, History, Eye, Check, RotateCcw } from 'lucide-react'
 import type { FileItem } from '@/types/files'
 import type { Folder } from '@/types/folders'
 import { DeleteConfirmDialog } from '@/components/ui/overlays/DeleteConfirmDialog'
@@ -21,6 +10,7 @@ interface FileActionsMenuProps {
   isFolder: boolean
   onRenameRequest: () => void
   onDelete: () => void
+  onRestore?: () => void
   onDownload: () => void
   onShare: () => void
   trigger: React.ReactNode
@@ -36,6 +26,7 @@ export const FileActionsMenu = memo(function FileActionsMenu({
   isFolder,
   onRenameRequest,
   onDelete,
+  onRestore,
   onDownload,
   onShare,
   trigger,
@@ -46,48 +37,70 @@ export const FileActionsMenu = memo(function FileActionsMenu({
   onVersions,
 }: FileActionsMenuProps) {
   const [deleteOpen, setDeleteOpen] = useState(false)
-
+  const isTrash = !!item.deletedAt
   return (
     <>
       <DropdownMenu trigger={trigger} open={open} onOpenChange={onOpenChange}>
-        {!isFolder && <DropdownItem icon={<Eye className="h-4 w-4" />}>Preview</DropdownItem>}
-        <DropdownItem icon={<Download className="h-4 w-4" />} onClick={onDownload}>
-          Download
-        </DropdownItem>
-        <DropdownItem icon={<Edit3 className="h-4 w-4" />} onClick={onRenameRequest}>
-          Rename
-        </DropdownItem>
-        <DropdownItem
-          icon={
-            copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />
-          }
-          preventClose
-          onClick={onCopyLink}
-        >
-          {copied ? 'Copied!' : 'Copy link'}
-        </DropdownItem>
-        <DropdownItem icon={<Move className="h-4 w-4" />}>Move to</DropdownItem>
-        <DropdownItem icon={<Star className="h-4 w-4" />}>Add to starred</DropdownItem>
-        {!isFolder && (
+        {isTrash ? (
+          // --- TRASH VIEW MENU ---
           <>
+            <DropdownItem icon={<RotateCcw className="h-4 w-4" />} onClick={onRestore}>
+              Restore
+            </DropdownItem>
             <DropdownSeparator />
-            <DropdownItem icon={<History className="h-4 w-4" />} onClick={onVersions}>
-              Version history
+            <DropdownItem
+              icon={<Trash2 className="h-4 w-4" />}
+              destructive
+              onClick={() => setDeleteOpen(true)}
+            >
+              Delete Forever
+            </DropdownItem>
+          </>
+        ) : (
+          // --- NORMAL VIEW MENU ---
+          <>
+            {!isFolder && <DropdownItem icon={<Eye className="h-4 w-4" />}>Preview</DropdownItem>}
+            <DropdownItem icon={<Download className="h-4 w-4" />} onClick={onDownload}>
+              Download
+            </DropdownItem>
+            <DropdownItem icon={<Edit3 className="h-4 w-4" />} onClick={onRenameRequest}>
+              Rename
+            </DropdownItem>
+            <DropdownItem
+              icon={
+                copied ? (
+                  <Check className="h-4 w-4 text-emerald-500" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )
+              }
+              preventClose
+              onClick={onCopyLink}
+            >
+              {copied ? 'Copied!' : 'Copy link'}
+            </DropdownItem>
+            {!isFolder && (
+              <>
+                <DropdownSeparator />
+                <DropdownItem icon={<History className="h-4 w-4" />} onClick={onVersions}>
+                  Version history
+                </DropdownItem>
+              </>
+            )}
+            <DropdownSeparator />
+            <DropdownItem icon={<Share2 className="h-4 w-4" />} onClick={onShare}>
+              Manage permissions
+            </DropdownItem>
+            <DropdownSeparator />
+            <DropdownItem
+              icon={<Trash2 className="h-4 w-4" />}
+              destructive
+              onClick={() => setDeleteOpen(true)}
+            >
+              Delete
             </DropdownItem>
           </>
         )}
-        <DropdownSeparator />
-        <DropdownItem icon={<Share2 className="h-4 w-4" />} onClick={onShare}>
-          Manage permissions
-        </DropdownItem>
-        <DropdownSeparator />
-        <DropdownItem
-          icon={<Trash2 className="h-4 w-4" />}
-          destructive
-          onClick={() => setDeleteOpen(true)}
-        >
-          Delete
-        </DropdownItem>
       </DropdownMenu>
 
       <DeleteConfirmDialog
@@ -95,6 +108,7 @@ export const FileActionsMenu = memo(function FileActionsMenu({
         onOpenChange={setDeleteOpen}
         itemName={item.name}
         isFolder={isFolder}
+        isPermanent={isTrash} // Use red warning text for permanent delete
         onConfirm={() => {
           onDelete()
           setDeleteOpen(false)

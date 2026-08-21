@@ -14,7 +14,10 @@ function handleApiError(error: any, defaultMessage: string): AuthError {
 }
 
 export const folderService = {
-  async list(parentFolderId?: string | null): Promise<BackendFolderResponse[]> {
+  async list(
+    parentFolderId?: string | null,
+    trashed: boolean = false
+  ): Promise<BackendFolderResponse[]> {
     try {
       const params: Record<string, string> = {}
       if (parentFolderId) {
@@ -59,6 +62,22 @@ export const folderService = {
       await apiClient.delete(`/api/v1/folders/${folderId}`)
     } catch (error: any) {
       throw handleApiError(error, 'Failed to delete folder.')
+    }
+  },
+
+  async restore(folderId: string): Promise<void> {
+    try {
+      await apiClient.post(`/api/v1/folders/${folderId}/restore`)
+    } catch (error: any) {
+      throw handleApiError(error, 'Failed to restore folder.')
+    }
+  },
+
+  async permanentDelete(folderId: string): Promise<void> {
+    try {
+      await apiClient.delete(`/api/v1/folders/${folderId}/permanent`)
+    } catch (error: any) {
+      throw handleApiError(error, 'Failed to permanently delete folder.')
     }
   },
 }

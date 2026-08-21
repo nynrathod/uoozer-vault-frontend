@@ -75,7 +75,11 @@ export function VaultPage() {
   const previewFileId = usePreviewStore((s) => s.fileId)
   const openPreview = usePreviewStore((s) => s.open)
 
-  const { isLoading, isError, error, refresh, breadcrumbPath } = useVaultFiles(currentFolderId)
+  const isTrashRoute = location.pathname === ROUTES.VAULT_TRASH
+  const { isLoading, isError, error, refresh, breadcrumbPath } = useVaultFiles(
+    currentFolderId,
+    isTrashRoute
+  )
   const { uploadFiles } = useFileUpload()
 
   const files = useFileStore(useShallow(selectCurrentFiles))
