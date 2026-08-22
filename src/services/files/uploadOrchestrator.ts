@@ -39,7 +39,11 @@ export interface UploadResult {
 }
 
 async function readFileChunk(file: File, start: number, end: number): Promise<Uint8Array> {
-  const slice = file.slice(start, end)
+  if (start > file.size) {
+    throw new Error('File modified or truncated during upload.')
+  }
+  const adjustedEnd = Math.min(end, file.size)
+  const slice = file.slice(start, adjustedEnd)
   const buffer = await slice.arrayBuffer()
   return new Uint8Array(buffer)
 }
@@ -58,18 +62,33 @@ function uploadChunkXHR(
     const xhr = new XMLHttpRequest()
     xhr.open('PUT', presignedUrl, true)
     xhr.setRequestHeader('Content-Type', 'application/octet-stream')
+    xhr.timeout = UPLOAD_CONFIG.CHUNK_UPLOAD_TIMEOUT
+
+    let lastProgressTime = Date.now()
+    const stallChecker = setInterval(() => {
+      if (Date.now() - lastProgressTime > UPLOAD_CONFIG.STALL_TIMEOUT) {
+        clearInterval(stallChecker)
+        xhr.abort()
+        reject(new Error('Chunk upload stalled.'))
+      }
+    }, 5000)
 
     xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable) onChunkProgress(event.loaded)
+      if (event.lengthComputable) {
+        lastProgressTime = Date.now()
+        onChunkProgress(event.loaded)
+      }
     }
 
     xhr.onload = () => {
+      clearInterval(stallChecker)
       if (xhr.status >= 200 && xhr.status < 300) {
         const etag = xhr.getResponseHeader('ETag')?.replace(/"/g, '') || ''
         if (!etag) reject(new Error('Missing ETag from R2'))
         else resolve(etag)
       } else if (xhr.status === 429) {
-        reject(new Error('429 Too Many Requests'))
+        const retryAfter = xhr.getResponseHeader('Retry-After')
+        reject(new Error(`429:${retryAfter || 0}`))
       } else if (xhr.status >= 400 && xhr.status < 500) {
         reject(new Error(`R2 rejected chunk (${xhr.status})`))
       } else {
@@ -77,8 +96,20 @@ function uploadChunkXHR(
       }
     }
 
-    xhr.onerror = () => reject(new Error('Network error during chunk upload'))
-    xhr.onabort = () => reject(new DOMException('Upload aborted', 'AbortError'))
+    xhr.onerror = () => {
+      clearInterval(stallChecker)
+      reject(new Error('Network error during chunk upload'))
+    }
+
+    xhr.ontimeout = () => {
+      clearInterval(stallChecker)
+      reject(new Error('Chunk upload timed out'))
+    }
+
+    xhr.onabort = () => {
+      clearInterval(stallChecker)
+      reject(new DOMException('Upload aborted', 'AbortError'))
+    }
 
     if (signal.aborted) xhr.abort()
     else signal.addEventListener('abort', () => xhr.abort(), { once: true })
@@ -109,11 +140,23 @@ async function uploadSingleChunk(
         throw error
       }
 
-      const delay = Math.min(
-        UPLOAD_CONFIG.RETRY_MAX_DELAY,
-        UPLOAD_CONFIG.RETRY_BASE_DELAY * Math.pow(2, attempt)
-      )
-      await sleep(delay + Math.random() * 100)
+      if (error instanceof Error && error.message.startsWith('429:')) {
+        const retryAfter = parseInt(error.message.split(':')[1], 10)
+        const delay =
+          retryAfter > 0
+            ? retryAfter * 1000
+            : Math.min(
+                UPLOAD_CONFIG.RETRY_MAX_DELAY,
+                UPLOAD_CONFIG.RETRY_BASE_DELAY * Math.pow(2, attempt)
+              )
+        await sleep(delay)
+      } else {
+        const delay = Math.min(
+          UPLOAD_CONFIG.RETRY_MAX_DELAY,
+          UPLOAD_CONFIG.RETRY_BASE_DELAY * Math.pow(2, attempt)
+        )
+        await sleep(delay + Math.random() * 100)
+      }
       onChunkProgress(0)
     }
   }
@@ -176,14 +219,6 @@ export async function uploadFile(file: File, options: UploadOptions): Promise<Up
   const mimeType = validation.detectedMimeType
   const totalChunks = validation.totalChunks
 
-  const fullFileBuffer = await file.arrayBuffer()
-  const plaintextBlake3Bytes = await blake3HashBytes(new Uint8Array(fullFileBuffer))
-  const plaintextBlake3 = await bytesToBase64(plaintextBlake3Bytes)
-
-  if (resumeState && resumeState.plaintextBlake3 !== plaintextBlake3) {
-    throw new Error('File has been modified locally since the previous attempt')
-  }
-
   const { encryptedMetadata, metadataNonce } = await encryptMetadataObject(
     { name: sanitizedName, mimeType, size: file.size },
     dek
@@ -242,23 +277,32 @@ export async function uploadFile(file: File, options: UploadOptions): Promise<Up
   }
 
   const encryptedChunks: (Uint8Array | null)[] = new Array(totalChunks).fill(null)
+  let plaintextBlake3 = ''
+
+  const chunkHashesMap: Record<string, string> = {}
+  const hashStreamer = await blake3HashBytes(new Uint8Array())
+  const fileStream = file.stream()
+  const reader = fileStream.getReader()
 
   for (let i = 0; i < totalChunks; i++) {
     if (internalSignal.aborted) throw new DOMException('Upload cancelled', 'AbortError')
 
-    const start = i * UPLOAD_CONFIG.CHUNK_SIZE
-    const end = Math.min(start + UPLOAD_CONFIG.CHUNK_SIZE, file.size)
-    const plaintext = await readFileChunk(file, start, end)
+    const { done, value } = await reader.read()
+    if (done && i !== totalChunks - 1) throw new Error('File stream ended prematurely.')
+
+    const plaintext = value || new Uint8Array(0)
     const isFinal = i === totalChunks - 1
 
     const { ciphertext, blake3Hash } = await encryptFileChunk(streamId, plaintext, isFinal)
+    const chunkHashB64 = await bytesToBase64(blake3Hash)
+    chunkHashesMap[String(i)] = chunkHashB64
 
     if (!resumeState) {
       chunkPlans.push({
         chunk_index: i,
         segment_index: 0,
         chunk_size: ciphertext.byteLength,
-        chunk_blake3: await bytesToBase64(blake3Hash),
+        chunk_blake3: chunkHashB64,
       })
     }
 
@@ -368,6 +412,12 @@ export async function uploadFile(file: File, options: UploadOptions): Promise<Up
         }
       )
 
+      await fileService.verifyChunk({
+        version_id: versionId,
+        chunk_index: urlInfo.chunk_index,
+        r2_etag: result.etag,
+      })
+
       chunkProgress[urlInfo.chunk_index] = chunkSizes[urlInfo.chunk_index]
       updateOverallProgress()
 
@@ -417,13 +467,7 @@ export async function uploadFile(file: File, options: UploadOptions): Promise<Up
     r2Etags,
     plaintextBlake3,
     encryptionHeader: encryptionHeaderB64,
-    chunkHashes: chunkPlans.reduce(
-      (acc, c) => {
-        acc[String(c.chunk_index)] = c.chunk_blake3
-        return acc
-      },
-      {} as Record<string, string>
-    ),
+    chunkHashes: chunkHashesMap,
   }
 }
 

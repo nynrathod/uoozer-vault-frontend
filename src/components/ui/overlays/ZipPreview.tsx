@@ -32,7 +32,8 @@ export function ZipPreview({ fileId, fileName }: ZipPreviewProps) {
       if (!dek) return
       setIsLoading(true)
       try {
-        const { blob } = await downloadFile({ dek, fileId })
+        const response = await downloadFile({ dek, fileId })
+        const blob = await response.blob()
         const reader = new ZipReader(new BlobReader(blob))
         const zipEntries = await reader.getEntries()
         setEntries(

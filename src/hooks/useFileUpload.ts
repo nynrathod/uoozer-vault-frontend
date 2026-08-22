@@ -1,9 +1,11 @@
 import { useCallback, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { useAuthStore } from '@stores/authStore'
 import { useUploadStore } from '@stores/uploadStore'
 import { uploadFile } from '@services/files/uploadOrchestrator'
-import { validateFile } from '@lib/fileValidation'
+import { validateFile, isJunkFile } from '@lib/fileValidation'
+import { UPLOAD_CONFIG } from '@config/upload.config'
 import { QUERY_KEYS } from '@lib/constants'
 import { folderService } from '@services/folders/folderService'
 import { fileService } from '@services/files/fileService'
@@ -21,13 +23,35 @@ export function useFileUpload() {
 
   const uploadFiles = useCallback(
     async (files: File[], currentFolderId: string | null) => {
-      if (!dek) return
+      if (!dek) {
+        toast.error('Vault is locked. Please unlock to upload files.')
+        return
+      }
+
+      const validFiles = files.filter((file) => !isJunkFile(file.name))
+      if (validFiles.length === 0) {
+        toast.info('No valid files found for upload.')
+        return
+      }
+
+      const totalBulkSize = validFiles.reduce((acc, file) => acc + file.size, 0)
+      try {
+        const precheck = await fileService.precheckUpload(
+          '00000000000000000000000000000000',
+          totalBulkSize
+        )
+        if (!precheck.allowed) throw new Error('Storage quota exceeded')
+      } catch (error: any) {
+        toast.error(error.message ?? 'Quota check failed')
+        return
+      }
 
       const folderMap = new Map<string, string | null>()
       folderMap.set('', currentFolderId)
-      const foldersToCreate: { path: string; name: string; parentPath: string }[] = []
+      const foldersToCreate: { path: string; name: string; parentPath: string; depth: number }[] =
+        []
 
-      for (const file of files) {
+      for (const file of validFiles) {
         const rawPath = (file as any).path || (file as any).webkitRelativePath || ''
         let normalizedPath = rawPath
           .replace(/\\/g, '/')
@@ -42,20 +66,22 @@ export function useFileUpload() {
         const parts = normalizedPath.split('/').filter((p: string) => p && p !== '.' && p !== '..')
         parts.pop()
 
-        if (parts.length === 0) {
-          ;(file as any)._targetFolderId = currentFolderId
+        if (parts.length > UPLOAD_CONFIG.MAX_FOLDER_DEPTH) {
+          toast.error(`Folder depth exceeds limit of ${UPLOAD_CONFIG.MAX_FOLDER_DEPTH}`)
           continue
         }
 
         let currentPath = ''
         let parentPath = ''
+        let depth = 0
 
         for (const part of parts) {
           parentPath = currentPath
           currentPath = currentPath ? `${currentPath}/${part}` : part
+          depth++
 
           if (!folderMap.has(currentPath)) {
-            foldersToCreate.push({ path: currentPath, name: part, parentPath })
+            foldersToCreate.push({ path: currentPath, name: part, parentPath, depth })
             folderMap.set(currentPath, null)
           }
         }
@@ -64,39 +90,22 @@ export function useFileUpload() {
 
       if (foldersToCreate.length > 0) {
         try {
-          // Group folders by depth (e.g., depth 1 = a, depth 2 = a/b)
-          const byDepth: Record<number, typeof foldersToCreate> = {}
-          foldersToCreate.forEach((f) => {
-            const depth = f.path.split('/').length
-            if (!byDepth[depth]) byDepth[depth] = []
-            byDepth[depth].push(f)
-          })
-
-          // Create depth 1, then depth 2, etc.
-          for (const depth of Object.keys(byDepth).sort((a, b) => Number(a) - Number(b))) {
-            const levelFolders = byDepth[Number(depth)]
-            const bulkReq = await Promise.all(
-              levelFolders.map(async (f) => {
-                // FIX: Add ?? null to handle undefined from the Map
-                const parentId = f.parentPath
-                  ? (folderMap.get(f.parentPath) ?? null)
-                  : currentFolderId
-                const { encryptedMetadata, metadataNonce } = await encryptMetadataObject(
-                  { name: f.name },
-                  dek
-                )
-                return {
-                  encrypted_metadata: encryptedMetadata,
-                  metadata_nonce: metadataNonce,
-                  parent_folder_id: parentId,
-                }
-              })
+          foldersToCreate.sort((a, b) => a.depth - b.depth)
+          for (const f of foldersToCreate) {
+            const parentId = f.parentPath ? folderMap.get(f.parentPath) : currentFolderId
+            const { encryptedMetadata, metadataNonce } = await encryptMetadataObject(
+              { name: f.name },
+              dek
             )
-            const createdFolders = await folderService.bulkCreate(bulkReq)
-            levelFolders.forEach((f, idx) => folderMap.set(f.path, createdFolders[idx].folder_id))
+            const created = await folderService.create({
+              encrypted_metadata: encryptedMetadata,
+              metadata_nonce: metadataNonce,
+              parent_folder_id: parentId ?? null,
+            })
+            folderMap.set(f.path, created.folder_id)
           }
 
-          for (const file of files) {
+          for (const file of validFiles) {
             const rawPath = (file as any).path || (file as any).webkitRelativePath || ''
             let normalizedPath = rawPath
               .replace(/\\/g, '/')
@@ -107,20 +116,23 @@ export function useFileUpload() {
               .filter((p: string) => p && p !== '.' && p !== '..')
             parts.pop()
             if (parts.length > 0) {
-              const folderPath = parts.join('/')
-              ;(file as any)._targetFolderId = folderMap.get(folderPath)
+              ;(file as any)._targetFolderId = folderMap.get(parts.join('/'))
             }
           }
         } catch (err) {
-          console.error('Failed to create folders:', err)
+          toast.error('Failed to create folder structure. Upload aborted.')
+          return
         }
       }
 
       const validUploads: { upload: UploadFile; file: File; initReq: CreateFileRequest }[] = []
 
-      for (const file of files) {
+      for (const file of validFiles) {
         const validation = await validateFile(file)
-        if (!validation.valid) continue
+        if (!validation.valid) {
+          toast.error(`${file.name}: ${validation.errors[0].message}`)
+          continue
+        }
 
         const targetFolderId = (file as any)._targetFolderId || currentFolderId
         const { encryptedMetadata, metadataNonce } = await encryptMetadataObject(
@@ -131,7 +143,9 @@ export function useFileUpload() {
         const chunkPlans = Array.from({ length: validation.totalChunks }, (_, i) => ({
           chunk_index: i,
           segment_index: 0,
-          chunk_size: Math.min(4 * 1024 * 1024, file.size - i * 4 * 1024 * 1024) + 17,
+          chunk_size:
+            Math.min(UPLOAD_CONFIG.CHUNK_SIZE, file.size - i * UPLOAD_CONFIG.CHUNK_SIZE) +
+            UPLOAD_CONFIG.SECRETSTREAM_OVERHEAD,
           chunk_blake3: 'pending',
         }))
 
@@ -160,7 +174,7 @@ export function useFileUpload() {
             segmentIndex: 0,
             status: 'pending' as const,
             progress: 0,
-            size: Math.min(4 * 1024 * 1024, file.size - i * 4 * 1024 * 1024),
+            size: Math.min(UPLOAD_CONFIG.CHUNK_SIZE, file.size - i * UPLOAD_CONFIG.CHUNK_SIZE),
             ciphertextSize: 0,
             blake3Hash: null,
             r2Etag: null,
@@ -183,18 +197,6 @@ export function useFileUpload() {
 
       try {
         const initResults = await fileService.bulkInitUploads(validUploads.map((v) => v.initReq))
-
-        const uploadPromises: Promise<
-          | {
-              file_id: string
-              version_id: string
-              r2_etags: Record<string, string>
-              plaintext_blake3: string
-              encryption_header: string
-              chunk_hashes: Record<string, string>
-            }
-          | undefined
-        >[] = []
 
         for (let i = 0; i < validUploads.length; i++) {
           const { upload, file } = validUploads[i]
@@ -219,81 +221,61 @@ export function useFileUpload() {
           const controller = new AbortController()
           abortControllers.current.set(upload.id, controller)
 
-          const uploadPromise = uploadFile(file, {
+          uploadFile(file, {
             dek,
             folderId: upload.folderId,
             signal: controller.signal,
-            preInitData: result, // Pass the presigned URLs from bulk-init
-            onProgress: (uploadedBytes) => {
+            preInitData: result,
+            onProgress: (uploadedBytes, speed, eta) => {
               const overallProgress = Math.min(99, Math.round((uploadedBytes / file.size) * 100))
               updateUpload(upload.id, { overallProgress })
             },
             onChunkStatus: (chunkIndex, status) => {
               updateChunk(upload.id, String(chunkIndex), { status })
             },
-          }).then((res) => {
-            if (res.deduplicated) {
-              updateUpload(upload.id, {
-                status: 'done',
-                completedAt: Date.now(),
-                overallProgress: 100,
-              })
-              return undefined
-            }
-            updateUpload(upload.id, { status: 'completing' })
-
-            return {
-              file_id: res.fileId,
-              version_id: res.versionId,
-              r2_etags: res.r2Etags,
-              plaintext_blake3: res.plaintextBlake3,
-              encryption_header: res.encryptionHeader,
-              chunk_hashes: res.chunkHashes,
-            }
           })
-
-          uploadPromises.push(uploadPromise)
-        }
-
-        const completedUploads = await Promise.all(uploadPromises)
-
-        const uploadsToComplete = completedUploads.filter(
-          (
-            u
-          ): u is {
-            file_id: string
-            version_id: string
-            r2_etags: Record<string, string>
-            plaintext_blake3: string
-            encryption_header: string
-            chunk_hashes: Record<string, string>
-          } => !!u
-        )
-
-        if (uploadsToComplete.length > 0) {
-          await fileService.bulkCompleteUploads(uploadsToComplete)
-        }
-
-        for (const { upload } of validUploads) {
-          if (abortControllers.current.has(upload.id)) {
-            updateUpload(upload.id, {
-              status: 'done',
-              completedAt: Date.now(),
-              overallProgress: 100,
+            .then((res) => {
+              if (res.deduplicated) {
+                updateUpload(upload.id, {
+                  status: 'done',
+                  completedAt: Date.now(),
+                  overallProgress: 100,
+                })
+                return
+              }
+              updateUpload(upload.id, { status: 'completing' })
+              fileService
+                .bulkCompleteUploads([
+                  {
+                    file_id: res.fileId,
+                    version_id: res.versionId,
+                    r2_etags: res.r2Etags,
+                    plaintext_blake3: res.plaintextBlake3,
+                    encryption_header: res.encryptionHeader,
+                    chunk_hashes: res.chunkHashes,
+                  },
+                ])
+                .then(() => {
+                  updateUpload(upload.id, {
+                    status: 'done',
+                    completedAt: Date.now(),
+                    overallProgress: 100,
+                  })
+                  abortControllers.current.delete(upload.id)
+                })
             })
-            abortControllers.current.delete(upload.id)
-          }
+            .catch((error) => {
+              updateUpload(upload.id, {
+                status: 'error',
+                errorMessage: error.message ?? 'Upload failed',
+              })
+            })
         }
 
         queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FILES.LIST] })
         queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FOLDERS.LIST] })
       } catch (error: any) {
-        for (const { upload } of validUploads) {
-          updateUpload(upload.id, {
-            status: 'error',
-            errorMessage: error.message ?? 'Bulk upload failed',
-          })
-        }
+        toast.error(error.message ?? 'Bulk upload initialization failed')
       }
     },
     [dek, addUpload, updateUpload, updateChunk, queryClient]
@@ -304,5 +286,10 @@ export function useFileUpload() {
     if (controller) controller.abort()
   }, [])
 
-  return { uploadFiles, cancelUpload }
+  const cancelAllUploads = useCallback(() => {
+    abortControllers.current.forEach((controller) => controller.abort())
+    abortControllers.current.clear()
+  }, [])
+
+  return { uploadFiles, cancelUpload, cancelAllUploads }
 }

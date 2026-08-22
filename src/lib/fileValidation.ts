@@ -1,6 +1,10 @@
-// src/lib/fileValidation.ts
-
-import { BLOCKED_FILE_NAMES, MAGIC_NUMBERS, UPLOAD_CONFIG } from '@/config/upload.config'
+import {
+  BLOCKED_FILE_NAMES,
+  MAGIC_NUMBERS,
+  UPLOAD_CONFIG,
+  JUNK_FILES,
+  BLOCKED_EXTENSIONS,
+} from '@/config/upload.config'
 
 export interface FileValidationError {
   field: string
@@ -42,7 +46,6 @@ export function sanitizeFileName(name: string): string {
 /** Detects MIME type and verifies magic numbers to prevent MIME spoofing. */
 export async function verifyMimeType(file: File): Promise<string> {
   const declaredType = file.type || 'application/octet-stream'
-
   const slice = file.slice(0, 4)
   const buffer = await slice.arrayBuffer()
   const bytes = Array.from(new Uint8Array(buffer))
@@ -56,7 +59,15 @@ export async function verifyMimeType(file: File): Promise<string> {
   return declaredType
 }
 
-/** Comprehensive file validation before upload begins. */
+export function isJunkFile(fileName: string): boolean {
+  return JUNK_FILES.includes(fileName)
+}
+
+export function hasBlockedExtension(fileName: string): boolean {
+  const ext = fileName.split('.').pop()?.toLowerCase() || ''
+  return BLOCKED_EXTENSIONS.includes(ext)
+}
+
 export async function validateFile(file: File): Promise<FileValidationResult> {
   const errors: FileValidationError[] = []
   const sanitizedName = sanitizeFileName(file.name)
@@ -70,6 +81,9 @@ export async function validateFile(file: File): Promise<FileValidationResult> {
   if (totalChunks > UPLOAD_CONFIG.MAX_CHUNKS_PER_FILE) {
     errors.push({ field: 'chunks', message: `File requires too many chunks.` })
   }
+  if (hasBlockedExtension(file.name)) {
+    errors.push({ field: 'extension', message: `File type is blocked.` })
+  }
 
   return {
     valid: errors.length === 0,
@@ -81,7 +95,6 @@ export async function validateFile(file: File): Promise<FileValidationResult> {
   }
 }
 
-/** Formats bytes into human-readable string. */
 export function formatFileSize(bytes: number): string {
   if (bytes === 0) return '0 B'
   const k = 1024

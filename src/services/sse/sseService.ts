@@ -1,5 +1,6 @@
 import { SSE_BASE_URL } from '@lib/constants'
 import { tokenManager } from '@services/auth/tokenManager'
+import { isJwtExpired } from '@lib/crypto'
 
 type SseEventHandler = (data: unknown, seq: number) => void
 
@@ -36,6 +37,12 @@ class SSEService {
   }
 
   connect() {
+    let token = tokenManager.getAccessToken()
+    if (!token || isJwtExpired(token)) {
+      setTimeout(() => this.connect(), 5000)
+      return
+    }
+
     if (this.channel && !this.isMasterTab) {
       this.channel.postMessage({ type: 'request-master' })
       setTimeout(() => {
@@ -61,7 +68,6 @@ class SSEService {
       try {
         const payload = JSON.parse(event.data)
         const seq = payload.seq || 0
-
         if (seq <= this.lastSeq && seq !== 0) return
         if (seq > 0) this.lastSeq = seq
 

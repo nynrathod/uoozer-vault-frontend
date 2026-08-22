@@ -60,7 +60,19 @@ export const BLOCKED_FILE_NAMES = [
   'LPT9',
 ]
 
-// Magic numbers for MIME verification (defense-in-depth)
+export const BLOCKED_EXTENSIONS = [
+  'exe',
+  'bat',
+  'cmd',
+  'sh',
+  'msi',
+  'dll',
+  'scr',
+  'com',
+  'vbs',
+  'ps1',
+]
+
 export const MAGIC_NUMBERS: Record<string, number[]> = {
   'image/png': [0x89, 0x50, 0x4e, 0x47],
   'image/jpeg': [0xff, 0xd8, 0xff],

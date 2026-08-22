@@ -41,7 +41,8 @@ export function PreviewContent() {
           return
         }
 
-        const { blob } = await downloadFile({ dek, fileId })
+        const response = await downloadFile({ dek, fileId })
+        const blob = await response.blob()
         objectUrl = URL.createObjectURL(blob)
         previewCache.set(fileId, objectUrl)
         setBlobUrl(objectUrl)

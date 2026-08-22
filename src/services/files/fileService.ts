@@ -241,12 +241,47 @@ export const fileService = {
   },
 
   async bulkCompleteUploads(
-    uploads: { file_id: string; version_id: string; r2_etags: Record<string, string> }[]
-  ): Promise<void> {
+    uploads: {
+      file_id: string
+      version_id: string
+      r2_etags: Record<string, string>
+      plaintext_blake3: string
+      encryption_header: string
+      chunk_hashes: Record<string, string>
+    }[]
+  ): Promise<any> {
     try {
-      await apiClient.post('/api/v1/files/bulk-complete', { uploads })
+      const { data } = await apiClient.post('/api/v1/files/bulk-complete', { uploads })
+      return data
     } catch (error: any) {
-      throw handleApiError(error, 'Failed to bulk complete uploads.')
+      throw handleApiError(error, 'Failed to complete bulk uploads.')
+    }
+  },
+
+  async verifyChunk(req: {
+    version_id: string
+    chunk_index: number
+    r2_etag: string
+  }): Promise<any> {
+    try {
+      const { data } = await apiClient.post('/api/v1/chunks/verify', req)
+      return data
+    } catch (error: any) {
+      throw handleApiError(error, 'Failed to verify chunk.')
+    }
+  },
+
+  async precheckUpload(
+    plaintext_blake3: string,
+    total_size: number
+  ): Promise<{ allowed: boolean; deduplicated: boolean }> {
+    try {
+      const { data } = await apiClient.get('/api/v1/files/precheck', {
+        params: { plaintext_blake3, total_size },
+      })
+      return data
+    } catch (error: any) {
+      throw handleApiError(error, 'Quota check failed.')
     }
   },
 }
