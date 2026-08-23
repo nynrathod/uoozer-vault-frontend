@@ -6,7 +6,7 @@ import { useClipboard } from './useClipboard'
 import { useFileStore } from '@stores/fileStore'
 import { useAuthStore } from '@stores/authStore'
 import { isFolder as isFolderGuard } from '@/lib/type-guards'
-import { QUERY_KEYS } from '@lib/constants' // Removed MOCK_URLS
+import { QUERY_KEYS } from '@lib/constants'
 import { downloadFileToDisk, downloadFolderAsZip } from '@services/files/downloadOrchestrator'
 import type { FileItem } from '@/types/files'
 import type { Folder } from '@/types/folders'
@@ -105,6 +105,7 @@ export function useItemActions(
           encrypted_payload: await bytesToBase64(encryptedManifest.ciphertext),
           encrypted_nonce: await bytesToBase64(encryptedManifest.nonce),
           encryption_header: null,
+          item_id: item.id,
         }
       } else {
         endpoint = `/api/v1/files/${item.id}/shares`
@@ -127,7 +128,8 @@ export function useItemActions(
           item_type: 'file',
           encrypted_payload: await bytesToBase64(sharedWrappedKey.ciphertext),
           encrypted_nonce: await bytesToBase64(sharedWrappedKey.nonce),
-          encryption_header: fileMeta.encryption_header, // Pass the secretstream header
+          encryption_header: fileMeta.encryption_header,
+          item_id: item.id,
         }
       }
 
