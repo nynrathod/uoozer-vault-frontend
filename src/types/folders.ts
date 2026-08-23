@@ -34,6 +34,7 @@ export interface CreateFolderRequest {
   encrypted_metadata: string
   metadata_nonce: string
   parent_folder_id: string | null
+  folder_id?: string
 }
 
 export interface UpdateFolderRequest {

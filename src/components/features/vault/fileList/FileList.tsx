@@ -71,7 +71,7 @@ export function FileList({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="border-border/40 text-muted-foreground/50 bg-background sticky top-0 z-10 grid grid-cols-[40px_40px_1fr] items-center gap-2 border-b px-4 py-2.5 text-[11px] font-semibold tracking-wider uppercase sm:px-6 md:grid-cols-[40px_40px_1fr_160px_140px_80px]">
+      <div className="border-border/40 text-muted-foreground/50 bg-background sticky top-0 z-10 grid grid-cols-[40px_40px_1fr] items-center gap-2 border-b px-4 py-2.5 text-[11px] font-semibold tracking-wider uppercase sm:px-4 md:grid-cols-[40px_40px_1fr_160px_140px_80px]">
         <div className="flex items-center justify-center">
           <Checkbox
             checked={isAllSelected}
@@ -119,7 +119,7 @@ export function FileList({
         </button>
       </div>
 
-      <div ref={parentRef} className="flex-1 overflow-auto px-4 sm:px-6">
+      <div ref={parentRef} className="flex-1 overflow-auto px-4 sm:px-4">
         <div
           className="relative w-full py-2"
           style={{ height: `${rowVirtualizer.getTotalSize()}px` }}

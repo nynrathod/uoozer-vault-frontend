@@ -12,6 +12,7 @@ import { fileService } from '@services/files/fileService'
 import { encryptMetadataObject } from '@lib/crypto'
 import type { UploadFile } from '@/types/upload'
 import type { CreateFileRequest } from '@/types/files'
+import type { CreateFolderRequest } from '@/types/folders'
 
 export function useFileUpload() {
   const dek = useAuthStore((s) => s.cryptoState.dek)
@@ -87,23 +88,30 @@ export function useFileUpload() {
         }
         ;(file as any)._targetFolderId = null
       }
-
       if (foldersToCreate.length > 0) {
         try {
           foldersToCreate.sort((a, b) => a.depth - b.depth)
+
+          const bulkReqs: CreateFolderRequest[] = []
           for (const f of foldersToCreate) {
             const parentId = f.parentPath ? folderMap.get(f.parentPath) : currentFolderId
             const { encryptedMetadata, metadataNonce } = await encryptMetadataObject(
               { name: f.name },
               dek
             )
-            const created = await folderService.create({
+
+            const newFolderId = crypto.randomUUID()
+            folderMap.set(f.path, newFolderId)
+
+            bulkReqs.push({
               encrypted_metadata: encryptedMetadata,
               metadata_nonce: metadataNonce,
               parent_folder_id: parentId ?? null,
+              folder_id: newFolderId,
             })
-            folderMap.set(f.path, created.folder_id)
           }
+
+          await folderService.bulkCreate(bulkReqs)
 
           for (const file of validFiles) {
             const rawPath = (file as any).path || (file as any).webkitRelativePath || ''
@@ -196,10 +204,12 @@ export function useFileUpload() {
       }
 
       try {
+        // 1. Single Bulk Init request for all files
         const initResults = await fileService.bulkInitUploads(validUploads.map((v) => v.initReq))
 
-        for (let i = 0; i < validUploads.length; i++) {
-          const { upload, file } = validUploads[i]
+        const completionPayloads: any[] = []
+
+        const uploadPromises = validUploads.map(async ({ upload, file }, i) => {
           const result = initResults[i]
 
           updateUpload(upload.id, {
@@ -215,61 +225,62 @@ export function useFileUpload() {
               completedAt: Date.now(),
               overallProgress: 100,
             })
-            continue
+            return
           }
 
           const controller = new AbortController()
           abortControllers.current.set(upload.id, controller)
 
-          uploadFile(file, {
-            dek,
-            folderId: upload.folderId,
-            signal: controller.signal,
-            preInitData: result,
-            onProgress: (uploadedBytes, speed, eta) => {
-              const overallProgress = Math.min(99, Math.round((uploadedBytes / file.size) * 100))
-              updateUpload(upload.id, { overallProgress })
-            },
-            onChunkStatus: (chunkIndex, status) => {
-              updateChunk(upload.id, String(chunkIndex), { status })
-            },
-          })
-            .then((res) => {
-              if (res.deduplicated) {
-                updateUpload(upload.id, {
-                  status: 'done',
-                  completedAt: Date.now(),
-                  overallProgress: 100,
-                })
-                return
-              }
-              updateUpload(upload.id, { status: 'completing' })
-              fileService
-                .bulkCompleteUploads([
-                  {
-                    file_id: res.fileId,
-                    version_id: res.versionId,
-                    r2_etags: res.r2Etags,
-                    plaintext_blake3: res.plaintextBlake3,
-                    encryption_header: res.encryptionHeader,
-                    chunk_hashes: res.chunkHashes,
-                  },
-                ])
-                .then(() => {
-                  updateUpload(upload.id, {
-                    status: 'done',
-                    completedAt: Date.now(),
-                    overallProgress: 100,
-                  })
-                  abortControllers.current.delete(upload.id)
-                })
+          try {
+            const res = await uploadFile(file, {
+              dek,
+              folderId: upload.folderId,
+              signal: controller.signal,
+              preInitData: result,
+              onProgress: (uploadedBytes) => {
+                const overallProgress = Math.min(99, Math.round((uploadedBytes / file.size) * 100))
+                updateUpload(upload.id, { overallProgress })
+              },
+              onChunkStatus: (chunkIndex, status) => {
+                updateChunk(upload.id, String(chunkIndex), { status })
+              },
             })
-            .catch((error) => {
-              updateUpload(upload.id, {
-                status: 'error',
-                errorMessage: error.message ?? 'Upload failed',
-              })
+
+            // FIX: Include the uploadId so we can update the store reliably later
+            completionPayloads.push({
+              uploadId: upload.id,
+              file_id: res.fileId,
+              version_id: res.versionId,
+              r2_etags: res.r2Etags,
+              plaintext_blake3: res.plaintextBlake3,
+              encryption_header: res.encryptionHeader,
+              chunk_hashes: res.chunkHashes,
             })
+
+            updateUpload(upload.id, { status: 'completing' })
+          } catch (error: any) {
+            updateUpload(upload.id, {
+              status: 'error',
+              errorMessage: error.message ?? 'Upload failed',
+            })
+          } finally {
+            abortControllers.current.delete(upload.id)
+          }
+        })
+
+        await Promise.allSettled(uploadPromises)
+
+        if (completionPayloads.length > 0) {
+          const apiPayload = completionPayloads.map(({ uploadId, ...rest }) => rest)
+          await fileService.bulkCompleteUploads(apiPayload)
+
+          for (const payload of completionPayloads) {
+            updateUpload(payload.uploadId, {
+              status: 'done',
+              completedAt: Date.now(),
+              overallProgress: 100,
+            })
+          }
         }
 
         queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FILES.LIST] })

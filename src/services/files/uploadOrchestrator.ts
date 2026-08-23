@@ -4,7 +4,6 @@ import {
   encryptFileChunk,
   encryptMetadataObject,
   bytesToBase64,
-  blake3HashBytes,
   cleanupFileStream,
 } from '@lib/crypto'
 import { validateFile, sanitizeFileName } from '@lib/fileValidation'
@@ -12,6 +11,7 @@ import { UPLOAD_CONFIG } from '@config/upload.config'
 import { uploadSync } from '@services/upload/uploadSync'
 import type { CreateFileRequest, ChunkPlan, ResumeInfo, CreateFileResponse } from '@/types/files'
 import { uploadDb, type PersistedUploadState } from '../upload/uploadDatabase'
+import { createBLAKE3 } from 'hash-wasm'
 
 export interface UploadProgressCallback {
   (uploadedBytes: number, speedBps: number, etaSeconds: number): void
@@ -277,10 +277,10 @@ export async function uploadFile(file: File, options: UploadOptions): Promise<Up
   }
 
   const encryptedChunks: (Uint8Array | null)[] = new Array(totalChunks).fill(null)
-  let plaintextBlake3 = ''
 
+  const hasher = await createBLAKE3()
   const chunkHashesMap: Record<string, string> = {}
-  const hashStreamer = await blake3HashBytes(new Uint8Array())
+
   const fileStream = file.stream()
   const reader = fileStream.getReader()
 
@@ -292,6 +292,8 @@ export async function uploadFile(file: File, options: UploadOptions): Promise<Up
 
     const plaintext = value || new Uint8Array(0)
     const isFinal = i === totalChunks - 1
+
+    hasher.update(plaintext)
 
     const { ciphertext, blake3Hash } = await encryptFileChunk(streamId, plaintext, isFinal)
     const chunkHashB64 = await bytesToBase64(blake3Hash)
@@ -312,6 +314,8 @@ export async function uploadFile(file: File, options: UploadOptions): Promise<Up
       ciphertext.fill(0)
     }
   }
+
+  const plaintextBlake3 = await bytesToBase64(new Uint8Array(hasher.digest('binary')))
 
   if (internalSignal.aborted) throw new DOMException('Upload cancelled', 'AbortError')
 
@@ -411,12 +415,6 @@ export async function uploadFile(file: File, options: UploadOptions): Promise<Up
           updateOverallProgress()
         }
       )
-
-      await fileService.verifyChunk({
-        version_id: versionId,
-        chunk_index: urlInfo.chunk_index,
-        r2_etag: result.etag,
-      })
 
       chunkProgress[urlInfo.chunk_index] = chunkSizes[urlInfo.chunk_index]
       updateOverallProgress()
