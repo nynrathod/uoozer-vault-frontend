@@ -84,7 +84,7 @@ export function AuditLogsPage() {
                     config.color
                   )}
                 >
-                  <Icon className="h-4 w-4" strokeWidth={1.8} />
+                  <Icon className="h-4 w-4" strokeWidth={1.75} />
                 </div>
                 <div className="w-32">
                   <span className="text-[13px] font-medium">{config.label}</span>

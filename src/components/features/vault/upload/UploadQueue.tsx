@@ -311,7 +311,7 @@ export function UploadQueue() {
           <div className="flex max-h-[320px] min-h-[280px] flex-col overflow-y-auto p-2">
             {currentItems.length === 0 ? (
               <div className="text-muted-foreground/70 flex flex-1 flex-col items-center justify-center text-[13px]">
-                <Upload className="mb-2 h-8 w-8 opacity-40" strokeWidth={1.5} />
+                <Upload className="mb-2 h-8 w-8 opacity-40" strokeWidth={1.75} />
                 No items here
               </div>
             ) : (

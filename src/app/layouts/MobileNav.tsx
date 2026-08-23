@@ -23,7 +23,7 @@ export function MobileNav() {
                 key={item.label}
                 className="bg-foreground text-background flex h-12 w-12 -translate-y-1.5 items-center justify-center rounded-full shadow-lg transition-transform active:scale-95"
               >
-                <item.icon className="h-5 w-5" strokeWidth={2.5} />
+                <item.icon className="h-5 w-5" strokeWidth={2} />
               </button>
             )
           }
@@ -38,7 +38,7 @@ export function MobileNav() {
                 )
               }
             >
-              <item.icon className="h-5 w-5" strokeWidth={1.8} />
+              <item.icon className="h-5 w-5" strokeWidth={1.75} />
               <span>{item.label}</span>
             </NavLink>
           )

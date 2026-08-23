@@ -105,7 +105,7 @@ function DropdownMenu({
               <div
                 ref={menuRef}
                 className={cn(
-                  'bg-popover border-border text-popover-foreground animate-scale-in fixed z-[9999] min-w-[12rem] rounded-xl border p-1.5 shadow-lg',
+                  'bg-popover border-border/80 text-popover-foreground animate-scale-in fixed z-[9999] min-w-[12rem] rounded-xl border p-1.5 shadow-xl',
                   className
                 )}
                 style={{

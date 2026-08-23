@@ -131,7 +131,7 @@ export function SearchCommand() {
                       >
                         <FolderIcon
                           className="h-[18px] w-[18px] shrink-0 text-blue-500"
-                          strokeWidth={1.8}
+                          strokeWidth={1.75}
                         />
                         <span className="text-foreground truncate text-[13px] font-medium">
                           {item.name}
@@ -168,7 +168,7 @@ export function SearchCommand() {
                       >
                         <File
                           className="text-muted-foreground/50 h-[18px] w-[18px] shrink-0"
-                          strokeWidth={1.8}
+                          strokeWidth={1.75}
                         />
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-[13px] font-medium">{item.name}</p>

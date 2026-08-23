@@ -54,7 +54,7 @@ export function UploadDropzone({ isOpen, onClose, onDrop }: UploadDropzoneProps)
             <X className="h-4 w-4" />
           </Button>
           <div className="bg-primary/10 text-primary mb-5 flex h-16 w-16 items-center justify-center rounded-2xl">
-            <Upload className="h-8 w-8" strokeWidth={1.5} />
+            <Upload className="h-8 w-8" strokeWidth={1.75} />
           </div>
           <h3 className="text-foreground text-[17px] font-semibold">
             {isDragActive ? 'Drop files or folders here' : 'Drag & drop files or folders here'}

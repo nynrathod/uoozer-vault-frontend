@@ -52,7 +52,7 @@ export function SettingsPage() {
                   'data-[state=inactive]:text-foreground/70 data-[state=inactive]:hover:bg-accent/50'
                 )}
               >
-                <tab.icon className="h-4 w-4" strokeWidth={1.8} />
+                <tab.icon className="h-4 w-4" strokeWidth={1.75} />
                 {tab.label}
               </TabsTrigger>
             ))}

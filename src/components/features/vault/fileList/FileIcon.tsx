@@ -43,7 +43,7 @@ export const FileIcon = memo(function FileIcon({
           className
         )}
       >
-        <Folder className="h-full w-full drop-shadow-sm" strokeWidth={1.8} />
+        <Folder className="h-full w-full drop-shadow-sm" strokeWidth={1.75} />
       </div>
     )
   }
@@ -109,7 +109,7 @@ export const FileIcon = memo(function FileIcon({
         className
       )}
     >
-      <Icon className="h-full w-full" strokeWidth={1.8} />
+      <Icon className="h-full w-full" strokeWidth={1.75} />
     </div>
   )
 })

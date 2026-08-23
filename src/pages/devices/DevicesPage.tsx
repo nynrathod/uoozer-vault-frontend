@@ -28,7 +28,7 @@ export function DevicesPage() {
     <div className="bg-background flex h-full flex-col">
       <div className="border-border/60 flex h-[60px] items-center justify-between border-b px-6">
         <div className="flex items-center gap-3">
-          <Shield className="text-primary h-5 w-5" strokeWidth={1.8} />
+          <Shield className="text-primary h-5 w-5" strokeWidth={1.75} />
           <div>
             <h2 className="text-[15px] font-semibold">Devices</h2>
             <p className="text-muted-foreground/60 text-[11px]">
@@ -92,7 +92,7 @@ export function DevicesPage() {
                       : 'bg-secondary text-muted-foreground'
                   )}
                 >
-                  <Icon className="h-5 w-5" strokeWidth={1.8} />
+                  <Icon className="h-5 w-5" strokeWidth={1.75} />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">

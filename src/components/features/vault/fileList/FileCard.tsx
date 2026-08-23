@@ -147,9 +147,9 @@ export const FileCard = memo(function FileCard({
             {error && <span className="text-destructive text-[11px] font-medium">{error}</span>}
           </div>
         ) : (
-          <p className="text-foreground truncate text-[13px] font-medium">{item.name}</p>
+          <p className="text-foreground truncate text-[14px] font-semibold">{item.name}</p>
         )}
-        <p className="text-muted-foreground/70 mt-0.5 text-[11px]">
+        <p className="text-muted-foreground/60 mt-0.5 font-mono text-[11px] tabular-nums">
           {isFolder
             ? `${itemCount} item${itemCount !== 1 ? 's' : ''}`
             : formatBytes((item as FileItem).totalSize)}

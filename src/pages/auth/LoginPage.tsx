@@ -43,7 +43,7 @@ export function LoginPage() {
     <div className="animate-fade-in w-full">
       <div className="mb-8 text-center">
         <div className="bg-primary/10 text-primary mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl">
-          <Shield className="h-7 w-7" strokeWidth={1.8} />
+          <Shield className="h-7 w-7" strokeWidth={1.75} />
         </div>
         <h1 className="text-2xl font-semibold tracking-tight">Welcome back</h1>
         <p className="text-muted-foreground mt-1.5 text-sm">

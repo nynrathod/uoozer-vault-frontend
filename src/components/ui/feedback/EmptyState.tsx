@@ -17,7 +17,7 @@ export function EmptyState({
   return (
     <div className="animate-fade-in flex flex-col items-center justify-center py-20 text-center">
       <div className="bg-secondary/80 text-muted-foreground/60 mb-5 flex h-16 w-16 items-center justify-center rounded-2xl">
-        <FolderOpen className="h-8 w-8" strokeWidth={1.5} />
+        <FolderOpen className="h-8 w-8" strokeWidth={1.75} />
       </div>
       <h3 className="text-foreground text-[15px] font-semibold">{title}</h3>
       <p className="text-muted-foreground/70 mt-1.5 max-w-xs text-[13px] leading-relaxed">

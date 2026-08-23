@@ -117,7 +117,7 @@ export function Sidebar() {
             className="hover:bg-sidebar-accent flex w-full items-center gap-3 rounded-lg p-2 transition-colors"
           >
             <div className="bg-primary text-primary-foreground flex h-8 w-8 shrink-0 items-center justify-center rounded-lg shadow-sm">
-              <Shield className="h-[17px] w-[17px]" strokeWidth={2.5} />
+              <Shield className="h-[17px] w-[17px]" strokeWidth={2} />
             </div>
             <div
               className={cn('flex flex-col text-left whitespace-nowrap', !sidebarOpen && 'hidden')}
@@ -157,7 +157,7 @@ export function Sidebar() {
                       >
                         <app.icon
                           className="text-foreground/80 h-4 w-4 shrink-0"
-                          strokeWidth={1.8}
+                          strokeWidth={1.75}
                         />
                         <span className="text-foreground flex-1 text-[13px] font-medium">
                           {app.name}
@@ -214,12 +214,12 @@ export function Sidebar() {
                   'flex items-center gap-3 rounded-lg py-2.5 text-[13px] font-medium transition-colors duration-150',
                   sidebarOpen ? 'px-3' : 'justify-center px-2',
                   isActive
-                    ? 'bg-primary/10 text-primary shadow-sm'
+                    ? 'bg-primary/15 text-primary font-semibold shadow-sm'
                     : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
                 )
               }
             >
-              <item.icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.8} />
+              <item.icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.75} />
               <span className={cn('whitespace-nowrap', !sidebarOpen && 'hidden')}>
                 {item.label}
               </span>
@@ -248,7 +248,7 @@ export function Sidebar() {
                 )
               }
             >
-              <item.icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.8} />
+              <item.icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.75} />
               <span className={cn('whitespace-nowrap', !sidebarOpen && 'hidden')}>
                 {item.label}
               </span>

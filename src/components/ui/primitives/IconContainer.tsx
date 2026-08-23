@@ -42,7 +42,7 @@ export function IconContainer({
         className
       )}
     >
-      <Icon className={iconSize[size]} strokeWidth={1.8} />
+      <Icon className={iconSize[size]} strokeWidth={1.75} />
     </div>
   )
 }

@@ -84,11 +84,11 @@ export function NotesPage() {
       >
         <div className="border-border/60 flex h-[60px] items-center justify-between border-b px-4">
           <div className="flex items-center gap-2.5">
-            <StickyNote className="text-primary h-5 w-5" strokeWidth={1.8} />
+            <StickyNote className="text-primary h-5 w-5" strokeWidth={1.75} />
             <h2 className="text-[15px] font-semibold">Notes</h2>
           </div>
           <Button size="icon-sm" onClick={createNote} className="h-8 w-8 rounded-lg">
-            <Plus className="h-4 w-4" strokeWidth={2.5} />
+            <Plus className="h-4 w-4" strokeWidth={2} />
           </Button>
         </div>
         <div className="p-3">
@@ -226,7 +226,7 @@ export function NotesPage() {
         ) : (
           <div className="flex h-full flex-col items-center justify-center p-8 text-center">
             <div className="bg-secondary/80 text-muted-foreground/60 mb-5 flex h-16 w-16 items-center justify-center rounded-2xl">
-              <StickyNote className="h-8 w-8" strokeWidth={1.5} />
+              <StickyNote className="h-8 w-8" strokeWidth={1.75} />
             </div>
             <h3 className="text-foreground text-[15px] font-semibold">Select a note</h3>
             <p className="text-muted-foreground/70 mt-1.5 max-w-xs text-[13px] leading-relaxed">

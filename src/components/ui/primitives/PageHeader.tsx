@@ -19,7 +19,7 @@ export function PageHeader({ title, subtitle, icon: Icon, className, children }:
       )}
     >
       <div className="flex items-center gap-3">
-        {Icon && <Icon className="text-primary h-5 w-5" strokeWidth={1.8} />}
+        {Icon && <Icon className="text-primary h-5 w-5" strokeWidth={1.75} />}
         <div>
           <h2 className="text-[15px] font-semibold">{title}</h2>
           {subtitle && <p className="text-muted-foreground/60 text-[11px]">{subtitle}</p>}

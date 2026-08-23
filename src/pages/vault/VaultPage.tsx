@@ -338,7 +338,7 @@ export function VaultPage() {
           <div className="relative flex h-20 w-20 items-center justify-center">
             <div className="border-primary/20 absolute inset-0 animate-ping rounded-full border-2"></div>
             <div className="bg-primary text-primary-foreground shadow-primary/20 relative flex h-16 w-16 scale-100 items-center justify-center rounded-full shadow-xl transition-transform duration-200">
-              <Upload className="h-8 w-8" strokeWidth={1.5} />
+              <Upload className="h-8 w-8" strokeWidth={1.75} />
             </div>
           </div>
           <div className="text-center">
