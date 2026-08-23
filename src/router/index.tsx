@@ -5,6 +5,7 @@ import { ROUTES } from '@lib/constants'
 import { AppLayout } from '@/app/layouts/AppLayout'
 import { AuthLayout } from '@/app/layouts/AuthLayout'
 import { VaultLoader } from '@/components/ui/feedback/VaultLoader'
+import { PublicSharePage } from '@/pages/share/PublicSharePage'
 
 const LoginPage = lazy(() =>
   import('@/pages/auth/LoginPage').then((m) => ({ default: m.LoginPage }))
@@ -130,6 +131,10 @@ const router = createBrowserRouter([
                 <VaultPage />
               </Suspense>
             ),
+          },
+          {
+            path: '/s/:shareId',
+            element: <PublicSharePage />,
           },
           {
             path: ROUTES.NOTES,

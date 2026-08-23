@@ -166,6 +166,8 @@ export function useFileUpload() {
           total_chunks: validation.totalChunks,
           encryption_header: 'pending',
           chunks: chunkPlans,
+          wrapped_file_key: '',
+          wrapped_file_key_nonce: '',
         }
 
         const uploadId = crypto.randomUUID()
@@ -255,6 +257,8 @@ export function useFileUpload() {
               plaintext_blake3: res.plaintextBlake3,
               encryption_header: res.encryptionHeader,
               chunk_hashes: res.chunkHashes,
+              wrapped_file_key: res.wrappedFileKey,
+              wrapped_file_key_nonce: res.wrappedFileKeyNonce,
             })
 
             updateUpload(upload.id, { status: 'completing' })

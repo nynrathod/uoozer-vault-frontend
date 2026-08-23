@@ -7,6 +7,7 @@ import {
   cleanupFileStream,
   decryptMetadataObject,
   base64ToBytes,
+  unwrapDek,
 } from '@lib/crypto'
 import type { DownloadManifest } from '@/types/files'
 
@@ -60,8 +61,20 @@ export async function downloadFile(options: DownloadOptions): Promise<Response> 
 
   if (manifest.chunks.length === 0) throw new DownloadError('MISSING_CHUNKS', 'File has no chunks.')
 
+  if (!manifest.wrapped_file_key || !manifest.wrapped_file_key_nonce) {
+    throw new DownloadError('DECRYPTION_FAILED', 'Missing file key in manifest.')
+  }
+
+  const wrappedFileKey = {
+    ciphertext: await base64ToBytes(manifest.wrapped_file_key),
+    nonce: await base64ToBytes(manifest.wrapped_file_key_nonce),
+  }
+  const fileKey = await unwrapDek(wrappedFileKey, dek)
+
+  if (!fileKey) throw new DownloadError('DECRYPTION_FAILED', 'Failed to unwrap file key.')
+
   const header = await base64ToBytes(manifest.encryption_header)
-  const streamId = await initFileDecryption(header, dek)
+  const streamId = await initFileDecryption(header, fileKey) // Use fileKey, NOT dek!
 
   const stream = new ReadableStream({
     async start(controller) {

@@ -18,6 +18,9 @@ export interface BackendFileResponse {
   deleted_at?: string | null
   created_at: string
   updated_at: string
+  wrapped_file_key: string
+  wrapped_file_key_nonce: string
+  encryption_header?: string
 }
 
 /** Decrypted file item used throughout the UI. */
@@ -64,6 +67,8 @@ export interface CreateFileRequest {
   total_chunks: number
   encryption_header: string
   chunks: ChunkPlan[]
+  wrapped_file_key: string
+  wrapped_file_key_nonce: string
 }
 
 export interface ChunkPlan {
@@ -92,6 +97,8 @@ export interface DownloadManifest {
   total_size: number
   total_chunks: number
   chunks: DownloadChunkInfo[]
+  wrapped_file_key: string
+  wrapped_file_key_nonce: string
 }
 
 export interface DownloadChunkInfo {

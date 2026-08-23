@@ -29,7 +29,7 @@ export function ShareDialog({
   itemCount = 0,
 }: ShareDialogProps) {
   const { copied, copy } = useClipboard()
-  const [accessType, setAccessType] = useState<'invited' | 'public'>('invited')
+  const [accessType, setAccessType] = useState<'invited' | 'public'>('public')
   const [inputValue, setInputValue] = useState('')
   const [invitedUsers, setInvitedUsers] = useState<typeof mockDirectory>([])
   const [showAutocomplete, setShowAutocomplete] = useState(false)
