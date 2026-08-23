@@ -5,6 +5,8 @@ import {
   encryptMetadataObject,
   bytesToBase64,
   cleanupFileStream,
+  generateDek,
+  wrapDek,
 } from '@lib/crypto'
 import { validateFile, sanitizeFileName } from '@lib/fileValidation'
 import { UPLOAD_CONFIG } from '@config/upload.config'
@@ -36,6 +38,8 @@ export interface UploadResult {
   plaintextBlake3: string
   encryptionHeader: string
   chunkHashes: Record<string, string>
+  wrappedFileKey: string
+  wrappedFileKeyNonce: string
 }
 
 async function readFileChunk(file: File, start: number, end: number): Promise<Uint8Array> {
@@ -233,6 +237,9 @@ export async function uploadFile(file: File, options: UploadOptions): Promise<Up
   let deduplicated = false
   let alreadyUploadedChunks = new Set<number>()
 
+  let wrappedFileKeyB64 = ''
+  let wrappedFileKeyNonceB64 = ''
+
   if (resumeState && resumeState.versionId && resumeState.streamId) {
     const resumeInfo: ResumeInfo = await fileService.getResumeInfo(resumeState.versionId)
     fileId = resumeState.fileId!
@@ -254,9 +261,14 @@ export async function uploadFile(file: File, options: UploadOptions): Promise<Up
     uploadUrls = preInitData.upload_urls
     deduplicated = preInitData.deduplicated
 
-    const initResult = await initFileEncryption(dek)
+    const fileKey = await generateDek()
+    const initResult = await initFileEncryption(fileKey)
     streamId = initResult.streamId
     encryptionHeaderB64 = await bytesToBase64(initResult.header)
+
+    const wrappedFileKey = await wrapDek(fileKey, dek)
+    wrappedFileKeyB64 = await bytesToBase64(wrappedFileKey.ciphertext)
+    wrappedFileKeyNonceB64 = await bytesToBase64(wrappedFileKey.nonce)
 
     if (deduplicated) {
       await cleanupFileStream(streamId)
@@ -268,12 +280,19 @@ export async function uploadFile(file: File, options: UploadOptions): Promise<Up
         plaintextBlake3: '',
         encryptionHeader: '',
         chunkHashes: {},
+        wrappedFileKey: '',
+        wrappedFileKeyNonce: '',
       }
     }
   } else {
-    const initResult = await initFileEncryption(dek)
+    const fileKey = await generateDek()
+    const initResult = await initFileEncryption(fileKey)
     streamId = initResult.streamId
     encryptionHeaderB64 = await bytesToBase64(initResult.header)
+
+    const wrappedFileKey = await wrapDek(fileKey, dek)
+    wrappedFileKeyB64 = await bytesToBase64(wrappedFileKey.ciphertext)
+    wrappedFileKeyNonceB64 = await bytesToBase64(wrappedFileKey.nonce)
   }
 
   const encryptedChunks: (Uint8Array | null)[] = new Array(totalChunks).fill(null)
@@ -329,6 +348,8 @@ export async function uploadFile(file: File, options: UploadOptions): Promise<Up
       total_chunks: chunkPlans.length,
       encryption_header: encryptionHeaderB64,
       chunks: chunkPlans,
+      wrapped_file_key: wrappedFileKeyB64,
+      wrapped_file_key_nonce: wrappedFileKeyNonceB64,
     }
 
     const createResp = await fileService.createFile(createReq)
@@ -347,6 +368,8 @@ export async function uploadFile(file: File, options: UploadOptions): Promise<Up
         plaintextBlake3: '',
         encryptionHeader: '',
         chunkHashes: {},
+        wrappedFileKey: wrappedFileKeyB64,
+        wrappedFileKeyNonce: wrappedFileKeyNonceB64,
       }
     }
   }
@@ -466,6 +489,8 @@ export async function uploadFile(file: File, options: UploadOptions): Promise<Up
     plaintextBlake3,
     encryptionHeader: encryptionHeaderB64,
     chunkHashes: chunkHashesMap,
+    wrappedFileKey: wrappedFileKeyB64,
+    wrappedFileKeyNonce: wrappedFileKeyNonceB64,
   }
 }
 
