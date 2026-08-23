@@ -118,27 +118,44 @@ export async function downloadFile(options: DownloadOptions): Promise<Response> 
   return new Response(stream)
 }
 
+// src/services/files/downloadOrchestrator.ts
+
 export async function downloadFileToDisk(
   fileName: string,
+  fileSize: number,
   options: DownloadOptions
 ): Promise<void> {
   if (!options.dek || options.dek.length === 0) {
     throw new DownloadError('VAULT_LOCKED', 'Vault is locked. Please unlock to download.')
   }
 
+  // 500MB threshold. Files larger than this will use the streaming "Save As"
+  // method to prevent the browser tab from crashing (Out of Memory).
+  const LARGE_FILE_THRESHOLD = 500 * 1024 * 1024
+
   try {
-    if ('showSaveFilePicker' in window) {
+    if (fileSize > LARGE_FILE_THRESHOLD && 'showSaveFilePicker' in window) {
+      // HYBRID APPROACH 1: Large File -> Stream directly to disk (0 RAM used)
       const handle = await (window as any).showSaveFilePicker({ suggestedName: fileName })
       const writable = await handle.createWritable()
       const response = await downloadFile(options)
+
+      // Pipe the decrypted stream directly to the hard drive
       await response.body!.pipeTo(writable)
     } else {
+      // HYBRID APPROACH 2: Small File -> Load into memory and use native browser UI
       const response = await downloadFile(options)
       const blob = await response.blob()
       triggerBrowserDownload(fileName, blob)
     }
-  } catch (error) {
-    if (error instanceof DownloadError && error.code === 'CANCELLED') return
+  } catch (error: any) {
+    // Silently handle the user clicking "Cancel" on the native save window
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new DownloadError('CANCELLED', 'Download cancelled by user.')
+    }
+    if (error instanceof DownloadError && error.code === 'CANCELLED') {
+      throw error
+    }
     throw error
   }
 }
@@ -199,6 +216,64 @@ export async function downloadFolderAsZip(
     await addFolderContents(folderId, '')
     const zipBlob = await zipWriter.close()
     triggerBrowserDownload(`${folderName}.zip`, zipBlob)
+  } catch (error) {
+    await zipWriter.close().catch(() => {})
+    throw error
+  }
+}
+
+export async function downloadItemsAsZip(
+  items: Array<{ id: string; name: string; isFolder: boolean }>,
+  dek: Uint8Array
+): Promise<void> {
+  if (!dek || dek.length === 0) {
+    throw new DownloadError('VAULT_LOCKED', 'Vault is locked. Please unlock to download.')
+  }
+
+  const zipWriter = new ZipWriter(new BlobWriter('application/zip'), { useWebWorkers: true })
+
+  async function addFolderContents(currentFolderId: string | null, basePath: string) {
+    const filesRes = await fileService.list(currentFolderId)
+    for (const backendFile of filesRes.files) {
+      const metadata = await decryptMetadataObject<{ name: string }>(
+        backendFile.encrypted_metadata,
+        backendFile.metadata_nonce,
+        dek
+      )
+      const fileName = sanitizeZipPath(metadata?.name || 'Unnamed File')
+      const fullPath = basePath ? `${basePath}/${fileName}` : fileName
+      const response = await downloadFile({ dek, fileId: backendFile.file_id })
+      const blob = await response.blob()
+      await zipWriter.add(fullPath, new BlobReader(blob))
+    }
+
+    const foldersRes = await folderService.list(currentFolderId)
+    for (const backendFolder of foldersRes) {
+      const folderMetadata = await decryptMetadataObject<{ name: string }>(
+        backendFolder.encrypted_metadata,
+        backendFolder.metadata_nonce,
+        dek
+      )
+      const subFolderName = sanitizeZipPath(folderMetadata?.name || 'Unnamed Folder')
+      await addFolderContents(
+        backendFolder.folder_id,
+        basePath ? `${basePath}/${subFolderName}` : subFolderName
+      )
+    }
+  }
+
+  try {
+    for (const item of items) {
+      if (item.isFolder) {
+        await addFolderContents(item.id, item.name)
+      } else {
+        const response = await downloadFile({ dek, fileId: item.id })
+        const blob = await response.blob()
+        await zipWriter.add(item.name, new BlobReader(blob))
+      }
+    }
+    const zipBlob = await zipWriter.close()
+    triggerBrowserDownload(`uoozer-vault-${Date.now()}.zip`, zipBlob)
   } catch (error) {
     await zipWriter.close().catch(() => {})
     throw error

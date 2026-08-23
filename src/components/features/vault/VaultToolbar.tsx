@@ -17,6 +17,9 @@ import { useFileStore } from '@stores/fileStore'
 import { useVaultActions } from '@hooks/useVaultActions'
 import { Button } from '@ui/Button'
 import { DropdownMenu, DropdownItem, DropdownSeparator, DropdownLabel } from '@ui/DropdownMenu'
+import { useAuthStore } from '@/stores/authStore'
+import { toast } from 'sonner'
+import { downloadItemsAsZip } from '@/services/files/downloadOrchestrator'
 
 interface VaultToolbarProps {
   onUploadFiles: () => void
@@ -25,6 +28,8 @@ interface VaultToolbarProps {
 }
 
 export function VaultToolbar({ onUploadFiles, onUploadFolder, onNewFolder }: VaultToolbarProps) {
+  const dek = useAuthStore((s) => s.cryptoState.dek)
+
   const files = useFileStore((s) => s.files)
   const folders = useFileStore((s) => s.folders)
   const selectedFileIds = useFileStore((s) => s.selectedFileIds)
@@ -50,7 +55,32 @@ export function VaultToolbar({ onUploadFiles, onUploadFolder, onNewFolder }: Vau
     clearFileSelection()
   }, [selectedFileIds, bulkDelete, folders, clearFileSelection])
 
-  const handleNewFolder = useCallback(() => setEditingId('new'), [setEditingId])
+  const handleBulkDownload = useCallback(async () => {
+    const selectedItems = Array.from(selectedFileIds).map((id) => {
+      const folder = folders.get(id)
+      const file = files.get(id)
+      return folder
+        ? { id, name: folder.name, isFolder: true }
+        : { id, name: file!.name, isFolder: false }
+    })
+
+    if (selectedItems.length === 0) return
+
+    toast.loading('Preparing bulk download...', { id: 'bulk-dl' })
+    try {
+      if (!dek) throw new Error('Vault is locked')
+      await downloadItemsAsZip(selectedItems, dek)
+      toast.success('Bulk download started', { id: 'bulk-dl' })
+    } catch (error: any) {
+      if (error?.code === 'CANCELLED' || error?.name === 'AbortError') {
+        toast.dismiss('bulk-dl')
+        return
+      }
+      toast.error(error.message ?? 'Bulk download failed', { id: 'bulk-dl' })
+    } finally {
+      clearFileSelection()
+    }
+  }, [selectedFileIds, files, folders, dek, clearFileSelection])
 
   return (
     <div className="border-border/60 flex h-[52px] shrink-0 items-center justify-between border-b px-4 py-2">
@@ -68,7 +98,12 @@ export function VaultToolbar({ onUploadFiles, onUploadFolder, onNewFolder }: Vau
             <span className="text-[13px] font-medium">{selectedFileIds.size} selected</span>
           </div>
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="sm" className="h-8 gap-1.5 rounded-lg text-[13px]">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1.5 rounded-lg text-[13px]"
+              onClick={handleBulkDownload}
+            >
               <Download className="h-4 w-4" /> <span className="hidden sm:inline">Download</span>
             </Button>
             <Button
@@ -147,7 +182,7 @@ export function VaultToolbar({ onUploadFiles, onUploadFolder, onNewFolder }: Vau
               className="bg-foreground text-background hover:bg-foreground/90 h-8 gap-1.5 rounded-lg px-3 text-[13px] font-medium"
               onClick={onNewFolder}
             >
-              <FolderPlus className="h-4 w-4" strokeWidth={2.5} /> New Folder
+              <FolderPlus className="h-4 w-4" strokeWidth={2} /> New Folder
             </Button>
 
             <DropdownMenu

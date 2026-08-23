@@ -90,11 +90,17 @@ export function useItemActions(
       if (isFolder) {
         await downloadFolderAsZip(item.id, item.name, dek)
       } else {
-        await downloadFileToDisk(item.name, { dek, fileId: item.id })
+        const fileSize = 'totalSize' in item ? item.totalSize : 0
+        await downloadFileToDisk(item.name, fileSize, { dek, fileId: item.id })
       }
 
       toast.success('Download started', { id: `dl-${item.id}` })
     } catch (error: any) {
+      if (error?.code === 'CANCELLED' || error?.name === 'AbortError') {
+        toast.dismiss(`dl-${item.id}`)
+        return
+      }
+
       console.error('Download error:', error)
       toast.error(error.message ?? 'Download failed', { id: `dl-${item.id}` })
     }
