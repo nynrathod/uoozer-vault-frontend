@@ -41,14 +41,14 @@ export function Header() {
 
         <ThemeSwitcher />
 
-        <Button
+        {/* <Button
           variant="ghost"
           size="icon"
           className="text-muted-foreground hover:bg-secondary hover:text-foreground relative h-9 w-9 rounded-lg"
         >
           <Bell className="h-[18px] w-[18px]" />
           <span className="bg-primary ring-background absolute top-2 right-2 h-2 w-2 rounded-full ring-2" />
-        </Button>
+        </Button> */}
 
         <ProfileDropdown />
       </div>
