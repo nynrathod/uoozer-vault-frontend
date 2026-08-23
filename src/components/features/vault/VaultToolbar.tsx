@@ -13,13 +13,13 @@ import {
   ChevronDown,
 } from 'lucide-react'
 import { useCallback, useMemo } from 'react'
+import { toast } from 'sonner'
 import { useFileStore } from '@stores/fileStore'
 import { useVaultActions } from '@hooks/useVaultActions'
+import { useAuthStore } from '@stores/authStore'
+import { downloadItemsAsZip } from '@services/files/downloadOrchestrator'
 import { Button } from '@ui/Button'
 import { DropdownMenu, DropdownItem, DropdownSeparator, DropdownLabel } from '@ui/DropdownMenu'
-import { useAuthStore } from '@/stores/authStore'
-import { toast } from 'sonner'
-import { downloadItemsAsZip } from '@/services/files/downloadOrchestrator'
 
 interface VaultToolbarProps {
   onUploadFiles: () => void
@@ -28,8 +28,6 @@ interface VaultToolbarProps {
 }
 
 export function VaultToolbar({ onUploadFiles, onUploadFolder, onNewFolder }: VaultToolbarProps) {
-  const dek = useAuthStore((s) => s.cryptoState.dek)
-
   const files = useFileStore((s) => s.files)
   const folders = useFileStore((s) => s.folders)
   const selectedFileIds = useFileStore((s) => s.selectedFileIds)
@@ -39,9 +37,9 @@ export function VaultToolbar({ onUploadFiles, onUploadFolder, onNewFolder }: Vau
   const setSort = useFileStore((s) => s.setSort)
   const viewMode = useFileStore((s) => s.viewMode)
   const toggleViewMode = useFileStore((s) => s.toggleViewMode)
-  const setEditingId = useFileStore((s) => s.setEditingId)
 
-  const { deleteItem, isDeleting, bulkDelete } = useVaultActions()
+  const { bulkDelete, isDeleting } = useVaultActions()
+  const dek = useAuthStore((s) => s.cryptoState.dek)
 
   const hasSelection = selectedFileIds.size > 0
   const itemCount = useMemo(() => files.size + folders.size, [files, folders])
@@ -60,8 +58,8 @@ export function VaultToolbar({ onUploadFiles, onUploadFolder, onNewFolder }: Vau
       const folder = folders.get(id)
       const file = files.get(id)
       return folder
-        ? { id, name: folder.name, isFolder: true }
-        : { id, name: file!.name, isFolder: false }
+        ? { id, name: folder.name, isFolder: true, size: 0 }
+        : { id, name: file!.name, isFolder: false, size: file!.totalSize }
     })
 
     if (selectedItems.length === 0) return
@@ -182,7 +180,7 @@ export function VaultToolbar({ onUploadFiles, onUploadFolder, onNewFolder }: Vau
               className="bg-foreground text-background hover:bg-foreground/90 h-8 gap-1.5 rounded-lg px-3 text-[13px] font-medium"
               onClick={onNewFolder}
             >
-              <FolderPlus className="h-4 w-4" strokeWidth={2} /> New Folder
+              <FolderPlus className="h-4 w-4" strokeWidth={2.5} /> New Folder
             </Button>
 
             <DropdownMenu

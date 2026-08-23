@@ -47,12 +47,6 @@ export function useItemActions(
 
     if (isNew) {
       const parentId = 'parentId' in item ? item.parentId : null
-      const isDuplicate = Array.from(folders.values()).some(
-        (f) => f.parentId === parentId && f.name.toLowerCase() === newName.toLowerCase()
-      )
-      if (isDuplicate) {
-        throw new Error('A folder with this name already exists')
-      }
       await createFolder({ name: newName, parentId, tempId: item.id })
     } else {
       await renameItem({

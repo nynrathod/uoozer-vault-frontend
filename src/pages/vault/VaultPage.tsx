@@ -119,11 +119,10 @@ export function VaultPage() {
       updatedAt: new Date().toISOString(),
     }
 
-    // Inject directly into React Query cache
-    queryClient.setQueryData<Folder[]>([QUERY_KEYS.FOLDERS.LIST, currentFolderId], (old = []) => [
-      newFolder,
-      ...old,
-    ])
+    queryClient.setQueryData<Folder[]>(
+      [QUERY_KEYS.FOLDERS.LIST, currentFolderId, false],
+      (old = []) => [newFolder, ...old]
+    )
 
     setEditingId(tempId)
   }, [currentFolderId, queryClient, setEditingId])

@@ -170,99 +170,132 @@ export async function downloadFolderAsZip(
     throw new DownloadError('VAULT_LOCKED', 'Vault is locked. Please unlock to download.')
   }
 
-  const zipWriter = new ZipWriter(new BlobWriter('application/zip'), { useWebWorkers: true })
-
-  async function addFolderContents(
-    currentFolderId: string | null,
-    basePath: string
-  ): Promise<void> {
-    if (signal?.aborted) throw new DownloadError('CANCELLED', 'Download cancelled')
-
-    const filesRes = await fileService.list(currentFolderId)
-    for (const backendFile of filesRes.files) {
-      if (signal?.aborted) throw new DownloadError('CANCELLED', 'Download cancelled')
-
-      const metadata = await decryptMetadataObject<{ name: string }>(
-        backendFile.encrypted_metadata,
-        backendFile.metadata_nonce,
-        dek
-      )
-      const fileName = sanitizeZipPath(metadata?.name || 'Unnamed File')
-      const fullPath = basePath ? `${basePath}/${fileName}` : fileName
-
-      const response = await downloadFile({ dek, fileId: backendFile.file_id, signal })
-      const blob = await response.blob()
-      await zipWriter.add(fullPath, new BlobReader(blob))
-    }
-
-    const foldersRes = await folderService.list(currentFolderId)
-    for (const backendFolder of foldersRes) {
-      if (signal?.aborted) throw new DownloadError('CANCELLED', 'Download cancelled')
-
-      const folderMetadata = await decryptMetadataObject<{ name: string }>(
-        backendFolder.encrypted_metadata,
-        backendFolder.metadata_nonce,
-        dek
-      )
-      const subFolderName = sanitizeZipPath(folderMetadata?.name || 'Unnamed Folder')
-      await addFolderContents(
-        backendFolder.folder_id,
-        basePath ? `${basePath}/${subFolderName}` : subFolderName
-      )
-    }
-  }
+  let zipWriter: any
+  let writableStream: any | null = null
 
   try {
+    if ('showSaveFilePicker' in window) {
+      const handle = await (window as any).showSaveFilePicker({
+        suggestedName: `${folderName}.zip`,
+      })
+      writableStream = await handle.createWritable()
+      zipWriter = new ZipWriter(writableStream, { useWebWorkers: true })
+    } else {
+      zipWriter = new ZipWriter(new BlobWriter('application/zip'), { useWebWorkers: true })
+    }
+
+    async function addFolderContents(currentFolderId: string | null, basePath: string) {
+      if (signal?.aborted) throw new DownloadError('CANCELLED', 'Download cancelled')
+
+      const filesRes = await fileService.list(currentFolderId)
+      for (const backendFile of filesRes.files) {
+        if (signal?.aborted) throw new DownloadError('CANCELLED', 'Download cancelled')
+
+        const metadata = await decryptMetadataObject<{ name: string }>(
+          backendFile.encrypted_metadata,
+          backendFile.metadata_nonce,
+          dek
+        )
+        const fileName = sanitizeZipPath(metadata?.name || 'Unnamed File')
+        const fullPath = basePath ? `${basePath}/${fileName}` : fileName
+
+        const response = await downloadFile({ dek, fileId: backendFile.file_id, signal })
+        const blob = await response.blob()
+        await zipWriter.add(fullPath, new BlobReader(blob))
+      }
+
+      const foldersRes = await folderService.list(currentFolderId)
+      for (const backendFolder of foldersRes) {
+        if (signal?.aborted) throw new DownloadError('CANCELLED', 'Download cancelled')
+
+        const folderMetadata = await decryptMetadataObject<{ name: string }>(
+          backendFolder.encrypted_metadata,
+          backendFolder.metadata_nonce,
+          dek
+        )
+        const subFolderName = sanitizeZipPath(folderMetadata?.name || 'Unnamed Folder')
+        await addFolderContents(
+          backendFolder.folder_id,
+          basePath ? `${basePath}/${subFolderName}` : subFolderName
+        )
+      }
+    }
+
     await addFolderContents(folderId, '')
+
     const zipBlob = await zipWriter.close()
-    triggerBrowserDownload(`${folderName}.zip`, zipBlob)
-  } catch (error) {
-    await zipWriter.close().catch(() => {})
+
+    if (!writableStream && zipBlob) {
+      triggerBrowserDownload(`${folderName}.zip`, zipBlob as Blob)
+    }
+  } catch (error: any) {
+    await zipWriter?.close().catch(() => {})
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new DownloadError('CANCELLED', 'Download cancelled by user.')
+    }
     throw error
   }
 }
 
 export async function downloadItemsAsZip(
-  items: Array<{ id: string; name: string; isFolder: boolean }>,
+  items: Array<{ id: string; name: string; isFolder: boolean; size?: number }>,
   dek: Uint8Array
 ): Promise<void> {
   if (!dek || dek.length === 0) {
     throw new DownloadError('VAULT_LOCKED', 'Vault is locked. Please unlock to download.')
   }
 
-  const zipWriter = new ZipWriter(new BlobWriter('application/zip'), { useWebWorkers: true })
+  let zipWriter: any
+  let writableStream: any | null = null
 
-  async function addFolderContents(currentFolderId: string | null, basePath: string) {
-    const filesRes = await fileService.list(currentFolderId)
-    for (const backendFile of filesRes.files) {
-      const metadata = await decryptMetadataObject<{ name: string }>(
-        backendFile.encrypted_metadata,
-        backendFile.metadata_nonce,
-        dek
-      )
-      const fileName = sanitizeZipPath(metadata?.name || 'Unnamed File')
-      const fullPath = basePath ? `${basePath}/${fileName}` : fileName
-      const response = await downloadFile({ dek, fileId: backendFile.file_id })
-      const blob = await response.blob()
-      await zipWriter.add(fullPath, new BlobReader(blob))
-    }
+  const totalFileSize = items.reduce((acc, item) => acc + (item.size || 0), 0)
+  const hasFolder = items.some((item) => item.isFolder)
 
-    const foldersRes = await folderService.list(currentFolderId)
-    for (const backendFolder of foldersRes) {
-      const folderMetadata = await decryptMetadataObject<{ name: string }>(
-        backendFolder.encrypted_metadata,
-        backendFolder.metadata_nonce,
-        dek
-      )
-      const subFolderName = sanitizeZipPath(folderMetadata?.name || 'Unnamed Folder')
-      await addFolderContents(
-        backendFolder.folder_id,
-        basePath ? `${basePath}/${subFolderName}` : subFolderName
-      )
-    }
-  }
+  const LARGE_FILE_THRESHOLD = 500 * 1024 * 1024
+  const shouldStreamToDisk =
+    (hasFolder || totalFileSize > LARGE_FILE_THRESHOLD) && 'showSaveFilePicker' in window
 
   try {
+    if (shouldStreamToDisk) {
+      const handle = await (window as any).showSaveFilePicker({
+        suggestedName: `uoozer-vault-${Date.now()}.zip`,
+      })
+      writableStream = await handle.createWritable()
+      zipWriter = new ZipWriter(writableStream, { useWebWorkers: true })
+    } else {
+      zipWriter = new ZipWriter(new BlobWriter('application/zip'), { useWebWorkers: true })
+    }
+
+    async function addFolderContents(currentFolderId: string | null, basePath: string) {
+      const filesRes = await fileService.list(currentFolderId)
+      for (const backendFile of filesRes.files) {
+        const metadata = await decryptMetadataObject<{ name: string }>(
+          backendFile.encrypted_metadata,
+          backendFile.metadata_nonce,
+          dek
+        )
+        const fileName = sanitizeZipPath(metadata?.name || 'Unnamed File')
+        const fullPath = basePath ? `${basePath}/${fileName}` : fileName
+        const response = await downloadFile({ dek, fileId: backendFile.file_id })
+        const blob = await response.blob()
+        await zipWriter.add(fullPath, new BlobReader(blob))
+      }
+
+      const foldersRes = await folderService.list(currentFolderId)
+      for (const backendFolder of foldersRes) {
+        const folderMetadata = await decryptMetadataObject<{ name: string }>(
+          backendFolder.encrypted_metadata,
+          backendFolder.metadata_nonce,
+          dek
+        )
+        const subFolderName = sanitizeZipPath(folderMetadata?.name || 'Unnamed Folder')
+        await addFolderContents(
+          backendFolder.folder_id,
+          basePath ? `${basePath}/${subFolderName}` : subFolderName
+        )
+      }
+    }
+
     for (const item of items) {
       if (item.isFolder) {
         await addFolderContents(item.id, item.name)
@@ -272,10 +305,17 @@ export async function downloadItemsAsZip(
         await zipWriter.add(item.name, new BlobReader(blob))
       }
     }
+
     const zipBlob = await zipWriter.close()
-    triggerBrowserDownload(`uoozer-vault-${Date.now()}.zip`, zipBlob)
-  } catch (error) {
-    await zipWriter.close().catch(() => {})
+
+    if (!writableStream && zipBlob) {
+      triggerBrowserDownload(`uoozer-vault-${Date.now()}.zip`, zipBlob as Blob)
+    }
+  } catch (error: any) {
+    await zipWriter?.close().catch(() => {})
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new DownloadError('CANCELLED', 'Download cancelled by user.')
+    }
     throw error
   }
 }

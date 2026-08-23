@@ -17,7 +17,7 @@ export function useVaultActions() {
   const dek = useAuthStore((s) => s.cryptoState.dek)
 
   const updateFolderCache = (parentId: string | null, updater: (old: Folder[]) => Folder[]) => {
-    queryClient.setQueryData<Folder[]>([QUERY_KEYS.FOLDERS.LIST, parentId], (old = []) =>
+    queryClient.setQueryData<Folder[]>([QUERY_KEYS.FOLDERS.LIST, parentId, false], (old = []) =>
       updater(old)
     )
   }
@@ -44,7 +44,12 @@ export function useVaultActions() {
       updateFolderCache(variables.parentId, (old) =>
         old.map((f) =>
           f.id === variables.tempId
-            ? { ...f, id: backendFolder.folder_id, parentId: backendFolder.parent_folder_id }
+            ? {
+                ...f,
+                id: backendFolder.folder_id,
+                parentId: backendFolder.parent_folder_id,
+                name: variables.name,
+              }
             : f
         )
       )
