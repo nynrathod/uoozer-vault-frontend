@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, generatePath } from 'react-router-dom'
 import { createPortal } from 'react-dom'
 import { apiClient, skipAuthRefresh } from '@services/api/client'
 import { useShallow } from 'zustand/react/shallow'
@@ -36,6 +36,7 @@ import {
   downloadSharedFileToDisk,
   downloadSharedFolderAsZip,
 } from '@services/files/downloadOrchestrator'
+import type { Folder } from '@/types'
 
 export function PublicSharePage() {
   const { shareId } = useParams()
@@ -290,7 +291,7 @@ export function PublicSharePage() {
     [shareData, shareKey, shareId, decryptAndAssembleFile, previewUrl, treeData]
   )
 
-  const handleFolderClick = (folder: any) => {
+  const handleFolderClick = (folder: Folder) => {
     setCurrentFolderId(folder.id)
     setBreadcrumb([...breadcrumb, { id: folder.id, name: folder.name }])
   }

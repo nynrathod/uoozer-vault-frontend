@@ -28,9 +28,13 @@ export const fileService = {
     trashed: boolean = false
   ): Promise<BackendListFilesResponse> {
     try {
-      const params: Record<string, any> = { limit, offset }
-      if (folderId) params.folder_id = folderId
-      if (trashed) params.trashed = true
+      const params: Record<string, string | number | boolean> = {}
+      if (folderId) {
+        params.folder_id = folderId
+      }
+      if (trashed) {
+        params.trashed = true
+      }
       const { data } = await apiClient.get('/api/v1/files', { params })
       return data
     } catch (error: any) {
@@ -175,9 +179,13 @@ export const fileService = {
     }
   },
 
-  async bulkDelete(payload: { file_ids: string[]; folder_ids: string[] }): Promise<void> {
+  async bulkDelete(req: {
+    file_ids: string[]
+    folder_ids: string[]
+    permanent?: boolean
+  }): Promise<void> {
     try {
-      await apiClient.post('/api/v1/files/bulk-delete', payload)
+      await apiClient.post('/api/v1/files/bulk-delete', req)
     } catch (error: any) {
       throw handleApiError(error, 'Failed to delete items.')
     }

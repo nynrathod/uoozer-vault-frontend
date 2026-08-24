@@ -180,7 +180,7 @@ export const FileRow = memo(function FileRow({
         ) : (
           <div
             className="flex h-full w-full min-w-0 cursor-pointer items-center gap-2"
-            onDoubleClick={isShareMode ? undefined : () => setEditingId(item.id)}
+            onDoubleClick={item.deletedAt ? undefined : () => setEditingId(item.id)}
             onClick={(e) => {
               e.stopPropagation()
               onClick()

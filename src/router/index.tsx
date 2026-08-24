@@ -124,7 +124,15 @@ const router = createBrowserRouter([
             path: ROUTES.VAULT_TRASH,
             element: (
               <Suspense fallback={<SuspenseFallback />}>
-                <VaultPage />
+                <VaultPage trashed={true} />
+              </Suspense>
+            ),
+          },
+          {
+            path: ROUTES.VAULT_TRASH_FOLDER,
+            element: (
+              <Suspense fallback={<SuspenseFallback />}>
+                <VaultPage trashed={true} />
               </Suspense>
             ),
           },

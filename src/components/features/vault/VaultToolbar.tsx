@@ -13,6 +13,7 @@ import {
   ChevronDown,
 } from 'lucide-react'
 import { useCallback, useMemo } from 'react'
+import { useLocation } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useFileStore } from '@stores/fileStore'
 import { useVaultActions } from '@hooks/useVaultActions'
@@ -28,6 +29,9 @@ interface VaultToolbarProps {
 }
 
 export function VaultToolbar({ onUploadFiles, onUploadFolder, onNewFolder }: VaultToolbarProps) {
+  const location = useLocation()
+  const isTrash = location.pathname.startsWith('/vault/trash')
+
   const files = useFileStore((s) => s.files)
   const folders = useFileStore((s) => s.folders)
   const selectedFileIds = useFileStore((s) => s.selectedFileIds)
@@ -48,10 +52,11 @@ export function VaultToolbar({ onUploadFiles, onUploadFolder, onNewFolder }: Vau
     const items = Array.from(selectedFileIds).map((id) => ({
       id,
       isFolder: folders.has(id),
+      permanent: isTrash,
     }))
     bulkDelete(items)
     clearFileSelection()
-  }, [selectedFileIds, bulkDelete, folders, clearFileSelection])
+  }, [selectedFileIds, bulkDelete, folders, clearFileSelection, isTrash])
 
   const handleBulkDownload = useCallback(async () => {
     const selectedItems = Array.from(selectedFileIds).map((id) => {

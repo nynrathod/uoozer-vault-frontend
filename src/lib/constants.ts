@@ -58,6 +58,7 @@ export const ROUTES = {
   VAULT_STARRED: '/vault/starred',
   VAULT_PRIVATE: '/vault/private',
   VAULT_TRASH: '/vault/trash',
+  VAULT_TRASH_FOLDER: '/vault/trash/folder/:folderId',
   VAULT_FOLDER: '/vault/folder/:folderId',
   NOTES: '/notes',
   NOTES_PINNED: '/notes/pinned',

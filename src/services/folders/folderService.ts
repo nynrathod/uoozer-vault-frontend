@@ -19,9 +19,12 @@ export const folderService = {
     trashed: boolean = false
   ): Promise<BackendFolderResponse[]> {
     try {
-      const params: Record<string, string> = {}
+      const params: Record<string, string | boolean> = {}
       if (parentFolderId) {
         params.parent_folder_id = parentFolderId
+      }
+      if (trashed) {
+        params.trashed = true
       }
       const { data } = await apiClient.get('/api/v1/folders', { params })
       return data

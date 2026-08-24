@@ -1,12 +1,11 @@
 import { useCallback, useRef, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, generatePath } from 'react-router-dom'
 import { useShallow } from 'zustand/react/shallow'
 import { usePreviewStore } from '@stores/previewStore'
 import {
   useFileStore,
   selectCurrentFiles,
   selectCurrentFolders,
-  selectBreadcrumbPath,
   selectFolderCounts,
 } from '@stores/fileStore'
 import { QUERY_KEYS, ROUTES } from '@lib/constants'
@@ -28,6 +27,7 @@ import type { Folder } from '@/types/folders'
 import { UploadQueue } from '@/components/features'
 import { VaultSkeleton } from '@/components/features/vault/fileList/VaultSkeleton'
 import { useDelayedLoading } from '@/hooks/useDelayedLoading'
+import { toast } from 'sonner'
 
 // Helper to recursively read dropped folders (for drag-and-drop)
 function readAllEntries(dirReader: any): Promise<any[]> {
@@ -65,8 +65,7 @@ async function traverseFileTree(item: any, path: string): Promise<File[]> {
   return []
 }
 
-/** Main vault page with file browsing, upload dropzone, preview panel, and share/version dialogs. */
-export function VaultPage() {
+export function VaultPage({ trashed = false }: { trashed?: boolean }) {
   const { folderId } = useParams<{ folderId?: string }>()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -78,7 +77,7 @@ export function VaultPage() {
   const isTrashRoute = location.pathname === ROUTES.VAULT_TRASH
   const { isLoading, isError, error, refresh, breadcrumbPath } = useVaultFiles(
     currentFolderId,
-    isTrashRoute
+    trashed
   )
   const { uploadFiles } = useFileUpload()
 
@@ -146,6 +145,24 @@ export function VaultPage() {
       files.forEach((f) => (f.path = f.webkitRelativePath || ''))
       uploadFiles(files, currentFolderId)
       e.target.value = ''
+    }
+  }
+
+  const handleFolderClick = (folder: Folder) => {
+    if (trashed) {
+      toast.info('Restore this folder to your Vault to view its contents.')
+      return
+    }
+
+    navigate(generatePath(ROUTES.VAULT_FOLDER, { folderId: folder.id }))
+  }
+
+  const handleBreadcrumbClick = (id: string | null) => {
+    if (!id) {
+      navigate(trashed ? ROUTES.VAULT_TRASH : ROUTES.VAULT)
+    } else {
+      const route = trashed ? ROUTES.VAULT_TRASH_FOLDER : ROUTES.VAULT_FOLDER
+      navigate(generatePath(route, { folderId: id }))
     }
   }
 
@@ -264,12 +281,7 @@ export function VaultPage() {
             previewFileId ? 'hidden md:flex md:w-1/2 md:border-r' : 'w-full'
           )}
         >
-          <FileBreadcrumb
-            path={breadcrumbPath}
-            onNavigate={(id) =>
-              id === null ? navigate(ROUTES.VAULT) : navigate(`/vault/folder/${id}`)
-            }
-          />
+          <FileBreadcrumb path={breadcrumbPath} onNavigate={handleBreadcrumbClick} />
           <VaultToolbar
             onUploadFiles={() => fileInputRef.current?.click()}
             onUploadFolder={() => folderInputRef.current?.click()}
@@ -289,7 +301,7 @@ export function VaultPage() {
                   files={files}
                   folders={folders}
                   folderCounts={folderCounts}
-                  onFolderClick={(folder) => navigate(`/vault/folder/${folder.id}`)}
+                  onFolderClick={handleFolderClick}
                   onFileClick={(file) => openPreview(file.id)}
                   onFileSelect={toggleFileSelection}
                   onShare={(item) => setShareTarget(item.id)}
