@@ -56,7 +56,6 @@ export const FileActionsMenu = memo(function FileActionsMenu({
     <>
       <DropdownMenu trigger={trigger} open={open} onOpenChange={onOpenChange}>
         {isTrash ? (
-          // --- TRASH VIEW MENU ---
           <>
             <DropdownItem icon={<RotateCcw className="h-4 w-4" />} onClick={onRestore}>
               Restore
@@ -71,7 +70,6 @@ export const FileActionsMenu = memo(function FileActionsMenu({
             </DropdownItem>
           </>
         ) : (
-          // --- NORMAL VIEW MENU ---
           <>
             {!isFolder && <DropdownItem icon={<Eye className="h-4 w-4" />}>Preview</DropdownItem>}
             <DropdownItem icon={<Download className="h-4 w-4" />} onClick={onDownload}>
