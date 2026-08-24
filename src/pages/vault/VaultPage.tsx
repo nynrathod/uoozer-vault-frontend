@@ -307,13 +307,7 @@ export function VaultPage() {
           </div>
         )}
 
-        {versionFileId && (
-          <VersionHistoryDialog
-            open={!!versionFileId}
-            onOpenChange={() => setVersionFileId(null)}
-            fileName={useFileStore.getState().files.get(versionFileId)?.name || ''}
-          />
-        )}
+        {versionFileId && <VersionHistoryDialog />}
 
         {shareTargetId && sharedItem && (
           <ShareDialog

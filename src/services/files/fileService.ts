@@ -61,7 +61,31 @@ export const fileService = {
       const { data } = await apiClient.post(`/api/v1/files/${fileId}/versions`, req)
       return data
     } catch (error: any) {
-      throw handleApiError(error, 'Failed to create new version.')
+      throw handleApiError(error, 'Failed to create file version.')
+    }
+  },
+
+  async listVersions(fileId: string): Promise<FileVersion[]> {
+    try {
+      const { data } = await apiClient.get(`/api/v1/files/${fileId}/versions`)
+      return data
+    } catch (error: any) {
+      throw handleApiError(error, 'Failed to fetch version history.')
+    }
+  },
+
+  async restoreVersion(fileId: string, versionId: string): Promise<void> {
+    try {
+      await apiClient.post(`/api/v1/files/${fileId}/versions/${versionId}/restore`)
+    } catch (error: any) {
+      throw handleApiError(error, 'Failed to restore version.')
+    }
+  },
+  async deleteVersion(fileId: string, versionId: string): Promise<void> {
+    try {
+      await apiClient.delete(`/api/v1/files/${fileId}/versions/${versionId}`)
+    } catch (error: any) {
+      throw handleApiError(error, 'Failed to delete version.')
     }
   },
 
@@ -114,23 +138,6 @@ export const fileService = {
       return data
     } catch (error: any) {
       throw handleApiError(error, 'Failed to update file.')
-    }
-  },
-
-  async listVersions(fileId: string): Promise<FileVersion[]> {
-    try {
-      const { data } = await apiClient.get(`/api/v1/files/${fileId}/versions`)
-      return data
-    } catch (error: any) {
-      throw handleApiError(error, 'Failed to fetch version history.')
-    }
-  },
-
-  async restoreVersion(fileId: string, versionId: string): Promise<void> {
-    try {
-      await apiClient.post(`/api/v1/files/${fileId}/versions/${versionId}/restore`)
-    } catch (error: any) {
-      throw handleApiError(error, 'Failed to restore version.')
     }
   },
 
