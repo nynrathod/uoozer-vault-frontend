@@ -7,7 +7,12 @@ import { useFileStore } from '@stores/fileStore'
 import { useAuthStore } from '@stores/authStore'
 import { isFolder as isFolderGuard } from '@/lib/type-guards'
 import { QUERY_KEYS } from '@lib/constants'
-import { downloadFileToDisk, downloadFolderAsZip } from '@services/files/downloadOrchestrator'
+import {
+  downloadFileToDisk,
+  downloadFolderAsZip,
+  downloadSharedFileToDisk,
+  downloadSharedFolderAsZip,
+} from '@services/files/downloadOrchestrator'
 import type { FileItem } from '@/types/files'
 import type { Folder } from '@/types/folders'
 import { apiClient, fileService, folderService } from '@/services'
@@ -20,40 +25,43 @@ import {
   unwrapDek,
   wrapDek,
 } from '@/lib/crypto'
+import { useState } from 'react'
+import { useShareContext } from '@/contexts/ShareContext'
 
 export function useItemActions(
   item: FileItem | Folder | undefined | null,
   onRenameCancel?: () => void
 ) {
+  const shareCtx = useShareContext()
+  const isShareMode = !!shareCtx
+
   const { deleteItem, renameItem, createFolder, restoreItem, permanentDeleteItem } =
     useVaultActions()
   const { copied, copy } = useClipboard()
-  const folders = useFileStore((s) => s.folders)
   const queryClient = useQueryClient()
-  const dek = useAuthStore.getState().cryptoState.dek
 
   const isFolder = item ? isFolderGuard(item) : false
   const isNew = item?.id.startsWith('temp-') ?? false
 
   const handleDelete = () => {
-    if (!item || isNew) return
+    if (!item || isNew || isShareMode) return
     deleteItem({ id: item.id, isFolder })
   }
 
   const isTrash = !!item?.deletedAt
 
   const handleRestore = () => {
-    if (!item) return
+    if (!item || isShareMode) return
     restoreItem({ id: item.id, isFolder })
   }
 
   const handlePermanentDelete = () => {
-    if (!item) return
+    if (!item || isShareMode) return
     permanentDeleteItem({ id: item.id, isFolder })
   }
 
   const handleRename = async (newName: string): Promise<void> => {
-    if (!item) return
+    if (!item || isShareMode) return
 
     if (isNew) {
       const parentId = 'parentId' in item ? item.parentId : null
@@ -79,25 +87,36 @@ export function useItemActions(
     onRenameCancel?.()
   }
 
-  const handleCopyLink = async () => {
-    if (!item || isNew) return
+  const [isGeneratingLink, setIsGeneratingLink] = useState(false)
+  const [shareUrl, setShareUrl] = useState<string | null>(null)
+
+  const handleCopyLink = async (accessType?: 'public' | 'restricted') => {
+    if (isShareMode) return
+
+    const actualAccessType = accessType === 'restricted' ? 'restricted' : 'public'
+    if (!item || isNew || isShareMode) return
 
     try {
-      toast.loading('Generating secure link...', { id: 'share-link' })
+      setIsGeneratingLink(true)
+      setShareUrl(null)
+
+      if (isFolder) {
+        toast.loading('Encrypting folder contents for sharing...', { id: 'share-link' })
+      } else {
+        toast.loading('Generating secure link...', { id: 'share-link' })
+      }
+
       const localDek = useAuthStore.getState().cryptoState.dek
       if (!localDek) throw new Error('Vault is locked')
 
       const shareKey = await generateDek()
-
       let payload: any = {}
       let endpoint = ''
 
       if (isFolder) {
         endpoint = `/api/v1/folders/${item.id}/shares`
-
-        const filesInFolder = await fetchFolderFilesRecursive(item.id, localDek)
-
-        const manifestBytes = new TextEncoder().encode(JSON.stringify(filesInFolder))
+        const treeManifest = await fetchFolderTree(item.id, localDek)
+        const manifestBytes = new TextEncoder().encode(JSON.stringify(treeManifest))
         const encryptedManifest = await encryptMetadata(manifestBytes, shareKey)
 
         payload = {
@@ -106,6 +125,7 @@ export function useItemActions(
           encrypted_nonce: await bytesToBase64(encryptedManifest.nonce),
           encryption_header: null,
           item_id: item.id,
+          access_type: actualAccessType,
         }
       } else {
         endpoint = `/api/v1/files/${item.id}/shares`
@@ -130,45 +150,60 @@ export function useItemActions(
           encrypted_nonce: await bytesToBase64(sharedWrappedKey.nonce),
           encryption_header: fileMeta.encryption_header,
           item_id: item.id,
+          access_type: actualAccessType,
         }
       }
 
       const { data } = await apiClient.post(endpoint, payload)
       const shareId = data.share_id
+      const url = `${window.location.origin}/s/${shareId}#k=${await bytesToBase64(shareKey)}`
 
-      const shareUrl = `${window.location.origin}/s/${shareId}#k=${await bytesToBase64(shareKey)}`
-
-      copy(shareUrl)
-      toast.success('Secure link copied to clipboard!', { id: 'share-link' })
+      setShareUrl(url)
+      copy(url)
+      toast.success('Secure link generated and copied to clipboard!', { id: 'share-link' })
     } catch (error: any) {
       console.error(error)
       toast.error(error.message || 'Failed to generate secure link', { id: 'share-link' })
+    } finally {
+      setIsGeneratingLink(false)
     }
   }
 
   const handleDownload = async () => {
     if (!item) return
-
     try {
       toast.loading('Preparing download...', { id: `dl-${item.id}` })
-      const localDek = useAuthStore.getState().cryptoState.dek
-      if (!localDek) throw new Error('Vault is locked')
 
-      if (isFolder) {
-        await downloadFolderAsZip(item.id, item.name, localDek)
+      if (isShareMode && shareCtx) {
+        if (isFolder) {
+          await downloadSharedFolderAsZip(item.id, item.name, shareCtx.treeData, shareCtx.shareId)
+        } else {
+          const node = shareCtx.treeData.find((n) => n.id === item.id)
+          if (!node || !node.file_key) throw new Error('Missing file key for download')
+          await downloadSharedFileToDisk(item.name, 'totalSize' in item ? item.totalSize : 0, {
+            shareId: shareCtx.shareId,
+            fileId: item.id,
+            fileKeyB64: node.file_key,
+          })
+        }
       } else {
-        const fileSize = 'totalSize' in item ? item.totalSize : 0
-        await downloadFileToDisk(item.name, fileSize, { dek: localDek, fileId: item.id })
+        const localDek = useAuthStore.getState().cryptoState.dek
+        if (!localDek) throw new Error('Vault is locked')
+        if (isFolder) {
+          await downloadFolderAsZip(item.id, item.name, localDek)
+        } else {
+          await downloadFileToDisk(item.name, 'totalSize' in item ? item.totalSize : 0, {
+            dek: localDek,
+            fileId: item.id,
+          })
+        }
       }
-
       toast.success('Download started', { id: `dl-${item.id}` })
     } catch (error: any) {
       if (error?.code === 'CANCELLED' || error?.name === 'AbortError') {
         toast.dismiss(`dl-${item.id}`)
         return
       }
-
-      console.error('Download error:', error)
       toast.error(error.message ?? 'Download failed', { id: `dl-${item.id}` })
     }
   }
@@ -184,57 +219,57 @@ export function useItemActions(
   return {
     isFolder,
     isTrash,
+    isShareMode,
     handleDelete: isTrash ? handlePermanentDelete : handleDelete,
     handleRestore,
     handleCopyLink,
     handleDownload,
     copied,
     handleCancel,
+    isGeneratingLink,
+    shareUrl,
     ...inlineRename,
   }
 }
 
-async function fetchFolderFilesRecursive(folderId: string, dek: Uint8Array) {
-  const files: Array<{
-    file_id: string
+async function fetchFolderTree(folderId: string, dek: Uint8Array) {
+  const tree = await folderService.getFolderFileTree(folderId)
+  const manifest: Array<{
+    id: string
+    parent_id: string | null
+    type: string
     name: string
-    file_key: string
+    file_key: string | null
     size: number
   }> = []
 
-  async function recurse(currentId: string | null) {
-    const filesRes = await fileService.list(currentId, 1000, 0, false)
-    for (const f of filesRes.files) {
-      if (!f.wrapped_file_key || !f.wrapped_file_key_nonce) continue
+  for (const node of tree) {
+    const metadata = await decryptMetadataObject<{ name: string }>(
+      node.encrypted_metadata,
+      node.metadata_nonce,
+      dek
+    )
 
-      const metadata = await decryptMetadataObject<{ name: string }>(
-        f.encrypted_metadata,
-        f.metadata_nonce,
-        dek
-      )
-
+    let fileKeyB64: string | null = null
+    if (node.node_type === 'file' && node.wrapped_file_key && node.wrapped_file_key_nonce) {
       const wrappedKey = {
-        ciphertext: await base64ToBytes(f.wrapped_file_key),
-        nonce: await base64ToBytes(f.wrapped_file_key_nonce),
+        ciphertext: await base64ToBytes(node.wrapped_file_key),
+        nonce: await base64ToBytes(node.wrapped_file_key_nonce),
       }
       const fileKey = await unwrapDek(wrappedKey, dek)
-
       if (fileKey) {
-        files.push({
-          file_id: f.file_id,
-          name: metadata?.name || 'Unnamed File',
-          file_key: await bytesToBase64(fileKey),
-          size: f.total_size,
-        })
+        fileKeyB64 = await bytesToBase64(fileKey)
       }
     }
 
-    const foldersRes = await folderService.list(currentId, false)
-    for (const folder of foldersRes) {
-      await recurse(folder.folder_id)
-    }
+    manifest.push({
+      id: node.id,
+      parent_id: node.parent_id,
+      type: node.node_type,
+      name: metadata?.name || 'Unnamed',
+      file_key: fileKeyB64,
+      size: node.total_size || 0,
+    })
   }
-
-  await recurse(folderId)
-  return files
+  return manifest
 }

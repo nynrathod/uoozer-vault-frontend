@@ -27,6 +27,7 @@ export const FileRow = memo(function FileRow({
   const {
     isFolder,
     isTrash,
+    isShareMode,
     copied,
     handleCopyLink,
     handleDownload,
@@ -56,6 +57,7 @@ export const FileRow = memo(function FileRow({
   const isOtherMenuActive = !!activeMenuId && activeMenuId !== item.id
   const isDragOver = dragOverId === item.id
   const isNew = item.id.startsWith('temp-')
+
   return (
     <div
       className={cn(
@@ -75,34 +77,36 @@ export const FileRow = memo(function FileRow({
           'bg-primary/[0.04] border-l-primary animate-pulse border-l-2'
       )}
       onClick={onClick}
-      draggable={true}
+      draggable={!isShareMode}
       onDragStart={(e) => {
+        if (isShareMode) return
         e.dataTransfer.setData('text/plain', item.id)
         e.dataTransfer.setData('application/x-item-type', isFolder ? 'folder' : 'file')
         e.dataTransfer.effectAllowed = 'move'
         setIsDragging(true)
       }}
       onDragEnter={(e) => {
-        // Only handle internal vault items
+        if (isShareMode) return
         if (isFolder && Array.from(e.dataTransfer.types).includes('text/plain')) {
           e.preventDefault()
           setDragOverId(item.id)
         }
       }}
       onDragOver={(e) => {
-        // Only prevent default for internal vault items
+        if (isShareMode) return
         if (isFolder && Array.from(e.dataTransfer.types).includes('text/plain')) {
           e.preventDefault()
           e.stopPropagation()
         }
       }}
       onDragLeave={(e) => {
+        if (isShareMode) return
         if (isFolder && Array.from(e.dataTransfer.types).includes('text/plain')) {
           if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverId(null)
         }
       }}
       onDrop={(e) => {
-        // Only handle the drop if it's an internal vault item
+        if (isShareMode) return
         if (isFolder && Array.from(e.dataTransfer.types).includes('text/plain')) {
           e.preventDefault()
           e.stopPropagation()
@@ -113,7 +117,6 @@ export const FileRow = memo(function FileRow({
           if (draggedId && draggedId !== item.id)
             moveItem(draggedId, item.id, draggedType === 'folder')
         }
-        // If it's an OS file, do nothing here. Let it bubble up to VaultPage.
       }}
       onDragEnd={() => {
         setDragOverId(null)
@@ -162,6 +165,7 @@ export const FileRow = memo(function FileRow({
                 <Loader2 className="text-primary h-4 w-4 shrink-0 animate-spin" />
               ) : (
                 <button
+                  type="button"
                   onClick={handleSubmit}
                   className="shrink-0 cursor-pointer text-emerald-500 hover:text-emerald-600"
                 >
@@ -176,6 +180,7 @@ export const FileRow = memo(function FileRow({
         ) : (
           <div
             className="flex h-full w-full min-w-0 cursor-pointer items-center gap-2"
+            onDoubleClick={isShareMode ? undefined : () => setEditingId(item.id)}
             onClick={(e) => {
               e.stopPropagation()
               onClick()
@@ -197,26 +202,37 @@ export const FileRow = memo(function FileRow({
         onClick={(e) => e.stopPropagation()}
       >
         <button
+          type="button"
           onClick={handleDownload}
           className="text-muted-foreground hover:bg-accent hover:text-foreground flex h-8 w-8 cursor-pointer items-center justify-center rounded-md"
           title="Download"
         >
           <Download className="h-4 w-4" />
         </button>
-        <button
-          onClick={handleCopyLink}
-          className="text-muted-foreground hover:bg-accent hover:text-foreground flex h-8 w-8 cursor-pointer items-center justify-center rounded-md"
-          title="Copy Link"
-        >
-          {copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Link2 className="h-4 w-4" />}
-        </button>
-        <button
-          onClick={() => onShare(item, isFolder)}
-          className="text-muted-foreground hover:bg-accent hover:text-foreground flex h-8 w-8 cursor-pointer items-center justify-center rounded-md"
-          title="Share"
-        >
-          <Share2 className="h-4 w-4" />
-        </button>
+        {!isShareMode && (
+          <button
+            type="button"
+            onClick={() => handleCopyLink()}
+            className="text-muted-foreground hover:bg-accent hover:text-foreground flex h-8 w-8 cursor-pointer items-center justify-center rounded-md"
+            title="Copy Link"
+          >
+            {copied ? (
+              <Check className="h-4 w-4 text-emerald-500" />
+            ) : (
+              <Link2 className="h-4 w-4" />
+            )}
+          </button>
+        )}
+        {!isShareMode && (
+          <button
+            type="button"
+            onClick={() => onShare(item, isFolder)}
+            className="text-muted-foreground hover:bg-accent hover:text-foreground flex h-8 w-8 cursor-pointer items-center justify-center rounded-md"
+            title="Share"
+          >
+            <Share2 className="h-4 w-4" />
+          </button>
+        )}
 
         <FileActionsMenu
           item={item}
@@ -227,12 +243,13 @@ export const FileRow = memo(function FileRow({
           onDownload={handleDownload}
           onShare={() => setShareTarget(item.id)}
           copied={copied}
-          onCopyLink={handleCopyLink}
+          onCopyLink={() => handleCopyLink()}
           onVersions={() => !isFolder && setVersionFileId(item.id)}
           open={isMenuActive}
           onOpenChange={(open) => setActiveMenuId(open ? item.id : null)}
           trigger={
             <button
+              type="button"
               className="text-muted-foreground hover:bg-accent hover:text-foreground flex h-8 w-8 cursor-pointer items-center justify-center rounded-md"
               title="More"
             >

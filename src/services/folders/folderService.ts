@@ -88,4 +88,12 @@ export const folderService = {
       throw handleApiError(error, 'Failed to bulk create folders.')
     }
   },
+  async getFolderFileTree(folderId: string): Promise<any[]> {
+    try {
+      const { data } = await apiClient.get(`/api/v1/folders/${folderId}/tree`)
+      return data
+    } catch (error: any) {
+      throw handleApiError(error, 'Failed to fetch folder tree.')
+    }
+  },
 }

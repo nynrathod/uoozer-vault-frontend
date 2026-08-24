@@ -53,6 +53,10 @@ const SuspenseFallback = () => (
 
 const router = createBrowserRouter([
   {
+    path: '/s/:shareId',
+    element: <PublicSharePage />,
+  },
+  {
     element: <PublicRoute />,
     children: [
       {
@@ -131,10 +135,6 @@ const router = createBrowserRouter([
                 <VaultPage />
               </Suspense>
             ),
-          },
-          {
-            path: '/s/:shareId',
-            element: <PublicSharePage />,
           },
           {
             path: ROUTES.NOTES,

@@ -318,10 +318,10 @@ export function VaultPage() {
         {shareTargetId && sharedItem && (
           <ShareDialog
             open={!!shareTargetId}
-            onOpenChange={() => setShareTarget(null)}
-            itemName={sharedItem.name}
-            isFolder={isSharedItemFolder}
-            itemCount={isSharedItemFolder ? folderCounts[shareTargetId] || 0 : 0}
+            onOpenChange={(open) => {
+              if (!open) useFileStore.getState().setShareTarget(null)
+            }}
+            item={sharedItem}
           />
         )}
       </div>

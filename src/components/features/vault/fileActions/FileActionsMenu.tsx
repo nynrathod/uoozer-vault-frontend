@@ -4,6 +4,7 @@ import { Download, Share2, Edit3, Copy, Trash2, History, Eye, Check, RotateCcw }
 import type { FileItem } from '@/types/files'
 import type { Folder } from '@/types/folders'
 import { DeleteConfirmDialog } from '@/components/ui/overlays/DeleteConfirmDialog'
+import { useItemActions } from '@hooks/useItemActions'
 
 interface FileActionsMenuProps {
   item: FileItem | Folder
@@ -38,6 +39,19 @@ export const FileActionsMenu = memo(function FileActionsMenu({
 }: FileActionsMenuProps) {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const isTrash = !!item.deletedAt
+
+  const { isShareMode } = useItemActions(item, () => {})
+
+  if (isShareMode) {
+    return (
+      <DropdownMenu trigger={trigger} open={open} onOpenChange={onOpenChange}>
+        <DropdownItem icon={<Download className="h-4 w-4" />} onClick={onDownload}>
+          Download
+        </DropdownItem>
+      </DropdownMenu>
+    )
+  }
+
   return (
     <>
       <DropdownMenu trigger={trigger} open={open} onOpenChange={onOpenChange}>
@@ -75,7 +89,7 @@ export const FileActionsMenu = memo(function FileActionsMenu({
                 )
               }
               preventClose
-              onClick={onCopyLink}
+              onClick={() => onCopyLink()}
             >
               {copied ? 'Copied!' : 'Copy link'}
             </DropdownItem>
@@ -108,7 +122,7 @@ export const FileActionsMenu = memo(function FileActionsMenu({
         onOpenChange={setDeleteOpen}
         itemName={item.name}
         isFolder={isFolder}
-        isPermanent={isTrash} // Use red warning text for permanent delete
+        isPermanent={isTrash}
         onConfirm={() => {
           onDelete()
           setDeleteOpen(false)

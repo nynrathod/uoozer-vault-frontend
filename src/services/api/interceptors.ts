@@ -44,12 +44,14 @@ export function setupInterceptors(apiClient: AxiosInstance): void {
   apiClient.interceptors.response.use(
     (response) => response,
     async (error: AxiosError) => {
-      const originalRequest = error.config as InternalAxiosRequestConfig & {
-        _retry?: boolean
-        _skipAuthRefresh?: boolean
-      }
+      const originalRequest = error.config as
+        | (InternalAxiosRequestConfig & {
+            _retry?: boolean
+            _skipAuthRefresh?: boolean
+          })
+        | undefined
 
-      if (originalRequest._skipAuthRefresh || originalRequest._retry) {
+      if (!originalRequest || originalRequest._skipAuthRefresh || originalRequest._retry) {
         return Promise.reject(error)
       }
 

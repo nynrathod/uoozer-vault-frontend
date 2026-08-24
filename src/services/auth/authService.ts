@@ -220,7 +220,7 @@ class AuthService {
     const refreshToken = await tokenManager.getRefreshToken()
     const accessToken = tokenManager.getAccessToken()
 
-    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
 
     try {
       await fetch(`${API_BASE_URL}/api/v1/auth/logout`, {

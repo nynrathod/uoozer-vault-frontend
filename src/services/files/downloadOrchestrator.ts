@@ -10,6 +10,7 @@ import {
   unwrapDek,
 } from '@lib/crypto'
 import type { DownloadManifest } from '@/types/files'
+import { apiClient } from '../api/client'
 
 export interface DownloadOptions {
   dek: Uint8Array
@@ -346,4 +347,141 @@ function triggerBrowserDownload(filename: string, blob: Blob): void {
   a.click()
   document.body.removeChild(a)
   setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+export async function downloadSharedFileToDisk(
+  fileName: string,
+  fileSize: number,
+  options: {
+    shareId: string
+    fileId: string
+    fileKeyB64: string
+    onProgress?: (d: number, t: number) => void
+    signal?: AbortSignal
+  }
+): Promise<void> {
+  const { shareId, fileId, fileKeyB64, onProgress, signal } = options
+
+  try {
+    const { data: manifest } = await apiClient.get(`/api/v1/shares/${shareId}/files/${fileId}`)
+
+    const fileKey = await base64ToBytes(fileKeyB64)
+    const header = await base64ToBytes(manifest.encryption_header)
+    const streamId = await initFileDecryption(header, fileKey)
+
+    const stream = new ReadableStream({
+      async start(controller) {
+        let downloadedBytes = 0
+        try {
+          for (const chunkInfo of manifest.chunks) {
+            if (signal?.aborted) {
+              await cleanupFileStream(streamId)
+              controller.error(new DownloadError('CANCELLED', 'Download cancelled'))
+              return
+            }
+            const response = await fetch(chunkInfo.presigned_url, { signal })
+            if (!response.ok || !response.body) throw new Error('Network error')
+
+            const reader = response.body.getReader()
+            const chunks: Uint8Array[] = []
+            while (true) {
+              const { done, value } = await reader.read()
+              if (done) break
+              if (value) {
+                chunks.push(value)
+                downloadedBytes += value.byteLength
+                onProgress?.(downloadedBytes, manifest.total_size)
+              }
+            }
+            const merged = new Uint8Array(chunks.reduce((a, c) => a + c.byteLength, 0))
+            let offset = 0
+            for (const c of chunks) {
+              merged.set(c, offset)
+              offset += c.byteLength
+            }
+
+            const plaintext = await decryptFileChunk(streamId, merged)
+            controller.enqueue(plaintext)
+          }
+          await cleanupFileStream(streamId)
+          controller.close()
+        } catch (error) {
+          await cleanupFileStream(streamId)
+          controller.error(error)
+        }
+      },
+    })
+
+    const response = new Response(stream)
+    const blob = await response.blob()
+    triggerBrowserDownload(fileName, blob)
+  } catch (error: any) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new DownloadError('CANCELLED', 'Download cancelled by user.')
+    }
+    throw error
+  }
+}
+
+export async function downloadSharedFolderAsZip(
+  rootFolderId: string,
+  rootFolderName: string,
+  treeData: any[],
+  shareId: string
+): Promise<void> {
+  let zipWriter: any
+  let writableStream: any = null
+
+  try {
+    if ('showSaveFilePicker' in window) {
+      const handle = await (window as any).showSaveFilePicker({
+        suggestedName: `${rootFolderName}.zip`,
+      })
+      writableStream = await handle.createWritable()
+      zipWriter = new ZipWriter(writableStream, { useWebWorkers: true })
+    } else {
+      zipWriter = new ZipWriter(new BlobWriter('application/zip'), { useWebWorkers: true })
+    }
+
+    async function addContents(currentFolderId: string | null, basePath: string) {
+      const items = treeData.filter((n) => n.parent_id === currentFolderId)
+      for (const item of items) {
+        if (item.type === 'folder') {
+          await addContents(item.id, basePath ? `${basePath}/${item.name}` : item.name)
+        } else {
+          const response = await apiClient.get(`/api/v1/shares/${shareId}/files/${item.id}`)
+          const manifest = response.data
+
+          const fileKey = await base64ToBytes(item.file_key)
+          const header = await base64ToBytes(manifest.encryption_header)
+          const streamId = await initFileDecryption(header, fileKey)
+
+          const decryptedParts: Uint8Array[] = []
+          for (const chunkInfo of manifest.chunks) {
+            const chunkRes = await fetch(chunkInfo.presigned_url)
+            const arrBuf = await chunkRes.arrayBuffer()
+            const plaintext = await decryptFileChunk(streamId, new Uint8Array(arrBuf))
+            decryptedParts.push(plaintext)
+          }
+          await cleanupFileStream(streamId)
+
+          const blob = new Blob(decryptedParts as BlobPart[], { type: 'application/octet-stream' })
+          const fullPath = basePath ? `${basePath}/${item.name}` : item.name
+          await zipWriter.add(fullPath, new BlobReader(blob))
+        }
+      }
+    }
+
+    await addContents(rootFolderId, '')
+    const zipBlob = await zipWriter.close()
+    if (!writableStream && zipBlob) {
+      triggerBrowserDownload(`${rootFolderName}.zip`, zipBlob as Blob)
+    }
+  } catch (error: any) {
+    await zipWriter?.close().catch(() => {})
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new DownloadError('CANCELLED', 'Download cancelled by user.')
+    }
+    throw error
+  }
 }
