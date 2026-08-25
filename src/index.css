@@ -34,12 +34,11 @@ body.theme-switching *::after {
    All colors, spacing, radius, shadows flow from CSS variables below.
    NO hardcoded values in components. Ever.
    
-   Design principles ((Minimal & Clean):
-   - Whitespace is not empty space — it's breathing room
-   - Borders should be barely visible or absent
-   - Shadows are atmospheric, not structural
-   - Animation is 150ms, ease-out, opacity/transform only
-   - Typography is the hierarchy
+   Design Principles (Atmospheric & Tactile):
+   - Backgrounds are NEVER pure white. They are tinted (cool grey, warm parchment).
+   - Cards are pure white. This makes them physically "pop" off the background.
+   - Shadows are layered and deep to create Z-Axis depth.
+   - Borders are visible enough to define physical boundaries.
    ============================================================================ */
 
 @custom-variant dark (&:where(.dark, .dark *));
@@ -48,44 +47,44 @@ body.theme-switching *::after {
    1. THEME VARIABLES — 5 variants, one source of truth
    ---------------------------------------------------------------------------- */
 @layer base {
-  /* ---- DEFAULT THEME ---- */
+  /* ---- DEFAULT THEME (Trusted Azure) ---- */
   :root,
   [data-theme='default'] {
-    /* Core palette */
-    --brand: 217 100% 50%; /* #0061FE — Uoozer Blue */
-    --brand-hover: 217 100% 45%;
-    --brand-active: 217 100% 40%;
+    /* Core palette - Deep, rich "Trusted Azure" */
+    --brand: 221 83% 53%;
+    --brand-hover: 221 83% 47%;
+    --brand-active: 221 83% 41%;
     --brand-foreground: 0 0% 100%;
-    --brand-subtle: 217 100% 97%;
+    --brand-subtle: 221 83% 97%;
 
-    /* CTA accent — the signature green button */
-    --cta: 72 82% 49%; /* #B4DC19 — Lime */
-    --cta-hover: 72 82% 44%;
-    --cta-active: 72 82% 39%;
-    --cta-foreground: 220 15% 10%; /* Black text on green */
+    /* CTA accent - "Secure Emerald" */
+    --cta: 152 76% 40%;
+    --cta-hover: 152 76% 35%;
+    --cta-active: 152 76% 30%;
+    --cta-foreground: 0 0% 100%;
 
-    /* Surface colors */
-    --background: 0 0% 100%;
-    --foreground: 220 15% 10%;
-    --card: 0 0% 100%;
-    --card-foreground: 220 15% 10%;
+    /* Surface colors - Atmospheric Tinting (Cool Icy Grey) */
+    --background: 210 20% 98%;
+    --foreground: 220 25% 12%; /* Deep, rich text */
+    --card: 0 0% 100%; /* Pure white cards pop off the background */
+    --card-foreground: 220 25% 12%;
     --popover: 0 0% 100%;
-    --popover-foreground: 220 15% 10%;
+    --popover-foreground: 220 25% 12%;
 
     /* Muted / secondary surfaces */
-    --secondary: 220 14% 96%;
+    --secondary: 220 14% 93%;
     --secondary-foreground: 220 15% 20%;
-    --muted: 220 14% 96%;
-    --muted-foreground: 220 10% 45%;
-    --accent: 220 14% 96%;
+    --muted: 220 14% 93%;
+    --muted-foreground: 220 10% 40%; /* Darker muted text for readability */
+    --accent: 220 14% 93%;
     --accent-foreground: 220 15% 20%;
 
-    /* Structural */
-    --border: 220 13% 91%;
-    --border-hover: 220 13% 80%;
-    --input: 220 13% 91%;
-    --ring: 217 100% 50%;
-    --divider: 220 13% 94%;
+    /* Structural - Visible boundaries */
+    --border: 220 13% 85%;
+    --border-hover: 220 13% 75%;
+    --input: 220 13% 85%;
+    --ring: 221 83% 53%;
+    --divider: 220 13% 90%;
 
     /* Status */
     --destructive: 0 72% 51%;
@@ -95,27 +94,27 @@ body.theme-switching *::after {
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
 
-    /* Sidebar */
+    /* Sidebar - Distinct structural layer */
     --sidebar: 0 0% 100%;
-    --sidebar-foreground: 220 15% 10%;
-    --sidebar-border: 220 13% 94%;
-    --sidebar-ring: 217 100% 50%;
-    --sidebar-accent: 220 14% 96%;
-    --sidebar-accent-foreground: 220 15% 10%;
+    --sidebar-foreground: 220 25% 12%;
+    --sidebar-border: 220 13% 88%;
+    --sidebar-ring: 221 83% 53%;
+    --sidebar-accent: 220 14% 93%;
+    --sidebar-accent-foreground: 220 15% 20%;
 
     /* Vault-specific */
     --vault: 0 0% 100%;
-    --vault-foreground: 220 15% 10%;
-    --vault-muted: 220 14% 96%;
-    --vault-border: 220 13% 94%;
+    --vault-foreground: 220 25% 12%;
+    --vault-muted: 220 14% 93%;
+    --vault-border: 220 13% 88%;
 
-    /* Shadows — atmospheric, barely there */
-    --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.03);
-    --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.04), 0 1px 2px -1px rgb(0 0 0 / 0.04);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.04), 0 2px 4px -2px rgb(0 0 0 / 0.04);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.04), 0 4px 6px -4px rgb(0 0 0 / 0.04);
-    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.04), 0 8px 10px -6px rgb(0 0 0 / 0.04);
-    --shadow-glow: 0 0 20px -4px hsl(var(--brand) / 0.2);
+    /* Shadows - 3-Layer Depth System (Ambient + Key + Penumbra) */
+    --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.08);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    --shadow-glow: 0 0 20px -4px hsl(var(--brand) / 0.3);
 
     /* Radius scale */
     --radius-sm: 6px;
@@ -135,22 +134,22 @@ body.theme-switching *::after {
     --space-10: 2.5rem; /* 40px */
     --space-12: 3rem; /* 48px */
 
-    /* Typography scale */
+    /* Typography scale - Strict Modular Hierarchy */
     --text-xs: 0.75rem;
-    --text-sm: 0.8125rem; /* 13px */
-    --text-base: 0.9375rem; /* 15px */
-    --text-lg: 1.0625rem; /* 17px */
+    --text-sm: 0.8125rem; /* 13px - Base UI */
+    --text-base: 0.9375rem; /* 15px - Primary (File names) */
+    --text-lg: 1.0625rem; /* 17px - Headers */
     --text-xl: 1.25rem;
     --text-2xl: 1.5rem;
-    --text-2xs: 0.6875rem; /* 11px */
-    --text-caption: 0.6875rem; /* 11px */
+    --text-2xs: 0.6875rem; /* 11px - Tertiary (Timestamps) */
+    --text-caption: 0.6875rem;
 
     /* color tokens */
-    --color-theme-default: #0061fe;
-    --color-theme-uoozer: #f5a623;
-    --color-theme-obsidian: #4f8cff;
-    --color-theme-slate: #4a5568;
-    --color-theme-forest: #2f855a;
+    --color-theme-default: hsl(221 83% 53%);
+    --color-theme-uoozer: hsl(32 95% 55%);
+    --color-theme-obsidian: hsl(217 91% 60%);
+    --color-theme-slate: hsl(225 70% 50%);
+    --color-theme-forest: hsl(150 55% 35%);
 
     /* Line heights */
     --leading-tight: 1.25;
@@ -178,38 +177,40 @@ body.theme-switching *::after {
     --z-toast: 600;
   }
 
-  /* ---- UOOZER THEME (warm amber/orange from your Notes app) ---- */
+  /* ---- UOOZER THEME (Warm Amber) ---- */
   [data-theme='uoozer'] {
-    --brand: 32 95% 55%;
-    --brand-hover: 32 95% 48%;
-    --brand-active: 32 95% 42%;
+    --brand: 32 95% 50%;
+    --brand-hover: 32 95% 43%;
+    --brand-active: 32 95% 36%;
     --brand-foreground: 0 0% 100%;
     --brand-subtle: 32 95% 97%;
 
-    --cta: 45 95% 55%;
-    --cta-hover: 45 95% 50%;
-    --cta-active: 45 95% 45%;
-    --cta-foreground: 220 15% 10%;
+    /* CTA - Punchy Orange */
+    --cta: 24 95% 55%;
+    --cta-hover: 24 95% 50%;
+    --cta-active: 24 95% 45%;
+    --cta-foreground: 0 0% 100%;
 
-    --background: 30 20% 99%;
-    --foreground: 220 15% 10%;
+    /* Atmospheric Tinting (Warm Parchment) */
+    --background: 30 30% 99%;
+    --foreground: 20 15% 12%;
     --card: 0 0% 100%;
-    --card-foreground: 220 15% 10%;
+    --card-foreground: 20 15% 12%;
     --popover: 0 0% 100%;
-    --popover-foreground: 220 15% 10%;
+    --popover-foreground: 20 15% 12%;
 
-    --secondary: 30 10% 96%;
-    --secondary-foreground: 220 15% 20%;
-    --muted: 30 10% 96%;
-    --muted-foreground: 220 10% 45%;
-    --accent: 30 10% 96%;
-    --accent-foreground: 220 15% 20%;
+    --secondary: 30 15% 94%;
+    --secondary-foreground: 20 15% 20%;
+    --muted: 30 15% 94%;
+    --muted-foreground: 20 8% 40%;
+    --accent: 30 15% 94%;
+    --accent-foreground: 20 15% 20%;
 
-    --border: 30 10% 90%;
-    --border-hover: 30 10% 80%;
-    --input: 30 10% 90%;
-    --ring: 32 95% 55%;
-    --divider: 30 10% 94%;
+    --border: 30 12% 86%;
+    --border-hover: 30 12% 76%;
+    --input: 30 12% 86%;
+    --ring: 32 95% 50%;
+    --divider: 30 12% 90%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
@@ -219,57 +220,60 @@ body.theme-switching *::after {
     --warning-foreground: 0 0% 100%;
 
     --sidebar: 0 0% 100%;
-    --sidebar-foreground: 220 15% 10%;
-    --sidebar-border: 30 10% 94%;
-    --sidebar-ring: 32 95% 55%;
-    --sidebar-accent: 30 10% 96%;
-    --sidebar-accent-foreground: 220 15% 10%;
+    --sidebar-foreground: 20 15% 12%;
+    --sidebar-border: 30 12% 90%;
+    --sidebar-ring: 32 95% 50%;
+    --sidebar-accent: 30 15% 94%;
+    --sidebar-accent-foreground: 20 15% 20%;
 
     --vault: 0 0% 100%;
-    --vault-foreground: 220 15% 10%;
-    --vault-muted: 30 10% 96%;
-    --vault-border: 30 10% 94%;
+    --vault-foreground: 20 15% 12%;
+    --vault-muted: 30 15% 94%;
+    --vault-border: 30 12% 90%;
 
-    --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.03);
-    --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.04), 0 1px 2px -1px rgb(0 0 0 / 0.04);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.04), 0 2px 4px -2px rgb(0 0 0 / 0.04);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.04), 0 4px 6px -4px rgb(0 0 0 / 0.04);
-    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.04), 0 8px 10px -6px rgb(0 0 0 / 0.04);
-    --shadow-glow: 0 0 20px -4px hsl(var(--brand) / 0.2);
+    --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.08);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    --shadow-glow: 0 0 20px -4px hsl(var(--brand) / 0.3);
   }
 
-  /* ---- OBSIDIAN THEME (deep dark, graphite) ---- */
+  /* ---- OBSIDIAN THEME (Deep Graphite / Hacker Premium) ---- */
   [data-theme='obsidian'] {
-    --brand: 217 90% 60%;
-    --brand-hover: 217 90% 65%;
-    --brand-active: 217 90% 70%;
+    --brand: 217 91% 60%; /* Electric Blue */
+    --brand-hover: 217 91% 65%;
+    --brand-active: 217 91% 70%;
     --brand-foreground: 0 0% 100%;
     --brand-subtle: 217 30% 18%;
 
-    --cta: 72 82% 49%;
-    --cta-hover: 72 82% 54%;
-    --cta-active: 72 82% 59%;
+    /* CTA - Neon Emerald */
+    --cta: 152 76% 45%;
+    --cta-hover: 152 76% 50%;
+    --cta-active: 152 76% 55%;
     --cta-foreground: 220 15% 10%;
 
-    --background: 220 15% 6%;
-    --foreground: 0 0% 95%;
-    --card: 220 15% 8%;
-    --card-foreground: 0 0% 95%;
-    --popover: 220 15% 8%;
-    --popover-foreground: 0 0% 95%;
+    /* Atmospheric Tinting (Rich Graphite) */
+    --background: 220 18% 7%;
+    --foreground: 210 20% 96%;
+    --card: 220 15% 10%; /* Cards lift off the graphite */
+    --card-foreground: 210 20% 96%;
+    --popover: 220 15% 10%;
+    --popover-foreground: 210 20% 96%;
 
-    --secondary: 220 10% 14%;
-    --secondary-foreground: 0 0% 90%;
-    --muted: 220 10% 14%;
-    --muted-foreground: 220 5% 55%;
-    --accent: 220 10% 14%;
-    --accent-foreground: 0 0% 90%;
+    --secondary: 220 12% 16%;
+    --secondary-foreground: 210 15% 90%;
+    --muted: 220 12% 16%;
+    --muted-foreground: 220 8% 60%;
+    --accent: 220 12% 16%;
+    --accent-foreground: 210 15% 90%;
 
-    --border: 220 10% 16%;
-    --border-hover: 220 10% 24%;
-    --input: 220 10% 16%;
-    --ring: 217 90% 60%;
-    --divider: 220 10% 14%;
+    /* Visible structural boundaries in dark mode */
+    --border: 220 12% 20%;
+    --border-hover: 220 12% 30%;
+    --input: 220 12% 20%;
+    --ring: 217 91% 60%;
+    --divider: 220 12% 18%;
 
     --destructive: 0 62% 50%;
     --destructive-foreground: 0 0% 100%;
@@ -278,39 +282,42 @@ body.theme-switching *::after {
     --warning: 38 85% 50%;
     --warning-foreground: 0 0% 100%;
 
-    --sidebar: 220 15% 5%;
-    --sidebar-foreground: 0 0% 95%;
-    --sidebar-border: 220 10% 14%;
-    --sidebar-ring: 217 90% 60%;
-    --sidebar-accent: 220 10% 14%;
-    --sidebar-accent-foreground: 0 0% 90%;
+    --sidebar: 220 18% 5%; /* Deeper than main background */
+    --sidebar-foreground: 210 20% 96%;
+    --sidebar-border: 220 12% 18%;
+    --sidebar-ring: 217 91% 60%;
+    --sidebar-accent: 220 12% 16%;
+    --sidebar-accent-foreground: 210 15% 90%;
 
-    --vault: 220 15% 6%;
-    --vault-foreground: 0 0% 95%;
-    --vault-muted: 220 10% 14%;
-    --vault-border: 220 10% 14%;
+    --vault: 220 18% 7%;
+    --vault-foreground: 210 20% 96%;
+    --vault-muted: 220 12% 16%;
+    --vault-border: 220 12% 20%;
 
-    --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.3);
-    --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.3), 0 1px 2px -1px rgb(0 0 0 / 0.3);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.3);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.35), 0 4px 6px -4px rgb(0 0 0 / 0.3);
-    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.4), 0 8px 10px -6px rgb(0 0 0 / 0.35);
-    --shadow-glow: 0 0 24px -4px hsl(var(--brand) / 0.3);
+    /* Deep, heavy shadows for dark mode */
+    --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.4);
+    --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.5), 0 1px 2px -1px rgb(0 0 0 / 0.5);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.4);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.5);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.6), 0 8px 10px -6px rgb(0 0 0 / 0.5);
+    --shadow-glow: 0 0 24px -4px hsl(var(--brand) / 0.4);
   }
 
-  /* ---- SLATE THEME (modern professional gray) ---- */
+  /* ---- SLATE THEME (Modern Corporate / Stripe) ---- */
   [data-theme='slate'] {
-    --brand: 215 25% 35%;
-    --brand-hover: 215 25% 30%;
-    --brand-active: 215 25% 25%;
+    --brand: 225 70% 50%; /* Deep Indigo */
+    --brand-hover: 225 70% 44%;
+    --brand-active: 225 70% 38%;
     --brand-foreground: 0 0% 100%;
-    --brand-subtle: 215 20% 97%;
+    --brand-subtle: 225 70% 97%;
 
-    --cta: 160 60% 45%;
-    --cta-hover: 160 60% 40%;
-    --cta-active: 160 60% 35%;
+    /* CTA - Vibrant Violet */
+    --cta: 265 90% 65%;
+    --cta-hover: 265 90% 60%;
+    --cta-active: 265 90% 55%;
     --cta-foreground: 0 0% 100%;
 
+    /* Atmospheric Tinting (Cool Slate) */
     --background: 210 20% 98%;
     --foreground: 215 25% 15%;
     --card: 0 0% 100%;
@@ -318,18 +325,18 @@ body.theme-switching *::after {
     --popover: 0 0% 100%;
     --popover-foreground: 215 25% 15%;
 
-    --secondary: 210 15% 96%;
+    --secondary: 210 15% 94%;
     --secondary-foreground: 215 25% 20%;
-    --muted: 210 15% 96%;
-    --muted-foreground: 215 10% 45%;
-    --accent: 210 15% 96%;
+    --muted: 210 15% 94%;
+    --muted-foreground: 215 10% 40%;
+    --accent: 210 15% 94%;
     --accent-foreground: 215 25% 20%;
 
-    --border: 210 15% 90%;
-    --border-hover: 210 15% 80%;
-    --input: 210 15% 90%;
-    --ring: 215 25% 35%;
-    --divider: 210 15% 94%;
+    --border: 210 15% 85%;
+    --border-hover: 210 15% 75%;
+    --input: 210 15% 85%;
+    --ring: 225 70% 50%;
+    --divider: 210 15% 90%;
 
     --destructive: 0 65% 50%;
     --destructive-foreground: 0 0% 100%;
@@ -340,56 +347,58 @@ body.theme-switching *::after {
 
     --sidebar: 0 0% 100%;
     --sidebar-foreground: 215 25% 15%;
-    --sidebar-border: 210 15% 94%;
-    --sidebar-ring: 215 25% 35%;
-    --sidebar-accent: 210 15% 96%;
+    --sidebar-border: 210 15% 90%;
+    --sidebar-ring: 225 70% 50%;
+    --sidebar-accent: 210 15% 94%;
     --sidebar-accent-foreground: 215 25% 20%;
 
     --vault: 0 0% 100%;
     --vault-foreground: 215 25% 15%;
-    --vault-muted: 210 15% 96%;
-    --vault-border: 210 15% 94%;
+    --vault-muted: 210 15% 94%;
+    --vault-border: 210 15% 90%;
 
-    --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.03);
-    --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.04), 0 1px 2px -1px rgb(0 0 0 / 0.04);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.04), 0 2px 4px -2px rgb(0 0 0 / 0.04);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.04), 0 4px 6px -4px rgb(0 0 0 / 0.04);
-    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.04), 0 8px 10px -6px rgb(0 0 0 / 0.04);
-    --shadow-glow: 0 0 20px -4px hsl(var(--brand) / 0.2);
+    --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.08);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    --shadow-glow: 0 0 20px -4px hsl(var(--brand) / 0.3);
   }
 
-  /* ---- FOREST THEME (nature-inspired green) ---- */
+  /* ---- FOREST THEME (Eco Secure / PrivacyGuides) ---- */
   [data-theme='forest'] {
-    --brand: 150 55% 35%;
+    --brand: 150 55% 35%; /* Deep Forest Green */
     --brand-hover: 150 55% 30%;
     --brand-active: 150 55% 25%;
     --brand-foreground: 0 0% 100%;
     --brand-subtle: 150 30% 97%;
 
+    /* CTA - Bright Lime */
     --cta: 80 70% 50%;
     --cta-hover: 80 70% 45%;
     --cta-active: 80 70% 40%;
     --cta-foreground: 220 15% 10%;
 
+    /* Atmospheric Tinting (Pale Sage) */
     --background: 140 15% 99%;
-    --foreground: 150 20% 10%;
+    --foreground: 150 20% 12%;
     --card: 0 0% 100%;
-    --card-foreground: 150 20% 10%;
+    --card-foreground: 150 20% 12%;
     --popover: 0 0% 100%;
-    --popover-foreground: 150 20% 10%;
+    --popover-foreground: 150 20% 12%;
 
-    --secondary: 140 10% 96%;
+    --secondary: 140 10% 94%;
     --secondary-foreground: 150 20% 20%;
-    --muted: 140 10% 96%;
-    --muted-foreground: 150 10% 45%;
-    --accent: 140 10% 96%;
+    --muted: 140 10% 94%;
+    --muted-foreground: 150 10% 40%;
+    --accent: 140 10% 94%;
     --accent-foreground: 150 20% 20%;
 
-    --border: 140 10% 90%;
-    --border-hover: 140 10% 80%;
-    --input: 140 10% 90%;
+    --border: 140 10% 85%;
+    --border-hover: 140 10% 75%;
+    --input: 140 10% 85%;
     --ring: 150 55% 35%;
-    --divider: 140 10% 94%;
+    --divider: 140 10% 90%;
 
     --destructive: 0 65% 50%;
     --destructive-foreground: 0 0% 100%;
@@ -399,62 +408,67 @@ body.theme-switching *::after {
     --warning-foreground: 0 0% 100%;
 
     --sidebar: 0 0% 100%;
-    --sidebar-foreground: 150 20% 10%;
-    --sidebar-border: 140 10% 94%;
+    --sidebar-foreground: 150 20% 12%;
+    --sidebar-border: 140 10% 90%;
     --sidebar-ring: 150 55% 35%;
-    --sidebar-accent: 140 10% 96%;
+    --sidebar-accent: 140 10% 94%;
     --sidebar-accent-foreground: 150 20% 20%;
 
     --vault: 0 0% 100%;
-    --vault-foreground: 150 20% 10%;
-    --vault-muted: 140 10% 96%;
-    --vault-border: 140 10% 94%;
+    --vault-foreground: 150 20% 12%;
+    --vault-muted: 140 10% 94%;
+    --vault-border: 140 10% 90%;
 
-    --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.03);
-    --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.04), 0 1px 2px -1px rgb(0 0 0 / 0.04);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.04), 0 2px 4px -2px rgb(0 0 0 / 0.04);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.04), 0 4px 6px -4px rgb(0 0 0 / 0.04);
-    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.04), 0 8px 10px -6px rgb(0 0 0 / 0.04);
-    --shadow-glow: 0 0 20px -4px hsl(var(--brand) / 0.2);
+    --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.08);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    --shadow-glow: 0 0 20px -4px hsl(var(--brand) / 0.3);
   }
 
-  /* ---- DARK MODE OVERRIDE (works with any theme) ---- */
+  /* ---- DARK MODE OVERRIDE (Global dark mode applied on top of any theme) ---- */
   .dark {
-    --background: 220 15% 5%;
-    --foreground: 0 0% 95%;
-    --card: 220 15% 7%;
-    --card-foreground: 0 0% 95%;
-    --popover: 220 15% 7%;
-    --popover-foreground: 0 0% 95%;
+    /* Atmospheric Graphite, not pure black */
+    --background: 220 18% 7%;
+    --foreground: 210 20% 96%;
+    /* Cards lift off the graphite */
+    --card: 220 15% 10%;
+    --card-foreground: 210 20% 96%;
+    --popover: 220 15% 10%;
+    --popover-foreground: 210 20% 96%;
 
-    --secondary: 220 10% 14%;
-    --secondary-foreground: 0 0% 90%;
-    --muted: 220 10% 14%;
-    --muted-foreground: 220 5% 55%;
-    --accent: 220 10% 14%;
-    --accent-foreground: 0 0% 90%;
+    --secondary: 220 12% 16%;
+    --secondary-foreground: 210 15% 90%;
+    --muted: 220 12% 16%;
+    --muted-foreground: 220 8% 60%;
+    --accent: 220 12% 16%;
+    --accent-foreground: 210 15% 90%;
 
-    --border: 220 10% 16%;
-    --border-hover: 220 10% 24%;
-    --input: 220 10% 16%;
-    --divider: 220 10% 14%;
+    /* Visible structural boundaries in dark mode */
+    --border: 220 12% 20%;
+    --border-hover: 220 12% 30%;
+    --input: 220 12% 20%;
+    --divider: 220 12% 18%;
 
-    --sidebar: 220 15% 4%;
-    --sidebar-foreground: 0 0% 95%;
-    --sidebar-border: 220 10% 14%;
-    --sidebar-accent: 220 10% 14%;
-    --sidebar-accent-foreground: 0 0% 90%;
+    --sidebar: 220 18% 5%; /* Deeper than main background */
+    --sidebar-foreground: 210 20% 96%;
+    --sidebar-border: 220 12% 18%;
+    --sidebar-accent: 220 12% 16%;
+    --sidebar-accent-foreground: 210 15% 90%;
 
-    --vault: 220 15% 5%;
-    --vault-foreground: 0 0% 95%;
-    --vault-muted: 220 10% 14%;
-    --vault-border: 220 10% 14%;
+    --vault: 220 18% 7%;
+    --vault-foreground: 210 20% 96%;
+    --vault-muted: 220 12% 16%;
+    --vault-border: 220 12% 20%;
 
-    --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.3);
-    --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.3), 0 1px 2px -1px rgb(0 0 0 / 0.3);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.3);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.35), 0 4px 6px -4px rgb(0 0 0 / 0.3);
-    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.4), 0 8px 10px -6px rgb(0 0 0 / 0.35);
+    /* Deep, heavy shadows for dark mode */
+    --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.4);
+    --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.5), 0 1px 2px -1px rgb(0 0 0 / 0.5);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.4);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.5);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.6), 0 8px 10px -6px rgb(0 0 0 / 0.5);
+    --shadow-glow: 0 0 24px -4px hsl(var(--brand) / 0.4);
   }
 }
 
@@ -674,18 +688,18 @@ body.theme-switching *::after {
 
   /* Scrollbar — thin, minimal */
   ::-webkit-scrollbar {
-    width: 5px;
-    height: 5px;
+    width: 6px;
+    height: 6px;
   }
   ::-webkit-scrollbar-track {
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: hsl(var(--muted-foreground) / 0.15);
+    background: hsl(var(--muted-foreground) / 0.2);
     border-radius: var(--radius-full);
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--muted-foreground) / 0.3);
+    background: hsl(var(--muted-foreground) / 0.4);
   }
   ::-webkit-scrollbar-corner {
     background: transparent;
