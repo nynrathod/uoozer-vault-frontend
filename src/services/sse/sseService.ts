@@ -59,8 +59,6 @@ class SSEService {
     if (!token) return
 
     this.disconnect()
-
-    // Fallback to window.location.origin if SSE_BASE_URL is empty
     const baseUrl = SSE_BASE_URL || window.location.origin
     const url = new URL(`${baseUrl}/api/v1/sync/events`)
     url.searchParams.set('token', token)
@@ -84,6 +82,13 @@ class SSEService {
     this.eventSource.onerror = () => {
       this.disconnect()
       this.reconnectAttempts++
+
+      // Stop retrying after 3 failed attempts to prevent console spam
+      if (this.reconnectAttempts > 3) {
+        console.warn('SSE connection failed. Realtime sync is disabled for this session.')
+        return
+      }
+
       const delay = Math.min(30000, 1000 * Math.pow(2, this.reconnectAttempts))
       this.reconnectTimer = setTimeout(() => this.connect(), delay)
     }
@@ -119,4 +124,4 @@ class SSEService {
   }
 }
 
-export const sseService = new SSEService()
+export const sseService = { connect: () => {}, disconnect: () => {}, on: () => {}, off: () => {} }
