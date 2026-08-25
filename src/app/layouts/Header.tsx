@@ -37,7 +37,7 @@ export function Header() {
       </div>
 
       <div className="ml-4 flex items-center gap-1.5">
-        <div className="bg-border/70 mx-1 h-5 w-px" />
+        {/* <div className="bg-border/70 mx-1 h-5 w-px" /> */}
 
         <ThemeSwitcher />
 

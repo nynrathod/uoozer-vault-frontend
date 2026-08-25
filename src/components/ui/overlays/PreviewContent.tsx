@@ -1,189 +1,186 @@
-import { useEffect, useState } from 'react'
-import { Button } from '@ui/Button'
-import { Loader2, Download, AlertCircle, Lock } from 'lucide-react'
-import { cn } from '@lib/utils'
+import { useState, useEffect } from 'react'
 import { useFileStore, selectFileById } from '@stores/fileStore'
 import { usePreviewStore } from '@stores/previewStore'
 import { useAuthStore } from '@stores/authStore'
-import { downloadFile, DownloadError } from '@services/files/downloadOrchestrator'
-import { FileIcon } from '@/components/features/vault/fileList/FileIcon'
+import { downloadFile, downloadFileToDisk } from '@services/files/downloadOrchestrator'
+import { FilePreviewer } from './FilePreviewer'
 import { ZipPreview } from './ZipPreview'
+import { AlertCircle, Loader2 } from 'lucide-react'
+import { Button } from '@ui/Button'
 
-const previewCache = new Map<string, string>()
+type FileCategory =
+  | 'image'
+  | 'pdf'
+  | 'video'
+  | 'audio'
+  | 'markdown'
+  | 'code'
+  | 'text'
+  | 'word'
+  | 'excel'
+  | 'powerpoint'
+  | 'archive'
+  | '3d'
+  | 'epub'
+  | 'other'
+
+function getCategory(fileName: string): FileCategory {
+  const ext = fileName.split('.').pop()?.toLowerCase() || ''
+  console.log('ext', ext)
+  if (['zip', 'tar', 'gz', 'bz2', 'xz', '7z', 'rar'].includes(ext)) return 'archive'
+  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'].includes(ext)) return 'image'
+  if (ext === 'pdf') return 'pdf'
+  if (['mp4', 'webm', 'mov', 'avi', 'mkv'].includes(ext)) return 'video'
+  if (['mp3', 'wav', 'ogg', 'flac', 'm4a'].includes(ext)) return 'audio'
+  if (ext === 'md') return 'markdown'
+  if (
+    [
+      'js',
+      'ts',
+      'tsx',
+      'jsx',
+      'rs',
+      'py',
+      'go',
+      'java',
+      'c',
+      'cpp',
+      'cs',
+      'rb',
+      'php',
+      'swift',
+      'kt',
+      'scala',
+      'sh',
+      'bash',
+      'zsh',
+      'ps1',
+      'bat',
+      'cmd',
+      'sql',
+      'json',
+      'xml',
+      'html',
+      'css',
+      'scss',
+      'less',
+      'yaml',
+      'yml',
+      'toml',
+      'ini',
+      'conf',
+      'config',
+      'env',
+      'dockerfile',
+      'gitignore',
+    ].includes(ext)
+  )
+    return 'code'
+  if (['txt', 'log', 'csv', 'tsv'].includes(ext)) return 'text'
+  if (ext === 'docx') return 'word'
+  if (['xlsx', 'xls'].includes(ext)) return 'excel'
+  if (['pptx', 'ppt'].includes(ext)) return 'powerpoint'
+  if (['obj', 'gltf', 'glb', 'stl', 'fbx'].includes(ext)) return '3d'
+  if (ext === 'epub') return 'epub'
+  return 'other'
+}
 
 export function PreviewContent() {
   const fileId = usePreviewStore((s) => s.fileId)
-  const isFullscreen = usePreviewStore((s) => s.isFullscreen)
-  const isLoading = usePreviewStore((s) => s.isLoading)
   const setLoading = usePreviewStore((s) => s.setLoading)
-
   const file = useFileStore(selectFileById(fileId))
   const dek = useAuthStore((s) => s.cryptoState.dek)
 
-  const [blobUrl, setBlobUrl] = useState<string | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [previewText, setPreviewText] = useState<string | null>(null)
+  const [previewBlob, setPreviewBlob] = useState<Blob | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const isZip = file?.mimeType === 'application/zip' || file?.name.toLowerCase().endsWith('.zip')
-
   useEffect(() => {
-    if (!fileId || !dek || !file || isZip) return
+    if (!fileId || !file || !dek) return
 
-    let objectUrl: string | null = null
-    const fetchFile = async () => {
+    let url: string | null = null
+    let isCancelled = false
+
+    const loadPreview = async () => {
+      setLoading(true)
+      setError(null)
+      setPreviewUrl(null)
+      setPreviewText(null)
+      setPreviewBlob(null)
+
       try {
-        setLoading(true)
-        setError(null)
-        setBlobUrl(null)
+        const category = getCategory(file.name)
 
-        if (previewCache.has(fileId)) {
-          setBlobUrl(previewCache.get(fileId)!)
+        if (category === 'archive') {
           setLoading(false)
           return
         }
 
-        const response = await downloadFile({ dek, fileId })
+        const response = await downloadFile({ dek, fileId: file.id })
         const blob = await response.blob()
-        objectUrl = URL.createObjectURL(blob)
-        previewCache.set(fileId, objectUrl)
-        setBlobUrl(objectUrl)
-      } catch (err) {
-        if (err instanceof DownloadError) {
-          setError(err.message)
+
+        if (isCancelled) return
+
+        if (category === 'text' || category === 'markdown' || category === 'code') {
+          const text = await blob.text()
+          if (!isCancelled) setPreviewText(text)
         } else {
-          setError('Failed to load preview.')
+          url = URL.createObjectURL(blob)
+          if (!isCancelled) {
+            setPreviewUrl(url)
+            setPreviewBlob(blob)
+          }
         }
+      } catch (err: any) {
+        if (!isCancelled) setError(err.message || 'Failed to load preview.')
       } finally {
-        setLoading(false)
+        if (!isCancelled) setLoading(false)
       }
     }
 
-    fetchFile()
+    loadPreview()
 
     return () => {
-      if (objectUrl && !previewCache.has(fileId)) {
-        URL.revokeObjectURL(objectUrl)
-      }
+      isCancelled = true
+      if (url) URL.revokeObjectURL(url)
     }
-  }, [fileId, dek, file, setLoading, isZip])
+  }, [fileId, file, dek, setLoading])
 
   if (!file) return null
-  if (isZip) return <ZipPreview fileId={file.id} fileName={file.name} />
 
-  const isImage = file.mimeType?.startsWith('image/')
-  const isPdf = file.mimeType === 'application/pdf'
-  const isText = file.mimeType?.startsWith('text/') || file.mimeType === 'application/document'
+  const category = getCategory(file.name)
 
-  const contentAreaClasses = isFullscreen
-    ? 'flex-1 flex items-center justify-center p-4 md:p-8 overflow-hidden relative bg-black/95'
-    : 'flex-1 flex items-center justify-center p-4 md:p-6 overflow-hidden relative bg-muted/40'
-
-  if (!dek) {
-    return (
-      <div className={contentAreaClasses}>
-        <div className="flex flex-col items-center gap-4 text-center">
-          <Lock className="text-muted-foreground h-10 w-10" />
-          <h3 className="text-lg font-semibold">Vault Locked</h3>
-          <p className="text-muted-foreground text-sm">
-            Please unlock your vault to preview files.
-          </p>
-        </div>
-      </div>
-    )
+  if (category === 'archive') {
+    return <ZipPreview fileId={file.id} fileName={file.name} />
   }
 
   if (error) {
     return (
-      <div className={contentAreaClasses}>
-        <div className="flex flex-col items-center gap-4 text-center">
-          <AlertCircle className="text-destructive h-10 w-10" />
-          <h3 className="text-lg font-semibold">Preview Failed</h3>
-          <p className="text-muted-foreground max-w-sm text-sm">{error}</p>
-        </div>
+      <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
+        <AlertCircle className="text-destructive h-10 w-10" />
+        <p className="text-destructive font-medium">Preview Error</p>
+        <p className="text-muted-foreground text-sm">{error}</p>
+        <Button variant="outline" onClick={() => window.location.reload()}>
+          Retry
+        </Button>
       </div>
     )
   }
 
+  const handleDownload = () => {
+    if (file && dek) {
+      downloadFileToDisk(file.name, file.totalSize, { dek, fileId: file.id })
+    }
+  }
+
   return (
-    <div className={contentAreaClasses}>
-      {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-          <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
-        </div>
-      )}
-      <div
-        className={cn(
-          'border-border/50 bg-card flex h-full w-full max-w-full flex-col items-center justify-center overflow-hidden rounded-xl border shadow-lg',
-          isFullscreen && 'max-h-[85vh] max-w-5xl'
-        )}
-      >
-        {isImage && (
-          <img
-            src={blobUrl ?? ''}
-            alt={file.name}
-            className={cn(
-              'max-h-full max-w-full object-contain transition-opacity',
-              isLoading ? 'opacity-0' : 'opacity-100'
-            )}
-            onLoad={() => setLoading(false)}
-          />
-        )}
-        {isPdf && blobUrl && (
-          <object
-            data={blobUrl}
-            type="application/pdf"
-            className={cn(
-              'h-full w-full transition-opacity',
-              isLoading ? 'opacity-0' : 'opacity-100'
-            )}
-          >
-            <div className="flex h-full flex-col items-center justify-center p-8 text-center">
-              <p className="text-muted-foreground mb-4">
-                Your browser does not support inline PDFs.
-              </p>
-              <a
-                href={blobUrl}
-                download={file.name}
-                className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg px-4 py-2 text-sm font-medium"
-              >
-                Download PDF
-              </a>
-            </div>
-          </object>
-        )}
-        {isText && blobUrl && (
-          <iframe
-            src={blobUrl}
-            className={cn(
-              'h-full w-full bg-white transition-opacity',
-              isLoading ? 'opacity-0' : 'opacity-100'
-            )}
-            title={file.name}
-          />
-        )}
-        {!isImage && !isPdf && !isText && (
-          <div className="flex flex-col items-center justify-center p-8 text-center">
-            <div className="bg-secondary mb-5 flex h-20 w-20 items-center justify-center rounded-2xl">
-              <FileIcon
-                mimeType={file.mimeType}
-                size="lg"
-                className="text-muted-foreground bg-transparent"
-              />
-            </div>
-            <h3 className="text-foreground mb-1 text-lg font-semibold">No preview available</h3>
-            <p className="text-muted-foreground mb-6 max-w-sm text-sm">
-              We can't show a preview for this file type in your browser. Please download it to view
-              its contents.
-            </p>
-            {blobUrl && (
-              <a href={blobUrl} download={file.name}>
-                <Button variant="secondary" className="gap-1.5">
-                  <Download className="h-4 w-4" /> Download file
-                </Button>
-              </a>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
+    <FilePreviewer
+      fileName={file.name}
+      fileUrl={previewUrl}
+      fileText={previewText}
+      fileBlob={previewBlob}
+      onDownload={handleDownload}
+    />
   )
 }

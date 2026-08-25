@@ -59,7 +59,10 @@ class SSEService {
     if (!token) return
 
     this.disconnect()
-    const url = new URL(`${SSE_BASE_URL}/events`)
+
+    // Fallback to window.location.origin if SSE_BASE_URL is empty
+    const baseUrl = SSE_BASE_URL || window.location.origin
+    const url = new URL(`${baseUrl}/api/v1/sync/events`)
     url.searchParams.set('token', token)
 
     this.eventSource = new EventSource(url.toString())

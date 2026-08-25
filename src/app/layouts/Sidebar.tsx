@@ -269,7 +269,7 @@ export function Sidebar() {
           </div>
           {sidebarOpen && user && (
             <div className="ml-2.5 min-w-0 flex-1 overflow-hidden">
-              <p className="text-sidebar-foreground truncate text-[13px] leading-none font-medium">
+              <p className="text-sidebar-foreground truncate text-[13px] font-medium">
                 {user.email}
               </p>
               <p className="text-sidebar-foreground/50 mt-1 text-[11px]">Free Plan</p>

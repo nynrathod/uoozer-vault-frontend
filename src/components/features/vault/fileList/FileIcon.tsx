@@ -10,6 +10,7 @@ import {
   Presentation,
   File,
   Folder,
+  type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@lib/utils'
 import { FILE_TYPE_COLORS } from '@lib/constants'
@@ -43,7 +44,7 @@ export const FileIcon = memo(function FileIcon({
           className
         )}
       >
-        <Folder className="h-full w-full drop-shadow-sm" strokeWidth={1.75} />
+        <Folder className="h-full w-full drop-shadow-sm" strokeWidth={1.1} />
       </div>
     )
   }
@@ -84,7 +85,7 @@ export const FileIcon = memo(function FileIcon({
                     ? 'document'
                     : 'file'
 
-  const IconMap: Record<string, React.ElementType> = {
+  const IconMap: Record<string, LucideIcon> = {
     image: Image,
     video: Video,
     audio: Music,
@@ -97,7 +98,7 @@ export const FileIcon = memo(function FileIcon({
     file: File,
   }
 
-  const Icon = IconMap[type] || File
+  const Icon: LucideIcon = IconMap[type] || File
   const colorClass = FILE_TYPE_COLORS[type] || FILE_TYPE_COLORS.file
 
   return (
@@ -109,7 +110,7 @@ export const FileIcon = memo(function FileIcon({
         className
       )}
     >
-      <Icon className="h-full w-full" strokeWidth={1.75} />
+      <Icon className="h-full w-full" strokeWidth={1.1} />
     </div>
   )
 })

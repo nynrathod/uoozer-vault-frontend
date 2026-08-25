@@ -10,7 +10,7 @@ import {
 } from '@stores/fileStore'
 import { QUERY_KEYS, ROUTES } from '@lib/constants'
 import { cn } from '@lib/utils'
-import { Trash2, Upload } from 'lucide-react'
+import { Lock, Star, Trash2, Upload } from 'lucide-react'
 
 import { FileGrid } from '@/components/features/vault/fileList/FileGrid'
 import { FileList } from '@/components/features/vault/fileList/FileList'
@@ -28,6 +28,7 @@ import { UploadQueue } from '@/components/features'
 import { VaultSkeleton } from '@/components/features/vault/fileList/VaultSkeleton'
 import { useDelayedLoading } from '@/hooks/useDelayedLoading'
 import { toast } from 'sonner'
+import { ComingSoon } from '@/components/ui/feedback'
 
 // Helper to recursively read dropped folders (for drag-and-drop)
 function readAllEntries(dirReader: any): Promise<any[]> {
@@ -69,6 +70,8 @@ export function VaultPage({ trashed = false }: { trashed?: boolean }) {
   const { folderId } = useParams<{ folderId?: string }>()
   const location = useLocation()
   const isTrash = location.pathname.startsWith('/vault/trash')
+  const isStarred = location.pathname === ROUTES.VAULT_STARRED
+  const isPrivate = location.pathname === ROUTES.VAULT_PRIVATE
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const currentFolderId = folderId || null
@@ -250,6 +253,30 @@ export function VaultPage({ trashed = false }: { trashed?: boolean }) {
     },
     [uploadFiles, currentFolderId, isTrash]
   )
+
+  if (isStarred) {
+    return (
+      <div className="bg-background flex h-full w-full flex-col">
+        <ComingSoon
+          icon={Star}
+          title="Starred Items"
+          description="Quick access to your favorite and most important files is coming soon."
+        />
+      </div>
+    )
+  }
+
+  if (isPrivate) {
+    return (
+      <div className="bg-background flex h-full w-full flex-col">
+        <ComingSoon
+          icon={Lock}
+          title="Private Files"
+          description="A secure enclave for your most sensitive documents is currently under construction."
+        />
+      </div>
+    )
+  }
 
   if (isError) {
     return (
