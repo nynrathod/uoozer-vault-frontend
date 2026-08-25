@@ -54,17 +54,17 @@ const apps = [
       { label: 'Trash', icon: Trash2, path: ROUTES.NOTES_TRASH },
     ],
   },
-  {
-    id: 'passwords',
-    name: 'Passwords',
-    icon: KeyRound,
-    basePath: ROUTES.PASSWORDS,
-    routes: [
-      { label: 'All Passwords', icon: KeyRound, path: ROUTES.PASSWORDS },
-      { label: 'Favorites', icon: Star, path: ROUTES.PASSWORDS_FAVORITES },
-      { label: 'Trash', icon: Trash2, path: ROUTES.PASSWORDS_TRASH },
-    ],
-  },
+  // {
+  //   id: 'passwords',
+  //   name: 'Passwords',
+  //   icon: KeyRound,
+  //   basePath: ROUTES.PASSWORDS,
+  //   routes: [
+  //     { label: 'All Passwords', icon: KeyRound, path: ROUTES.PASSWORDS },
+  //     { label: 'Favorites', icon: Star, path: ROUTES.PASSWORDS_FAVORITES },
+  //     { label: 'Trash', icon: Trash2, path: ROUTES.PASSWORDS_TRASH },
+  //   ],
+  // },
 ]
 
 /** Collapsible sidebar with workspace switcher, app-specific navigation, and system links. */

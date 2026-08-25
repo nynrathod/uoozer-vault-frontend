@@ -176,52 +176,6 @@ export function ProfileSection() {
           </Button>
         </div>
       </form>
-
-      <Separator />
-
-      <SectionHeader title="Security" description="Change your vault password." />
-
-      <form onSubmit={handlePasswordSubmit} className="space-y-4">
-        <div className="space-y-1.5">
-          <label className="text-[13px] font-medium">New Password</label>
-          <Input
-            type="password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            placeholder="Enter a new strong password"
-            className="rounded-lg"
-            required
-          />
-        </div>
-
-        <div className="space-y-1.5">
-          <label className="text-[13px] font-medium">Confirm New Password</label>
-          <Input
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            placeholder="Confirm your new password"
-            className="rounded-lg"
-            required
-          />
-        </div>
-
-        <div className="flex justify-end">
-          <Button
-            type="submit"
-            variant="outline"
-            className="gap-1.5 rounded-lg"
-            disabled={isSavingPassword}
-          >
-            {isSavingPassword ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <KeyRound className="h-4 w-4" />
-            )}
-            {isSavingPassword ? 'Updating...' : 'Update Password'}
-          </Button>
-        </div>
-      </form>
     </div>
   )
 }

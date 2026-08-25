@@ -54,7 +54,7 @@ export const ROUTES = {
   SIGNUP: '/signup',
   RECOVERY: '/recovery',
   UNLOCK: '/unlock',
-  VAULT: '/vault',
+  VAULT: '/vault/files',
   VAULT_STARRED: '/vault/starred',
   VAULT_PRIVATE: '/vault/private',
   VAULT_TRASH: '/vault/trash',
