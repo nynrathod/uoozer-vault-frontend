@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { Save, Check } from 'lucide-react'
+import { Save, Check, BellRing } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@ui/Button'
 import { Switch } from '@ui/Switch'
 import { SectionHeader } from '@/components/ui'
+import { ComingSoon } from '@/components/ui/feedback'
 
 /** Reusable settings row with a label, description, and toggle switch. */
 function ToggleRow({ title, description, checked, onChange }: any) {
@@ -20,46 +21,69 @@ function ToggleRow({ title, description, checked, onChange }: any) {
 
 /** Settings section for toggling email, product, and security notification preferences. */
 export function NotificationsSection() {
-  const [emailNotifs, setEmailNotifs] = useState(true)
-  const [productUpdates, setProductUpdates] = useState(false)
-  const [securityAlerts, setSecurityAlerts] = useState(true)
-  const [saved, setSaved] = useState(false)
-
-  const handleSave = () => {
-    setSaved(true)
-    toast.success('Notification preferences saved.')
-    setTimeout(() => setSaved(false), 2000)
-  }
-
   return (
     <div className="space-y-8">
-      <SectionHeader title="Notifications" description="Choose what updates you want to receive." />
-      <div className="space-y-1">
-        <ToggleRow
-          title="Email Notifications"
-          description="Get notified about file activity and shares"
-          checked={emailNotifs}
-          onChange={setEmailNotifs}
-        />
-        <ToggleRow
-          title="Product Updates"
-          description="News about new features and improvements"
-          checked={productUpdates}
-          onChange={setProductUpdates}
-        />
-        <ToggleRow
-          title="Security Alerts"
-          description="Important alerts about your account security"
-          checked={securityAlerts}
-          onChange={setSecurityAlerts}
-        />
+      <div>
+        <h3 className="text-[15px] font-semibold">Notifications</h3>
+        <p className="text-muted-foreground/70 mt-0.5 text-[13px]">
+          Choose what updates you want to receive.
+        </p>
       </div>
-      <div className="flex justify-end">
-        <Button onClick={handleSave} className="gap-1.5 rounded-lg">
-          {saved ? <Check className="h-4 w-4" /> : <Save className="h-4 w-4" />}
-          {saved ? 'Saved' : 'Save Changes'}
-        </Button>
+
+      <div className="border-border/60 flex h-[400px] items-center justify-center rounded-xl border">
+        <ComingSoon
+          icon={BellRing}
+          title="Notification Preferences"
+          description="Granular controls for email, product updates, and security alerts are coming soon."
+          className="h-auto"
+        />
       </div>
     </div>
   )
 }
+
+// /** Settings section for toggling email, product, and security notification preferences. */
+// export function NotificationsSection() {
+//   const [emailNotifs, setEmailNotifs] = useState(true)
+//   const [productUpdates, setProductUpdates] = useState(false)
+//   const [securityAlerts, setSecurityAlerts] = useState(true)
+//   const [saved, setSaved] = useState(false)
+
+//   const handleSave = () => {
+//     setSaved(true)
+//     toast.success('Notification preferences saved.')
+//     setTimeout(() => setSaved(false), 2000)
+//   }
+
+//   return (
+//     <div className="space-y-8">
+//       <SectionHeader title="Notifications" description="Choose what updates you want to receive." />
+//       <div className="space-y-1">
+//         <ToggleRow
+//           title="Email Notifications"
+//           description="Get notified about file activity and shares"
+//           checked={emailNotifs}
+//           onChange={setEmailNotifs}
+//         />
+//         <ToggleRow
+//           title="Product Updates"
+//           description="News about new features and improvements"
+//           checked={productUpdates}
+//           onChange={setProductUpdates}
+//         />
+//         <ToggleRow
+//           title="Security Alerts"
+//           description="Important alerts about your account security"
+//           checked={securityAlerts}
+//           onChange={setSecurityAlerts}
+//         />
+//       </div>
+//       <div className="flex justify-end">
+//         <Button onClick={handleSave} className="gap-1.5 rounded-lg">
+//           {saved ? <Check className="h-4 w-4" /> : <Save className="h-4 w-4" />}
+//           {saved ? 'Saved' : 'Save Changes'}
+//         </Button>
+//       </div>
+//     </div>
+//   )
+// }
