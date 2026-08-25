@@ -341,6 +341,19 @@ export function useVaultActions() {
     },
   })
 
+  const emptyTrashMutation = useMutation({
+    mutationFn: async () => {
+      return fileService.emptyTrash()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FILES.LIST] })
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FOLDERS.LIST] })
+    },
+    onError: (error: any) => {
+      toast.error(error.message ?? 'Failed to empty trash')
+    },
+  })
+
   return {
     bulkDelete: bulkDeleteMutation.mutate,
     deleteItem: deleteItemMutation.mutate,
@@ -351,5 +364,7 @@ export function useVaultActions() {
 
     restoreItem: restoreItemMutation.mutate,
     permanentDeleteItem: permanentDeleteItemMutation.mutate,
+    emptyTrash: emptyTrashMutation.mutate,
+    isEmptyingTrash: emptyTrashMutation.isPending,
   }
 }

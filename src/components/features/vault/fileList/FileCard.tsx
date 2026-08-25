@@ -69,31 +69,37 @@ export const FileCard = memo(function FileCard({
         'cursor-grab active:cursor-grabbing'
       )}
       onClick={onClick}
-      draggable={true}
+      draggable={!item.deletedAt}
+
       onDragStart={(e) => {
+        if (item.deletedAt) return
         e.dataTransfer.setData('text/plain', item.id)
         e.dataTransfer.setData('application/x-item-type', isFolder ? 'folder' : 'file')
         e.dataTransfer.effectAllowed = 'move'
         setIsDragging(true)
       }}
       onDragEnter={(e) => {
+        if (item.deletedAt) return
         if (isFolder && Array.from(e.dataTransfer.types).includes('text/plain')) {
           e.preventDefault()
           setDragOverId(item.id)
         }
       }}
       onDragOver={(e) => {
+        if (item.deletedAt) return
         if (isFolder && Array.from(e.dataTransfer.types).includes('text/plain')) {
           e.preventDefault()
           e.stopPropagation()
         }
       }}
       onDragLeave={(e) => {
+        if (item.deletedAt) return
         if (isFolder && Array.from(e.dataTransfer.types).includes('text/plain')) {
           if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverId(null)
         }
       }}
       onDrop={(e) => {
+        if (item.deletedAt) return
         if (isFolder && Array.from(e.dataTransfer.types).includes('text/plain')) {
           e.preventDefault()
           e.stopPropagation()
@@ -157,18 +163,20 @@ export const FileCard = memo(function FileCard({
       </div>
 
       <div className="absolute top-2 right-2 flex items-center gap-0.5">
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            setShareTarget(item.id)
-          }}
-          className={cn(
-            'text-muted-foreground hover:bg-accent hover:text-foreground bg-background/50 flex h-7 w-7 items-center justify-center rounded-md backdrop-blur-sm transition-opacity',
-            isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-          )}
-        >
-          <Share2 className="h-4 w-4" />
-        </button>
+        {!item.deletedAt && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              setShareTarget(item.id)
+            }}
+            className={cn(
+              'text-muted-foreground hover:bg-accent hover:text-foreground bg-background/50 flex h-7 w-7 items-center justify-center rounded-md backdrop-blur-sm transition-opacity',
+              isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+            )}
+          >
+            <Share2 className="h-4 w-4" />
+          </button>
+        )}
 
         <FileActionsMenu
           item={item}

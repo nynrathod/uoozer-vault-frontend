@@ -61,7 +61,11 @@ export function FileGrid({ files, folders, folderCounts }: FileGridProps) {
                     key={item.uid}
                     item={item}
                     isSelected={selectedFileIds.has(item.id)}
-                    onClick={() => !folderCheck && openPreview(item.id)}
+                    onClick={() => {
+                      if (item.deletedAt) return
+                      if (!folderCheck) openPreview(item.id)
+                    }}
+
                     editingId={editingId}
                     onRenameRequest={setEditingId}
                     itemCount={folderCheck ? folderCounts?.[item.id] || 0 : 0}

@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
-import { useParams, useNavigate, generatePath } from 'react-router-dom'
+import { useParams, useNavigate, generatePath, useLocation } from 'react-router-dom'
 import { useShallow } from 'zustand/react/shallow'
 import { usePreviewStore } from '@stores/previewStore'
 import {
@@ -10,7 +10,7 @@ import {
 } from '@stores/fileStore'
 import { QUERY_KEYS, ROUTES } from '@lib/constants'
 import { cn } from '@lib/utils'
-import { Upload } from 'lucide-react'
+import { Trash2, Upload } from 'lucide-react'
 
 import { FileGrid } from '@/components/features/vault/fileList/FileGrid'
 import { FileList } from '@/components/features/vault/fileList/FileList'
@@ -67,6 +67,8 @@ async function traverseFileTree(item: any, path: string): Promise<File[]> {
 
 export function VaultPage({ trashed = false }: { trashed?: boolean }) {
   const { folderId } = useParams<{ folderId?: string }>()
+  const location = useLocation()
+  const isTrash = location.pathname.startsWith('/vault/trash')
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const currentFolderId = folderId || null
@@ -168,40 +170,54 @@ export function VaultPage({ trashed = false }: { trashed?: boolean }) {
 
   const dragCounter = useRef(0)
 
-  const handleDragEnter = useCallback((e: React.DragEvent) => {
-    // Only trigger for files dragged from the OS, not internal vault items
-    const isFileDrag = Array.from(e.dataTransfer.types).includes('Files')
-    if (!isFileDrag) return
+  const handleDragEnter = useCallback(
+    (e: React.DragEvent) => {
+      if (isTrash) return
 
-    e.preventDefault()
-    e.stopPropagation()
-    dragCounter.current++
-    if (dragCounter.current === 1) {
-      setIsDragging(true)
-    }
-  }, [])
+      // Only trigger for files dragged from the OS, not internal vault items
+      const isFileDrag = Array.from(e.dataTransfer.types).includes('Files')
+      if (!isFileDrag) return
 
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    const isFileDrag = Array.from(e.dataTransfer.types).includes('Files')
-    if (!isFileDrag) return
+      e.preventDefault()
+      e.stopPropagation()
+      dragCounter.current++
+      if (dragCounter.current === 1) {
+        setIsDragging(true)
+      }
+    },
+    [isTrash]
+  )
 
-    e.preventDefault()
-    e.stopPropagation()
-    dragCounter.current--
-    if (dragCounter.current <= 0) {
-      dragCounter.current = 0
-      setIsDragging(false)
-    }
-  }, [])
+  const handleDragLeave = useCallback(
+    (e: React.DragEvent) => {
+      if (isTrash) return
+      const isFileDrag = Array.from(e.dataTransfer.types).includes('Files')
+      if (!isFileDrag) return
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    // Prevent default to allow drop
-    e.preventDefault()
-    e.stopPropagation()
-  }, [])
+      e.preventDefault()
+      e.stopPropagation()
+      dragCounter.current--
+      if (dragCounter.current <= 0) {
+        dragCounter.current = 0
+        setIsDragging(false)
+      }
+    },
+    [isTrash]
+  )
+
+  const handleDragOver = useCallback(
+    (e: React.DragEvent) => {
+      if (isTrash) return
+      // Prevent default to allow drop
+      e.preventDefault()
+      e.stopPropagation()
+    },
+    [isTrash]
+  )
 
   const handleDrop = useCallback(
     async (e: React.DragEvent) => {
+      if (isTrash) return
       e.preventDefault()
       e.stopPropagation()
       dragCounter.current = 0
@@ -232,7 +248,7 @@ export function VaultPage({ trashed = false }: { trashed?: boolean }) {
         uploadFiles(files, currentFolderId)
       }
     },
-    [uploadFiles, currentFolderId]
+    [uploadFiles, currentFolderId, isTrash]
   )
 
   if (isError) {
@@ -294,7 +310,16 @@ export function VaultPage({ trashed = false }: { trashed?: boolean }) {
             ) : isLoading ? (
               <div className="bg-background h-full w-full"></div>
             ) : files.length === 0 && folders.length === 0 ? (
-              <EmptyState />
+              isTrash ? (
+                <EmptyState
+                  icon={Trash2}
+                  title="Trash is empty"
+                  description="Items moved to trash will appear here."
+                  hideAction
+                />
+              ) : (
+                <EmptyState />
+              )
             ) : viewMode === 'list' ? (
               <div className="h-full overflow-auto">
                 <FileList

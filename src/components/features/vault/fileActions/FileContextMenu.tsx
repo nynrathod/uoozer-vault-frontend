@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Download, Edit3, Copy, Move, Trash2, History, Eye, Star } from 'lucide-react'
+import { Download, Edit3, Copy, Move, Trash2, History, Eye, Star, RotateCcw } from 'lucide-react'
 import { DropdownMenu, DropdownItem, DropdownSeparator } from '@ui/DropdownMenu'
 import type { FileItem } from '@/types/files'
 import type { Folder } from '@/types/folders'
@@ -29,44 +29,63 @@ export function FileContextMenu({
   onVersions,
 }: FileContextMenuProps) {
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const isTrash = !!item.deletedAt
 
   return (
     <>
       <DropdownMenu trigger={children}>
-        {!isFolder && onPreview && (
-          <DropdownItem icon={<Eye className="h-4 w-4" />} onClick={onPreview}>
-            Preview
-          </DropdownItem>
-        )}
-        {!isFolder && onDownload && (
-          <DropdownItem icon={<Download className="h-4 w-4" />} onClick={onDownload}>
-            Download
-          </DropdownItem>
-        )}
-        <DropdownItem icon={<Edit3 className="h-4 w-4" />} onClick={onRename}>
-          Rename
-        </DropdownItem>
-        <DropdownItem icon={<Copy className="h-4 w-4" />}>Copy</DropdownItem>
-        <DropdownItem icon={<Move className="h-4 w-4" />} onClick={onMove}>
-          Move to
-        </DropdownItem>
-        <DropdownItem icon={<Star className="h-4 w-4" />}>Add to starred</DropdownItem>
-        {!isFolder && onVersions && (
+        {isTrash ? (
           <>
+            <DropdownItem icon={<RotateCcw className="h-4 w-4" />} onClick={onDelete}>
+              Restore
+            </DropdownItem>
             <DropdownSeparator />
-            <DropdownItem icon={<History className="h-4 w-4" />} onClick={onVersions}>
-              Version history
+            <DropdownItem
+              icon={<Trash2 className="h-4 w-4" />}
+              destructive
+              onClick={() => setDeleteOpen(true)}
+            >
+              Delete Forever
+            </DropdownItem>
+          </>
+        ) : (
+          <>
+            {!isFolder && onPreview && (
+              <DropdownItem icon={<Eye className="h-4 w-4" />} onClick={onPreview}>
+                Preview
+              </DropdownItem>
+            )}
+            {!isFolder && onDownload && (
+              <DropdownItem icon={<Download className="h-4 w-4" />} onClick={onDownload}>
+                Download
+              </DropdownItem>
+            )}
+            <DropdownItem icon={<Edit3 className="h-4 w-4" />} onClick={onRename}>
+              Rename
+            </DropdownItem>
+            <DropdownItem icon={<Copy className="h-4 w-4" />}>Copy</DropdownItem>
+            <DropdownItem icon={<Move className="h-4 w-4" />} onClick={onMove}>
+              Move to
+            </DropdownItem>
+            <DropdownItem icon={<Star className="h-4 w-4" />}>Add to starred</DropdownItem>
+            {!isFolder && onVersions && (
+              <>
+                <DropdownSeparator />
+                <DropdownItem icon={<History className="h-4 w-4" />} onClick={onVersions}>
+                  Version history
+                </DropdownItem>
+              </>
+            )}
+            <DropdownSeparator />
+            <DropdownItem
+              icon={<Trash2 className="h-4 w-4" />}
+              destructive
+              onClick={() => setDeleteOpen(true)}
+            >
+              Delete
             </DropdownItem>
           </>
         )}
-        <DropdownSeparator />
-        <DropdownItem
-          icon={<Trash2 className="h-4 w-4" />}
-          destructive
-          onClick={() => setDeleteOpen(true)}
-        >
-          Delete
-        </DropdownItem>
       </DropdownMenu>
 
       <DeleteConfirmDialog
@@ -74,6 +93,7 @@ export function FileContextMenu({
         onOpenChange={setDeleteOpen}
         itemName={item.name}
         isFolder={isFolder}
+        isPermanent={isTrash}
         onConfirm={() => {
           onDelete?.()
           setDeleteOpen(false)

@@ -139,7 +139,11 @@ export function FileList({
                 <FileRow
                   item={item}
                   isSelected={selectedFileIds.has(item.id)}
-                  onClick={() => (folderCheck ? onFolderClick(item) : onFileClick(item))}
+                  onClick={() => {
+                    if (item.deletedAt) return
+                    if (folderCheck) onFolderClick(item)
+                    else onFileClick(item)
+                  }}
                   onSelect={() => onFileSelect(item.id)}
                   onShare={(item) => onShare(item, folderCheck)}
                 />

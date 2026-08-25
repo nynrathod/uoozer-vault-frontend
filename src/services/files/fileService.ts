@@ -299,4 +299,13 @@ export const fileService = {
       throw handleApiError(error, 'Quota check failed.')
     }
   },
+
+  async emptyTrash(): Promise<{ deleted: number }> {
+    try {
+      const { data } = await apiClient.post('/api/v1/files/empty-trash')
+      return data
+    } catch (error: any) {
+      throw handleApiError(error, 'Failed to empty trash.')
+    }
+  },
 }

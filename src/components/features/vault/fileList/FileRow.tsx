@@ -77,36 +77,36 @@ export const FileRow = memo(function FileRow({
           'bg-primary/[0.04] border-l-primary animate-pulse border-l-2'
       )}
       onClick={onClick}
-      draggable={!isShareMode}
+      draggable={!isShareMode && !item.deletedAt}
       onDragStart={(e) => {
-        if (isShareMode) return
+        if (isShareMode || item.deletedAt) return
         e.dataTransfer.setData('text/plain', item.id)
         e.dataTransfer.setData('application/x-item-type', isFolder ? 'folder' : 'file')
         e.dataTransfer.effectAllowed = 'move'
         setIsDragging(true)
       }}
       onDragEnter={(e) => {
-        if (isShareMode) return
+        if (isShareMode || item.deletedAt) return
         if (isFolder && Array.from(e.dataTransfer.types).includes('text/plain')) {
           e.preventDefault()
           setDragOverId(item.id)
         }
       }}
       onDragOver={(e) => {
-        if (isShareMode) return
+        if (isShareMode || item.deletedAt) return
         if (isFolder && Array.from(e.dataTransfer.types).includes('text/plain')) {
           e.preventDefault()
           e.stopPropagation()
         }
       }}
       onDragLeave={(e) => {
-        if (isShareMode) return
+        if (isShareMode || item.deletedAt) return
         if (isFolder && Array.from(e.dataTransfer.types).includes('text/plain')) {
           if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverId(null)
         }
       }}
       onDrop={(e) => {
-        if (isShareMode) return
+        if (isShareMode || item.deletedAt) return
         if (isFolder && Array.from(e.dataTransfer.types).includes('text/plain')) {
           e.preventDefault()
           e.stopPropagation()
