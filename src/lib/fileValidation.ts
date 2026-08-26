@@ -82,7 +82,11 @@ export async function validateFile(file: File): Promise<FileValidationResult> {
     errors.push({ field: 'chunks', message: `File requires too many chunks.` })
   }
   if (hasBlockedExtension(file.name)) {
-    errors.push({ field: 'extension', message: `File type is blocked.` })
+    errors.push({
+      field: 'extension',
+      message:
+        'This file type is not supported for preview. You can still download it after upload.',
+    })
   }
 
   return {

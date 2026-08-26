@@ -71,6 +71,10 @@ export const BLOCKED_EXTENSIONS = [
   'com',
   'vbs',
   'ps1',
+  'docx',
+  'doc',
+  'xlsx',
+  'xls',
 ]
 
 export const MAGIC_NUMBERS: Record<string, number[]> = {

@@ -1,12 +1,23 @@
-import { Outlet } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Outlet, useLocation } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
 import { MobileNav } from './MobileNav'
 import { useIsMobile } from '@/hooks/useMediaQuery'
+import { usePreviewStore } from '@stores/previewStore'
+import { useFileStore } from '@stores/fileStore'
 
 /** Root layout shell with sidebar, header, and routed content. */
 export function AppLayout() {
   const isMobile = useIsMobile()
+  const location = useLocation()
+  const closePreview = usePreviewStore((s) => s.close)
+
+  const currentFolderId = useFileStore((s) => s.currentFolderId)
+
+  useEffect(() => {
+    closePreview()
+  }, [location.pathname, currentFolderId, closePreview])
 
   return (
     <div className="bg-background text-foreground flex h-screen w-screen overflow-hidden">

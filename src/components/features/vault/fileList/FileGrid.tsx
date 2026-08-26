@@ -11,10 +11,11 @@ interface FileGridProps {
   files: FileItem[]
   folders: Folder[]
   folderCounts?: Record<string, number>
+  onFolderClick?: (folder: Folder) => void
 }
 
 /** Virtualized grid of file/folder cards. */
-export function FileGrid({ files, folders, folderCounts }: FileGridProps) {
+export function FileGrid({ files, folders, folderCounts, onFolderClick }: FileGridProps) {
   const parentRef = useRef<HTMLDivElement>(null)
   // Folders always appear before files
   const allItems = [...folders, ...files]
@@ -63,9 +64,9 @@ export function FileGrid({ files, folders, folderCounts }: FileGridProps) {
                     isSelected={selectedFileIds.has(item.id)}
                     onClick={() => {
                       if (item.deletedAt) return
-                      if (!folderCheck) openPreview(item.id)
+                      if (folderCheck) onFolderClick?.(item)
+                      else openPreview(item.id)
                     }}
-
                     editingId={editingId}
                     onRenameRequest={setEditingId}
                     itemCount={folderCheck ? folderCounts?.[item.id] || 0 : 0}

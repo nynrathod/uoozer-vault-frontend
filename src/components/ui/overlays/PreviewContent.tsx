@@ -1,186 +1,175 @@
-import { useState, useEffect } from 'react'
-import { useFileStore, selectFileById } from '@stores/fileStore'
-import { usePreviewStore } from '@stores/previewStore'
-import { useAuthStore } from '@stores/authStore'
-import { downloadFile, downloadFileToDisk } from '@services/files/downloadOrchestrator'
+import { useState, useEffect, useRef } from 'react'
 import { FilePreviewer } from './FilePreviewer'
-import { ZipPreview } from './ZipPreview'
-import { AlertCircle, Loader2 } from 'lucide-react'
-import { Button } from '@ui/Button'
-
-type FileCategory =
-  | 'image'
-  | 'pdf'
-  | 'video'
-  | 'audio'
-  | 'markdown'
-  | 'code'
-  | 'text'
-  | 'word'
-  | 'excel'
-  | 'powerpoint'
-  | 'archive'
-  | '3d'
-  | 'epub'
-  | 'other'
-
-function getCategory(fileName: string): FileCategory {
-  const ext = fileName.split('.').pop()?.toLowerCase() || ''
-  console.log('ext', ext)
-  if (['zip', 'tar', 'gz', 'bz2', 'xz', '7z', 'rar'].includes(ext)) return 'archive'
-  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'].includes(ext)) return 'image'
-  if (ext === 'pdf') return 'pdf'
-  if (['mp4', 'webm', 'mov', 'avi', 'mkv'].includes(ext)) return 'video'
-  if (['mp3', 'wav', 'ogg', 'flac', 'm4a'].includes(ext)) return 'audio'
-  if (ext === 'md') return 'markdown'
-  if (
-    [
-      'js',
-      'ts',
-      'tsx',
-      'jsx',
-      'rs',
-      'py',
-      'go',
-      'java',
-      'c',
-      'cpp',
-      'cs',
-      'rb',
-      'php',
-      'swift',
-      'kt',
-      'scala',
-      'sh',
-      'bash',
-      'zsh',
-      'ps1',
-      'bat',
-      'cmd',
-      'sql',
-      'json',
-      'xml',
-      'html',
-      'css',
-      'scss',
-      'less',
-      'yaml',
-      'yml',
-      'toml',
-      'ini',
-      'conf',
-      'config',
-      'env',
-      'dockerfile',
-      'gitignore',
-    ].includes(ext)
-  )
-    return 'code'
-  if (['txt', 'log', 'csv', 'tsv'].includes(ext)) return 'text'
-  if (ext === 'docx') return 'word'
-  if (['xlsx', 'xls'].includes(ext)) return 'excel'
-  if (['pptx', 'ppt'].includes(ext)) return 'powerpoint'
-  if (['obj', 'gltf', 'glb', 'stl', 'fbx'].includes(ext)) return '3d'
-  if (ext === 'epub') return 'epub'
-  return 'other'
-}
+import { usePreviewStore } from '@stores/previewStore'
+import { useFileStore, selectFileById } from '@stores/fileStore'
+import { useAuthStore } from '@stores/authStore'
+import { apiClient } from '@services/api/client'
+import { downloadFileToDisk } from '@services/files/downloadOrchestrator'
+import {
+  base64ToBytes,
+  unwrapDek,
+  initFileDecryption,
+  decryptFileChunk,
+  cleanupFileStream,
+} from '@lib/crypto'
+import { VaultLoader } from '@/components/ui/feedback/VaultLoader'
+import { AlertCircle } from 'lucide-react'
 
 export function PreviewContent() {
   const fileId = usePreviewStore((s) => s.fileId)
-  const setLoading = usePreviewStore((s) => s.setLoading)
   const file = useFileStore(selectFileById(fileId))
   const dek = useAuthStore((s) => s.cryptoState.dek)
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [previewText, setPreviewText] = useState<string | null>(null)
-  const [previewBlob, setPreviewBlob] = useState<Blob | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!fileId || !file || !dek) return
+  const abortControllerRef = useRef<AbortController | null>(null)
 
-    let url: string | null = null
-    let isCancelled = false
+  useEffect(() => {
+    if (!fileId || !dek || !file) {
+      setIsLoading(false)
+      return
+    }
+
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+
+    let streamId: string | null = null
+    let objectUrl: string | null = null
 
     const loadPreview = async () => {
-      setLoading(true)
+      setIsLoading(true)
       setError(null)
       setPreviewUrl(null)
       setPreviewText(null)
-      setPreviewBlob(null)
 
       try {
-        const category = getCategory(file.name)
-
-        if (category === 'archive') {
-          setLoading(false)
-          return
+        const { data: manifest } = await apiClient.get(`/api/v1/files/${fileId}/download`, {
+          signal: controller.signal,
+        })
+        if (!manifest.chunks || manifest.chunks.length === 0) {
+          throw new Error('No chunks found for this file.')
         }
 
-        const response = await downloadFile({ dek, fileId: file.id })
-        const blob = await response.blob()
+        const wrappedKey = {
+          ciphertext: await base64ToBytes(manifest.wrapped_file_key),
+          nonce: await base64ToBytes(manifest.wrapped_file_key_nonce),
+        }
+        const fileKey = await unwrapDek(wrappedKey, dek)
+        if (!fileKey) throw new Error('Failed to decrypt file key.')
 
-        if (isCancelled) return
+        const header = await base64ToBytes(manifest.encryption_header)
+        streamId = await initFileDecryption(header, fileKey)
 
-        if (category === 'text' || category === 'markdown' || category === 'code') {
-          const text = await blob.text()
-          if (!isCancelled) setPreviewText(text)
-        } else {
-          url = URL.createObjectURL(blob)
-          if (!isCancelled) {
-            setPreviewUrl(url)
-            setPreviewBlob(blob)
+        const decryptedParts: Uint8Array[] = []
+        for (const chunk of manifest.chunks) {
+          if (controller.signal.aborted) return
+
+          const response = await fetch(chunk.presigned_url, { signal: controller.signal })
+          if (!response.ok) {
+            throw new Error(`Storage returned ${response.status}. File chunk is missing.`)
           }
+          const arrayBuffer = await response.arrayBuffer()
+          const ciphertext = new Uint8Array(arrayBuffer)
+          const plaintext = await decryptFileChunk(streamId, ciphertext)
+          decryptedParts.push(plaintext)
+        }
+
+        if (controller.signal.aborted) return
+
+        const blob = new Blob(decryptedParts as BlobPart[], {
+          type: file.mimeType || 'application/octet-stream',
+        })
+
+        const ext = file.name.split('.').pop()?.toLowerCase() || ''
+        const isText = [
+          'md',
+          'markdown',
+          'txt',
+          'log',
+          'csv',
+          'tsv',
+          'json',
+          'js',
+          'ts',
+          'tsx',
+          'jsx',
+          'rs',
+          'py',
+          'go',
+          'java',
+          'c',
+          'cpp',
+          'css',
+          'html',
+          'xml',
+          'yml',
+          'yaml',
+          'toml',
+          'sql',
+          'sh',
+        ].includes(ext)
+
+        if (isText) {
+          const text = await blob.text()
+          if (!controller.signal.aborted) setPreviewText(text)
+        } else {
+          objectUrl = URL.createObjectURL(blob)
+          if (!controller.signal.aborted) setPreviewUrl(objectUrl)
         }
       } catch (err: any) {
-        if (!isCancelled) setError(err.message || 'Failed to load preview.')
+        if (err.name === 'AbortError' || controller.signal.aborted) return
+        console.error('Preview failed:', err)
+        setError(err.message || 'Failed to load preview.')
       } finally {
-        if (!isCancelled) setLoading(false)
+        if (streamId) await cleanupFileStream(streamId)
+        if (!controller.signal.aborted) setIsLoading(false)
       }
     }
 
     loadPreview()
 
     return () => {
-      isCancelled = true
-      if (url) URL.revokeObjectURL(url)
+      controller.abort()
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
     }
-  }, [fileId, file, dek, setLoading])
+  }, [fileId, dek, file])
 
-  if (!file) return null
-
-  const category = getCategory(file.name)
-
-  if (category === 'archive') {
-    return <ZipPreview fileId={file.id} fileName={file.name} />
-  }
-
-  if (error) {
+  if (isLoading) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
-        <AlertCircle className="text-destructive h-10 w-10" />
-        <p className="text-destructive font-medium">Preview Error</p>
-        <p className="text-muted-foreground text-sm">{error}</p>
-        <Button variant="outline" onClick={() => window.location.reload()}>
-          Retry
-        </Button>
+      <div className="flex h-full w-full items-center justify-center">
+        <VaultLoader size={32} />
       </div>
     )
   }
 
-  const handleDownload = () => {
-    if (file && dek) {
-      downloadFileToDisk(file.name, file.totalSize, { dek, fileId: file.id })
-    }
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 p-4 text-center">
+        <AlertCircle className="text-destructive h-8 w-8" />
+        <div>
+          <p className="font-medium">Preview Error</p>
+          <p className="text-muted-foreground text-sm">{error}</p>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <FilePreviewer
-      fileName={file.name}
-      fileUrl={previewUrl}
-      fileText={previewText}
-      fileBlob={previewBlob}
-      onDownload={handleDownload}
-    />
+    <div className="flex h-full w-full items-center justify-center overflow-hidden p-4">
+      <FilePreviewer
+        fileName={file?.name || ''}
+        fileUrl={previewUrl}
+        fileText={previewText}
+        onDownload={() =>
+          file && dek && downloadFileToDisk(file.name, file.totalSize, { dek, fileId: file.id })
+        }
+      />
+    </div>
   )
 }

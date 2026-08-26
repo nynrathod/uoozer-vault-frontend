@@ -78,7 +78,7 @@ export function VaultPage({ trashed = false }: { trashed?: boolean }) {
 
   const previewFileId = usePreviewStore((s) => s.fileId)
   const openPreview = usePreviewStore((s) => s.open)
-
+  const isPreviewOpen = usePreviewStore((s) => !!s.fileId)
   const isTrashRoute = location.pathname === ROUTES.VAULT_TRASH
   const { isLoading, isError, error, refresh, breadcrumbPath } = useVaultFiles(
     currentFolderId,
@@ -365,7 +365,7 @@ export function VaultPage({ trashed = false }: { trashed?: boolean }) {
           </div>
         </div>
 
-        {previewFileId && (
+        {isPreviewOpen && (
           <div className="bg-muted/30 flex h-full w-full flex-col overflow-hidden md:w-1/2">
             <FilePreviewDialog />
           </div>
