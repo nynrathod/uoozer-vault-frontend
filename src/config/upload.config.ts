@@ -6,7 +6,7 @@ export const UPLOAD_CONFIG = {
   CHUNK_SIZE: 4 * 1024 * 1024, // 4MB
   MAX_CONCURRENT_UPLOADS: 4, // Parallel chunk uploads to R2
   MAX_CONCURRENT_FILES: 3, // Parallel files in a bulk/folder upload
-  MAX_FILE_SIZE: 10 * 1024 * 1024 * 1024, // 10GB frontend hard limit
+  MAX_FILE_SIZE: 40 * 1024 * 1024 * 1024, // 10GB frontend hard limit
   MAX_CHUNKS_PER_FILE: 50_000,
   MAX_FOLDER_DEPTH: 32, // Prevent excessively deep nesting
   SECRETSTREAM_OVERHEAD: 17,

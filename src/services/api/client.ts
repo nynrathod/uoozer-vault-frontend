@@ -5,7 +5,7 @@ import { setupInterceptors } from './interceptors'
 /** Pre-configured Axios instance with JSON headers and auth interceptors. */
 export const apiClient: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 30_000,
+  timeout: 120_000,
   headers: {
     'Content-Type': 'application/json',
     Accept: 'application/json',
