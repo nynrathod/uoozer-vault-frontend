@@ -129,6 +129,9 @@ export default defineConfig({
             if (id.includes('libsodium') || id.includes('hash-wasm') || id.includes('comlink')) {
               return 'crypto'
             }
+            if (id.includes('pdfjs-dist') || id.includes('react-pdf')) {
+              return 'pdf'
+            }
 
             // Data fetching & Forms
             if (id.includes('@tanstack/react-query')) {
