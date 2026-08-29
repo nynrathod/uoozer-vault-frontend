@@ -192,7 +192,9 @@ export function PublicSharePage() {
       const header = await base64ToBytes(encryptionHeaderB64)
       const streamId = await initFileDecryption(header, fileKey)
       const decryptedParts: Uint8Array[] = []
-      for (const chunk of chunksData) {
+      const sortedChunks = [...chunksData].sort((a, b) => a.chunk_index - b.chunk_index)
+
+      for (const chunk of sortedChunks) {
         const response = await fetch(chunk.presigned_url)
         if (!response.ok) throw new Error('Failed to download chunk')
         const arrayBuffer = await response.arrayBuffer()

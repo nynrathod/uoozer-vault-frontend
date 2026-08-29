@@ -201,7 +201,16 @@ const api: CryptoApi = {
       _encryptStates.delete(streamId)
     }
 
-    return Comlink.transfer({ ciphertext, blake3Hash }, [ciphertext.buffer, blake3Hash.buffer])
+    const cipherCopy = new Uint8Array(ciphertext.length)
+    cipherCopy.set(ciphertext)
+
+    const hashCopy = new Uint8Array(blake3Hash.length)
+    hashCopy.set(blake3Hash)
+
+    return Comlink.transfer({ ciphertext: cipherCopy, blake3Hash: hashCopy }, [
+      cipherCopy.buffer,
+      hashCopy.buffer,
+    ])
   },
 
   async initFileDecryption(header: Uint8Array, key: Uint8Array): Promise<string> {
@@ -218,7 +227,11 @@ const api: CryptoApi = {
     if (!state) throw new Error('Decryption stream not initialized or already finalized')
 
     const { message } = sodium.crypto_secretstream_xchacha20poly1305_pull(state, ciphertext, null)
-    return Comlink.transfer(message, [message.buffer])
+
+    const copy = new Uint8Array(message.length)
+    copy.set(message)
+
+    return Comlink.transfer(copy, [copy.buffer])
   },
 
   async cleanupFileStream(streamId?: string): Promise<void> {

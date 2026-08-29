@@ -4,8 +4,11 @@ import { Suspense } from 'react'
 import * as THREE from 'three'
 
 function Model({ url }: { url: string }) {
-  const { scene } = useGLTF(url) as { scene: THREE.Object3D }
-  return <primitive object={scene} />
+  const gltf = useGLTF(url)
+
+  if (!gltf || !gltf.scene) return null
+
+  return <primitive object={gltf.scene as THREE.Object3D} />
 }
 
 export default function ModelViewer({ url }: { url: string }) {

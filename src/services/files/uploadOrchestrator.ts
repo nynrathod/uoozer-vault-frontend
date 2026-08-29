@@ -14,6 +14,7 @@ import { uploadSync } from '@services/upload/uploadSync'
 import type { CreateFileRequest, ChunkPlan, ResumeInfo, CreateFileResponse } from '@/types/files'
 import { uploadDb, type PersistedUploadState } from '../upload/uploadDatabase'
 import { createBLAKE3 } from 'hash-wasm'
+import { PLAINTEXT_CHUNK_BYTES, SECRETSTREAM_MESSAGE_OVERHEAD } from '@lib/chunk-constants'
 
 export interface UploadProgressCallback {
   (uploadedBytes: number, speedBps: number, etaSeconds: number): void
@@ -300,16 +301,12 @@ export async function uploadFile(file: File, options: UploadOptions): Promise<Up
   const hasher = await createBLAKE3()
   const chunkHashesMap: Record<string, string> = {}
 
-  const fileStream = file.stream()
-  const reader = fileStream.getReader()
-
   for (let i = 0; i < totalChunks; i++) {
     if (internalSignal.aborted) throw new DOMException('Upload cancelled', 'AbortError')
 
-    const { done, value } = await reader.read()
-    if (done && i !== totalChunks - 1) throw new Error('File stream ended prematurely.')
-
-    const plaintext = value || new Uint8Array(0)
+    const start = i * PLAINTEXT_CHUNK_BYTES
+    const end = start + PLAINTEXT_CHUNK_BYTES
+    const plaintext = await readFileChunk(file, start, end)
     const isFinal = i === totalChunks - 1
 
     hasher.update(plaintext)
@@ -317,6 +314,13 @@ export async function uploadFile(file: File, options: UploadOptions): Promise<Up
     const { ciphertext, blake3Hash } = await encryptFileChunk(streamId, plaintext, isFinal)
     const chunkHashB64 = await bytesToBase64(blake3Hash)
     chunkHashesMap[String(i)] = chunkHashB64
+    if (ciphertext.byteLength <= plaintext.byteLength) {
+      throw new Error(
+        `Chunk ${i} encryption invariant violated: ` +
+          `ciphertext (${ciphertext.byteLength} B) must be larger than ` +
+          `plaintext (${plaintext.byteLength} B). Refusing to upload.`
+      )
+    }
 
     if (!resumeState) {
       chunkPlans.push({

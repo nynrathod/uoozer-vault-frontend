@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { FilePreviewer } from './FilePreviewer'
+import { PdfPreview } from './PdfPreview'
 import { usePreviewStore } from '@stores/previewStore'
 import { useFileStore, selectFileById } from '@stores/fileStore'
 import { useAuthStore } from '@stores/authStore'
@@ -22,10 +23,12 @@ export function PreviewContent() {
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [previewText, setPreviewText] = useState<string | null>(null)
+  const [pdfData, setPdfData] = useState<ArrayBuffer | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const abortControllerRef = useRef<AbortController | null>(null)
+  const objectUrlRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (!fileId || !dek || !file) {
@@ -40,13 +43,17 @@ export function PreviewContent() {
     abortControllerRef.current = controller
 
     let streamId: string | null = null
-    let objectUrl: string | null = null
 
     const loadPreview = async () => {
       setIsLoading(true)
       setError(null)
       setPreviewUrl(null)
       setPreviewText(null)
+      setPdfData(null)
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current)
+        objectUrlRef.current = null
+      }
 
       try {
         const { data: manifest } = await apiClient.get(`/api/v1/files/${fileId}/download`, {
@@ -66,8 +73,11 @@ export function PreviewContent() {
         const header = await base64ToBytes(manifest.encryption_header)
         streamId = await initFileDecryption(header, fileKey)
 
+        const sortedChunks = [...manifest.chunks].sort((a, b) => a.chunk_index - b.chunk_index)
+
         const decryptedParts: Uint8Array[] = []
-        for (const chunk of manifest.chunks) {
+
+        for (const chunk of sortedChunks) {
           if (controller.signal.aborted) return
 
           const response = await fetch(chunk.presigned_url, { signal: controller.signal })
@@ -76,51 +86,80 @@ export function PreviewContent() {
           }
           const arrayBuffer = await response.arrayBuffer()
           const ciphertext = new Uint8Array(arrayBuffer)
+
+          if (
+            chunk.chunk_size !== undefined &&
+            chunk.chunk_size !== null &&
+            ciphertext.length !== chunk.chunk_size
+          ) {
+            throw new Error(
+              `Chunk ${chunk.chunk_index} size mismatch! ` +
+                `Expected ${chunk.chunk_size}, got ${ciphertext.length}.`
+            )
+          }
+
           const plaintext = await decryptFileChunk(streamId, ciphertext)
           decryptedParts.push(plaintext)
         }
 
         if (controller.signal.aborted) return
 
+        const ext = file.name.split('.').pop()?.toLowerCase() || ''
+        const isPdf = ext === 'pdf' || file.mimeType === 'application/pdf'
+        const isText =
+          !isPdf &&
+          [
+            'md',
+            'markdown',
+            'txt',
+            'log',
+            'csv',
+            'tsv',
+            'json',
+            'js',
+            'ts',
+            'tsx',
+            'jsx',
+            'rs',
+            'py',
+            'go',
+            'java',
+            'c',
+            'cpp',
+            'css',
+            'html',
+            'xml',
+            'yml',
+            'yaml',
+            'toml',
+            'sql',
+            'sh',
+            'env',
+            'ini',
+            'conf',
+            'config',
+            'vue',
+            'svelte',
+            'graphql',
+            'gql',
+          ].includes(ext)
+
         const blob = new Blob(decryptedParts as BlobPart[], {
-          type: file.mimeType || 'application/octet-stream',
+          type: isPdf ? 'application/pdf' : file.mimeType || 'application/octet-stream',
         })
 
-        const ext = file.name.split('.').pop()?.toLowerCase() || ''
-        const isText = [
-          'md',
-          'markdown',
-          'txt',
-          'log',
-          'csv',
-          'tsv',
-          'json',
-          'js',
-          'ts',
-          'tsx',
-          'jsx',
-          'rs',
-          'py',
-          'go',
-          'java',
-          'c',
-          'cpp',
-          'css',
-          'html',
-          'xml',
-          'yml',
-          'yaml',
-          'toml',
-          'sql',
-          'sh',
-        ].includes(ext)
-
-        if (isText) {
+        if (isPdf) {
+          const pdfArrayBuffer = await blob.arrayBuffer()
+          if (!controller.signal.aborted) {
+            setPdfData(pdfArrayBuffer)
+          }
+        } else if (isText) {
           const text = await blob.text()
           if (!controller.signal.aborted) setPreviewText(text)
         } else {
-          objectUrl = URL.createObjectURL(blob)
-          if (!controller.signal.aborted) setPreviewUrl(objectUrl)
+          const url = URL.createObjectURL(blob)
+          objectUrlRef.current = url
+          if (!controller.signal.aborted) setPreviewUrl(url)
         }
       } catch (err: any) {
         if (err.name === 'AbortError' || controller.signal.aborted) return
@@ -136,7 +175,10 @@ export function PreviewContent() {
 
     return () => {
       controller.abort()
-      if (objectUrl) URL.revokeObjectURL(objectUrl)
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current)
+        objectUrlRef.current = null
+      }
     }
   }, [fileId, dek, file])
 
@@ -156,6 +198,20 @@ export function PreviewContent() {
           <p className="font-medium">Preview Error</p>
           <p className="text-muted-foreground text-sm">{error}</p>
         </div>
+      </div>
+    )
+  }
+
+  if (pdfData) {
+    return (
+      <div className="h-full w-full overflow-hidden">
+        <PdfPreview
+          data={pdfData}
+          fileName={file?.name || 'document.pdf'}
+          onDownload={() =>
+            file && dek && downloadFileToDisk(file.name, file.totalSize, { dek, fileId: file.id })
+          }
+        />
       </div>
     )
   }

@@ -138,10 +138,15 @@ export function useVersionUpload() {
             batch.map(async (url) => {
               const chunkData = ciphertextChunks.get(url.chunk_index)
               if (!chunkData) throw new Error(`Chunk ${url.chunk_index} not found in local cache.`)
+              const safeChunkData = new Uint8Array(chunkData.length)
+              safeChunkData.set(chunkData)
 
               const response = await fetch(url.presigned_url, {
                 method: 'PUT',
-                body: new Blob([chunkData as unknown as BlobPart]),
+                body: safeChunkData,
+                headers: {
+                  'Content-Length': safeChunkData.length.toString(),
+                },
               })
 
               if (!response.ok) {

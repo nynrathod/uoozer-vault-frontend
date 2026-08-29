@@ -1,27 +1,24 @@
-/**
- * Centralized configuration for file uploads.
- * This is the single source of truth for limits, timeouts, and retry logic.
- */
+import { PLAINTEXT_CHUNK_BYTES, SECRETSTREAM_MESSAGE_OVERHEAD } from '@lib/chunk-constants'
+
 export const UPLOAD_CONFIG = {
-  CHUNK_SIZE: 4 * 1024 * 1024, // 4MB
+  CHUNK_SIZE: PLAINTEXT_CHUNK_BYTES, // 4 MiB
+  SECRETSTREAM_OVERHEAD: SECRETSTREAM_MESSAGE_OVERHEAD, // 17 bytes
+
   MAX_CONCURRENT_UPLOADS: 4, // Parallel chunk uploads to R2
   MAX_CONCURRENT_FILES: 3, // Parallel files in a bulk/folder upload
-  MAX_FILE_SIZE: 40 * 1024 * 1024 * 1024, // 10GB frontend hard limit
+
+  MAX_FILE_SIZE: 40 * 1024 * 1024 * 1024, // 40 GB frontend hard limit
   MAX_CHUNKS_PER_FILE: 50_000,
   MAX_FOLDER_DEPTH: 32, // Prevent excessively deep nesting
-  SECRETSTREAM_OVERHEAD: 17,
 
-  // Network & Retry
   MAX_RETRIES: 5,
-  RETRY_BASE_DELAY: 1000, // 1s
-  RETRY_MAX_DELAY: 30_000, // 30s
+  RETRY_BASE_DELAY: 1000, // 1 s
+  RETRY_MAX_DELAY: 30_000, // 30 s
   CHUNK_UPLOAD_TIMEOUT: 120_000, // 2 minutes per chunk
 
-  // Presigned URL lifecycle
   PRESIGNED_URL_REFRESH_THRESHOLD: 60_000, // Refresh if < 1 min left
 
-  // Stall detection
-  STALL_TIMEOUT: 30_000, // 30s without progress = stalled
+  STALL_TIMEOUT: 30_000, // 30 s without progress = stalled
 } as const
 
 // Auto-filter junk files during folder uploads
