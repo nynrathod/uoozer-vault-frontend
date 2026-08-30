@@ -20,12 +20,8 @@ export const folderService = {
   ): Promise<BackendFolderResponse[]> {
     try {
       const params: Record<string, string | boolean> = {}
-      if (parentFolderId) {
-        params.parent_folder_id = parentFolderId
-      }
-      if (trashed) {
-        params.trashed = true
-      }
+      if (parentFolderId) params.parent_folder_id = parentFolderId
+      if (trashed) params.trashed = true
       const { data } = await apiClient.get('/api/v1/folders', { params })
       return data
     } catch (error: any) {
@@ -60,6 +56,16 @@ export const folderService = {
     }
   },
 
+  async moveFolder(folderId: string, targetParentFolderId: string | null): Promise<void> {
+    try {
+      await apiClient.post(`/api/v1/folders/${folderId}/move`, {
+        parent_folder_id: targetParentFolderId,
+      })
+    } catch (error: any) {
+      throw handleApiError(error, 'Failed to move folder.')
+    }
+  },
+
   async delete(folderId: string): Promise<void> {
     try {
       await apiClient.delete(`/api/v1/folders/${folderId}`)
@@ -83,6 +89,7 @@ export const folderService = {
       throw handleApiError(error, 'Failed to permanently delete folder.')
     }
   },
+
   async bulkCreate(req: CreateFolderRequest[]): Promise<BackendFolderResponse[]> {
     try {
       const { data } = await apiClient.post('/api/v1/folders/bulk', { folders: req })
@@ -91,6 +98,7 @@ export const folderService = {
       throw handleApiError(error, 'Failed to bulk create folders.')
     }
   },
+
   async getFolderFileTree(folderId: string): Promise<any[]> {
     try {
       const { data } = await apiClient.get(`/api/v1/folders/${folderId}/tree`)

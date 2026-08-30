@@ -5,6 +5,11 @@ import { FileIcon } from './FileIcon'
 import { FileActionsMenu } from '../fileActions/FileActionsMenu'
 import { useItemActions } from '@hooks/useItemActions'
 import { useFileStore } from '@stores/fileStore'
+import { fileService } from '@services/files/fileService'
+import { folderService } from '@services/folders/folderService'
+import { useQueryClient } from '@tanstack/react-query'
+import { QUERY_KEYS } from '@lib/constants'
+import { toast } from 'sonner'
 import type { FileItem } from '@/types/files'
 import type { Folder } from '@/types/folders'
 import { Checkbox } from '@/components/ui'
@@ -24,6 +29,8 @@ export const FileRow = memo(function FileRow({
   onSelect,
   onShare,
 }: FileRowProps) {
+  const queryClient = useQueryClient()
+
   const {
     isFolder,
     isTrash,
@@ -114,8 +121,25 @@ export const FileRow = memo(function FileRow({
           setIsDragging(false)
           const draggedId = e.dataTransfer.getData('text/plain')
           const draggedType = e.dataTransfer.getData('application/x-item-type') || 'file'
-          if (draggedId && draggedId !== item.id)
-            moveItem(draggedId, item.id, draggedType === 'folder')
+
+          if (!draggedId || draggedId === item.id) return
+
+          const isFolderDrag = draggedType === 'folder'
+
+          moveItem(draggedId, item.id, isFolderDrag)
+
+          const movePromise = isFolderDrag
+            ? folderService.moveFolder(draggedId, item.id)
+            : fileService.moveFile(draggedId, item.id)
+
+          movePromise
+            .then(() => toast.success(`Moved to "${item.name}"`))
+            .catch((err: any) => {
+              console.error('[MOVE] failed:', err)
+              queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FILES.LIST] })
+              queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FOLDERS.LIST] })
+              toast.error(err?.message ?? 'Failed to move item')
+            })
         }
       }}
       onDragEnd={() => {

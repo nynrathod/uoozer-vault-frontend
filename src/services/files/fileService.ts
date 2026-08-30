@@ -11,7 +11,6 @@ import type {
 } from '@/types/files'
 import { AuthError, AUTH_ERROR_CODES } from '@/services/auth/error'
 
-/** Maps a backend error response to a typed AuthError. */
 function handleApiError(error: any, defaultMessage: string): AuthError {
   const status = error?.response?.status ?? 500
   const code = error?.response?.data?.error?.code
@@ -19,7 +18,6 @@ function handleApiError(error: any, defaultMessage: string): AuthError {
   return new AuthError(code ?? AUTH_ERROR_CODES.INTERNAL_ERROR, status, { message })
 }
 
-/** File CRUD, chunked upload orchestration, and version management. */
 export const fileService = {
   async list(
     folderId?: string | null,
@@ -29,12 +27,8 @@ export const fileService = {
   ): Promise<BackendListFilesResponse> {
     try {
       const params: Record<string, string | number | boolean> = {}
-      if (folderId) {
-        params.folder_id = folderId
-      }
-      if (trashed) {
-        params.trashed = true
-      }
+      if (folderId) params.folder_id = folderId
+      if (trashed) params.trashed = true
       const { data } = await apiClient.get('/api/v1/files', { params })
       return data
     } catch (error: any) {
@@ -85,6 +79,7 @@ export const fileService = {
       throw handleApiError(error, 'Failed to restore version.')
     }
   },
+
   async deleteVersion(fileId: string, versionId: string): Promise<void> {
     try {
       await apiClient.delete(`/api/v1/files/${fileId}/versions/${versionId}`)
@@ -145,20 +140,26 @@ export const fileService = {
     }
   },
 
+  async moveFile(fileId: string, targetFolderId: string | null): Promise<void> {
+    try {
+      await apiClient.post(`/api/v1/files/${fileId}/move`, {
+        folder_id: targetFolderId,
+      })
+    } catch (error: any) {
+      throw handleApiError(error, 'Failed to move file.')
+    }
+  },
+
   async uploadChunkToR2(presignedUrl: string, ciphertext: Uint8Array): Promise<{ etag: string }> {
     try {
       const response = await fetch(presignedUrl, {
         method: 'PUT',
         body: ciphertext as BodyInit,
-        headers: {
-          'Content-Type': 'application/octet-stream',
-        },
+        headers: { 'Content-Type': 'application/octet-stream' },
       })
-
       if (!response.ok) {
         throw new Error(`R2 upload failed: ${response.status} ${response.statusText}`)
       }
-
       const etag = response.headers.get('ETag') ?? ''
       return { etag: etag.replace(/"/g, '') }
     } catch (error: any) {
