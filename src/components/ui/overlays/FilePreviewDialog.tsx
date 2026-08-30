@@ -11,19 +11,15 @@ export function FilePreviewDialog() {
   const isFullscreen = usePreviewStore((s) => s.isFullscreen)
   const isEditing = usePreviewStore((s) => s.isEditing)
   const close = usePreviewStore((s) => s.close)
-  const setLoading = usePreviewStore((s) => s.setLoading)
   const setEditing = usePreviewStore((s) => s.setEditing)
 
   const file = useFileStore(selectFileById(fileId))
 
   useEffect(() => {
     if (fileId) {
-      setLoading(true)
       setEditing(false)
-      const timer = setTimeout(() => setLoading(false), 1500)
-      return () => clearTimeout(timer)
     }
-  }, [fileId, setLoading, setEditing])
+  }, [fileId, setEditing])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -39,7 +35,7 @@ export function FilePreviewDialog() {
   if (!fileId || !file) return null
 
   const containerClasses = isFullscreen
-    ? 'fixed inset-0 z-[150] flex flex-col bg-[#0a0a0a]/95 backdrop-blur-xl animate-fade-in'
+    ? 'fixed inset-0 z-[150] flex flex-col bg-background/95 backdrop-blur-xl animate-fade-in'
     : 'flex flex-col h-full w-full bg-background animate-fade-in'
 
   return (

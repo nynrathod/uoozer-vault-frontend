@@ -1,6 +1,6 @@
-import { Canvas } from '@react-three/fiber'
+import { Canvas, useLoader } from '@react-three/fiber'
 import { OrbitControls, useGLTF } from '@react-three/drei'
-import { Suspense } from 'react'
+import { Suspense, useEffect } from 'react'
 import * as THREE from 'three'
 
 function Model({ url }: { url: string }) {
@@ -12,10 +12,19 @@ function Model({ url }: { url: string }) {
 }
 
 export default function ModelViewer({ url }: { url: string }) {
+  useEffect(() => {
+    return () => {
+      try {
+        useGLTF.clear(url)
+      } catch {}
+    }
+  }, [url])
+
   return (
     <div className="h-full w-full">
-      <Canvas camera={{ position: [0, 0, 5], fov: 50 }}>
-        <ambientLight intensity={0.5} />
+      <Canvas camera={{ position: [0, 0, 5], fov: 50 }} dpr={[1, 2]} gl={{ antialias: true }}>
+        <color attach="background" args={['#1a1a1a']} />
+        <ambientLight intensity={0.6} />
         <directionalLight position={[10, 10, 5]} intensity={1} />
         <Suspense fallback={null}>
           <Model url={url} />

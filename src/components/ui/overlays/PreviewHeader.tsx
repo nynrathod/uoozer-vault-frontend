@@ -42,10 +42,10 @@ export function PreviewHeader() {
   if (!file) return null
 
   const headerClasses = isFullscreen
-    ? 'h-16 flex items-center justify-between px-4 border-b border-white/10 text-white shrink-0 bg-[#0a0a0a]'
+    ? 'h-16 flex items-center justify-between px-4 border-b border-border text-foreground shrink-0 bg-background'
     : 'h-16 flex items-center justify-between px-4 border-b border-border text-foreground shrink-0 bg-background'
   const iconBtnClasses = isFullscreen
-    ? 'text-white/60 hover:bg-white/10 hover:text-white'
+    ? 'text-muted-foreground hover:bg-accent hover:text-foreground'
     : 'text-muted-foreground hover:bg-accent hover:text-foreground'
 
   return (
@@ -76,7 +76,7 @@ export function PreviewHeader() {
           <div
             className={cn(
               'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
-              isFullscreen ? 'bg-white/10' : 'bg-secondary'
+              isFullscreen ? 'bg-secondary' : 'bg-secondary'
             )}
           >
             <FileIcon
@@ -84,7 +84,7 @@ export function PreviewHeader() {
               size="sm"
               className={cn(
                 'bg-transparent',
-                isFullscreen ? 'text-white/80' : 'text-muted-foreground'
+                isFullscreen ? 'text-muted-foreground' : 'text-muted-foreground'
               )}
             />
           </div>
@@ -102,7 +102,7 @@ export function PreviewHeader() {
                     if (e.key === 'Enter') handleSubmit()
                     if (e.key === 'Escape') setEditing(false)
                   }}
-                  className="bg-background border-primary w-full rounded-md border px-1.5 py-0.5 text-[13px] font-medium outline-none"
+                  className="border-primary bg-background w-full rounded-md border px-1.5 py-0.5 text-[13px] font-medium outline-none"
                 />
                 {isSaving ? (
                   <Loader2 className="text-primary h-4 w-4 shrink-0 animate-spin" />
@@ -118,12 +118,7 @@ export function PreviewHeader() {
             ) : (
               <div className="min-w-0" onDoubleClick={() => setEditing(true)}>
                 <p className="cursor-pointer truncate text-sm font-semibold">{file.name}</p>
-                <p
-                  className={cn(
-                    'truncate text-xs',
-                    isFullscreen ? 'text-white/40' : 'text-muted-foreground/60'
-                  )}
-                >
+                <p className="text-muted-foreground/60 truncate text-xs">
                   {file.mimeType?.replace('application/', '').toUpperCase()} •{' '}
                   {formatBytes(file.totalSize)}
                 </p>

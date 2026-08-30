@@ -1,18 +1,61 @@
-import { lazy, Suspense, useRef, Component, type ReactNode, useEffect, useState } from 'react'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import { lazy, Suspense, Component, type ReactNode, useEffect, useState } from 'react'
 import { Music, AlertCircle, Download, File as FileIcon, Loader2 } from 'lucide-react'
 import { Button } from '@ui/Button'
 
 const ModelViewer = lazy(() => import('./ModelViewer'))
 const EpubViewer = lazy(() => import('react-epub-viewer').then((m) => ({ default: m.EpubViewer })))
 
+const LazyMarkdown = lazy(async () => {
+  const [{ default: ReactMarkdown }, { default: remarkGfm }] = await Promise.all([
+    import('react-markdown'),
+    import('remark-gfm'),
+  ])
+  return {
+    default: function MarkdownViewer({ children }: { children: string }) {
+      return <ReactMarkdown remarkPlugins={[remarkGfm]}>{children}</ReactMarkdown>
+    },
+  }
+})
+
+const LazyCodeBlock = lazy(async () => {
+  const [{ Prism: SyntaxHighlighter }, { vscDarkPlus }] = await Promise.all([
+    import('react-syntax-highlighter'),
+    import('react-syntax-highlighter/dist/esm/styles/prism'),
+  ])
+  return {
+    default: function CodeBlock({ language, children }: { language: string; children: string }) {
+      return (
+        <SyntaxHighlighter
+          language={language}
+          style={vscDarkPlus}
+          showLineNumbers
+          wrapLongLines
+          customStyle={{
+            margin: 0,
+            padding: '1rem',
+            background: 'transparent',
+            fontSize: '13px',
+          }}
+        >
+          {children}
+        </SyntaxHighlighter>
+      )
+    },
+  }
+})
+
 type FileCategory =
   'image' | 'pdf' | 'video' | 'audio' | 'markdown' | 'code' | 'text' | 'epub' | '3d' | 'other'
 
-const TEXT_EXTENSIONS = new Set([
+const IMAGE_EXTS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'avif', 'ico']
+const VIDEO_EXTS = ['mp4', 'webm', 'mov', 'ogv']
+const AUDIO_EXTS = ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac']
+const MARKDOWN_EXTS = ['md', 'markdown']
+const PLAIN_TEXT_EXTS = ['txt', 'log', 'csv', 'tsv']
+const EPUB_EXTS = ['epub']
+const MODEL_EXTS = ['gltf', 'glb']
+
+const CODE_EXTS = new Set([
   'js',
   'ts',
   'tsx',
@@ -54,44 +97,68 @@ const TEXT_EXTENSIONS = new Set([
   'svelte',
   'graphql',
   'gql',
-  'txt',
-  'log',
-  'csv',
-  'tsv',
 ])
 
 function getCategory(fileName: string): FileCategory {
   const ext = fileName.split('.').pop()?.toLowerCase() || ''
-  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'avif', 'ico'].includes(ext))
-    return 'image'
+  if (IMAGE_EXTS.includes(ext)) return 'image'
   if (ext === 'pdf') return 'pdf'
-  if (['mp4', 'webm', 'mov', 'ogv'].includes(ext)) return 'video'
-  if (['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac'].includes(ext)) return 'audio'
-  if (['md', 'markdown'].includes(ext)) return 'markdown'
-  if (TEXT_EXTENSIONS.has(ext)) return 'code'
-  if (ext === 'epub') return 'epub'
-  if (['gltf', 'glb'].includes(ext)) return '3d'
+  if (VIDEO_EXTS.includes(ext)) return 'video'
+  if (AUDIO_EXTS.includes(ext)) return 'audio'
+  if (MARKDOWN_EXTS.includes(ext)) return 'markdown'
+  if (PLAIN_TEXT_EXTS.includes(ext)) return 'text'
+  if (CODE_EXTS.has(ext)) return 'code'
+  if (EPUB_EXTS.includes(ext)) return 'epub'
+  if (MODEL_EXTS.includes(ext)) return '3d'
   return 'other'
 }
 
-function getMimeType(category: FileCategory, ext: string): string {
-  if (category === 'pdf') return 'application/pdf'
-  if (category === 'video') {
-    if (ext === 'mp4') return 'video/mp4'
-    if (ext === 'webm') return 'video/webm'
-    if (ext === 'mov') return 'video/quicktime'
-    if (ext === 'ogv') return 'video/ogg'
-  }
-  if (category === 'audio') {
-    if (ext === 'mp3') return 'audio/mpeg'
-    if (ext === 'wav') return 'audio/wav'
-    if (ext === 'ogg') return 'audio/ogg'
-    if (ext === 'flac') return 'audio/flac'
-    if (ext === 'm4a') return 'audio/mp4'
-    if (ext === 'aac') return 'audio/aac'
-  }
-  if (category === 'epub') return 'application/epub+zip'
-  return 'application/octet-stream'
+const EXT_TO_PRISM: Record<string, string> = {
+  js: 'javascript',
+  ts: 'typescript',
+  tsx: 'tsx',
+  jsx: 'jsx',
+  rs: 'rust',
+  py: 'python',
+  go: 'go',
+  java: 'java',
+  c: 'c',
+  cpp: 'cpp',
+  cs: 'csharp',
+  rb: 'ruby',
+  php: 'php',
+  swift: 'swift',
+  kt: 'kotlin',
+  scala: 'scala',
+  sh: 'bash',
+  bash: 'bash',
+  zsh: 'bash',
+  ps1: 'powershell',
+  bat: 'batch',
+  cmd: 'batch',
+  sql: 'sql',
+  json: 'json',
+  xml: 'xml',
+  html: 'markup',
+  css: 'css',
+  scss: 'scss',
+  less: 'less',
+  yaml: 'yaml',
+  yml: 'yaml',
+  toml: 'toml',
+  ini: 'ini',
+  conf: 'ini',
+  config: 'ini',
+  env: 'bash',
+  dockerfile: 'docker',
+  vue: 'markup',
+  svelte: 'markup',
+  graphql: 'graphql',
+  gql: 'graphql',
+}
+
+function getPrismLanguage(ext: string): string {
+  return EXT_TO_PRISM[ext] || 'text'
 }
 
 interface ErrorBoundaryProps {
@@ -101,7 +168,7 @@ interface ErrorBoundaryProps {
 interface ErrorBoundaryState {
   hasError: boolean
 }
-class ModelErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class PreviewErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props)
     this.state = { hasError: false }
@@ -110,12 +177,12 @@ class ModelErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryStat
     return { hasError: true }
   }
   render() {
-    if (this.state.hasError) {
-      return this.props.fallback
-    }
+    if (this.state.hasError) return this.props.fallback
     return this.props.children
   }
 }
+
+const MAX_TEXT_PREVIEW_SIZE = 5 * 1024 * 1024
 
 interface FilePreviewerProps {
   fileName: string
@@ -126,49 +193,48 @@ interface FilePreviewerProps {
 
 export function FilePreviewer({ fileName, fileUrl, fileText, onDownload }: FilePreviewerProps) {
   const category = getCategory(fileName)
-  const epubViewerRef = useRef<any>(null)
   const [autoText, setAutoText] = useState<string | null>(fileText)
-
-  const [fixedUrl, setFixedUrl] = useState<string | null>(fileUrl)
+  const [textError, setTextError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (category === 'code' || category === 'markdown' || category === 'text') {
-      if (fileText) {
-        setAutoText(fileText)
-      } else if (fileUrl) {
-        setAutoText(null)
-        fetch(fileUrl)
-          .then((res) => res.text())
-          .then((text) => setAutoText(text))
-          .catch(() => setAutoText(''))
-      }
+    if (category !== 'code' && category !== 'markdown' && category !== 'text') {
+      setAutoText(null)
+      setTextError(null)
+      return
     }
+    if (fileText !== null) {
+      setAutoText(fileText)
+      setTextError(null)
+      return
+    }
+    if (!fileUrl) {
+      setAutoText(null)
+      return
+    }
+
+    setAutoText(null)
+    setTextError(null)
+    fetch(fileUrl)
+      .then((res) => res.blob())
+      .then((blob) => {
+        if (blob.size > MAX_TEXT_PREVIEW_SIZE) {
+          setTextError('File too large to preview as text. Please download to view.')
+          return null
+        }
+        return blob.text()
+      })
+      .then((text) => {
+        if (text) setAutoText(text)
+      })
+      .catch(() => setTextError('Failed to load text content.'))
   }, [category, fileText, fileUrl])
-
-  useEffect(() => {
-    if (
-      fileUrl &&
-      (category === 'pdf' || category === 'video' || category === 'audio' || category === 'epub')
-    ) {
-      fetch(fileUrl)
-        .then((res) => res.blob())
-        .then((blob) => {
-          const ext = fileName.split('.').pop()?.toLowerCase() || ''
-          const correctType = getMimeType(category, ext)
-          const fixedBlob = new Blob([blob], { type: correctType })
-          setFixedUrl(URL.createObjectURL(fixedBlob))
-        })
-        .catch(() => setFixedUrl(fileUrl))
-    } else {
-      setFixedUrl(fileUrl)
-    }
-  }, [fileUrl, category, fileName])
 
   const displayText = fileText !== null ? fileText : autoText
 
   if (
     (category === 'code' || category === 'markdown' || category === 'text') &&
-    displayText === null
+    displayText === null &&
+    !textError
   ) {
     return (
       <div className="flex h-full w-full items-center justify-center">
@@ -177,18 +243,24 @@ export function FilePreviewer({ fileName, fileUrl, fileText, onDownload }: FileP
     )
   }
 
-  if (
-    (category === 'pdf' || category === 'video' || category === 'audio' || category === 'epub') &&
-    !fixedUrl
-  ) {
+  if (textError) {
     return (
-      <div className="flex h-full w-full items-center justify-center">
-        <Loader2 className="text-primary h-8 w-8 animate-spin" />
+      <div className="flex flex-col items-center justify-center gap-4 text-center">
+        <div className="bg-muted/20 flex h-16 w-16 items-center justify-center rounded-full">
+          <AlertCircle className="text-muted-foreground h-8 w-8" />
+        </div>
+        <div>
+          <p className="text-foreground font-medium">Preview not available</p>
+          <p className="text-muted-foreground mt-1 text-sm">{textError}</p>
+        </div>
+        <Button onClick={onDownload} className="gap-2">
+          <Download className="h-4 w-4" /> Download File
+        </Button>
       </div>
     )
   }
 
-  if (!fixedUrl && displayText === null) {
+  if (!fileUrl && displayText === null) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 text-center">
         <div className="bg-muted/20 flex h-16 w-16 items-center justify-center rounded-full">
@@ -202,74 +274,113 @@ export function FilePreviewer({ fileName, fileUrl, fileText, onDownload }: FileP
     )
   }
 
-  if (category === 'image' && fixedUrl)
-    return <img src={fixedUrl} alt={fileName} className="h-full w-full object-contain" />
+  if (category === 'image' && fileUrl) {
+    return <img src={fileUrl} alt={fileName} className="h-full w-full object-contain" />
+  }
 
-  if (category === 'pdf' && fixedUrl) {
+  if (category === 'pdf') {
     return (
-      <div className="flex h-full w-full flex-col">
-        <div className="bg-secondary flex justify-center p-2">
-          <Button onClick={onDownload} className="gap-2" size="sm">
-            <Download className="h-4 w-4" /> Download to verify file integrity
-          </Button>
+      <div className="flex flex-col items-center justify-center gap-4 text-center">
+        <div className="bg-muted/20 flex h-16 w-16 items-center justify-center rounded-full">
+          <FileIcon className="text-muted-foreground h-8 w-8" />
         </div>
-        <object data={fixedUrl} type="application/pdf" className="h-full w-full flex-1">
-          <div className="flex h-full w-full flex-col items-center justify-center gap-4 p-4 text-center">
-            <AlertCircle className="text-muted-foreground h-8 w-8" />
-            <p className="text-muted-foreground">Inline PDF preview blocked by browser.</p>
-            <Button onClick={onDownload} className="gap-2">
-              <Download className="h-4 w-4" /> Download PDF
-            </Button>
-          </div>
-        </object>
+        <div>
+          <p className="text-foreground font-medium">PDF Preview</p>
+          <p className="text-muted-foreground mt-1 text-sm">Download to view this PDF.</p>
+        </div>
+        <Button onClick={onDownload} className="gap-2">
+          <Download className="h-4 w-4" /> Download PDF
+        </Button>
       </div>
     )
   }
 
-  if (category === 'video' && fixedUrl)
-    return <video src={fixedUrl} controls autoPlay className="h-full w-full object-contain" />
+  if (category === 'video' && fileUrl) {
+    return <video src={fileUrl} controls className="h-full w-full object-contain" />
+  }
 
-  if (category === 'audio' && fixedUrl) {
+  if (category === 'audio' && fileUrl) {
     return (
       <div className="flex h-full w-full flex-col items-center justify-center gap-4">
         <div className="bg-muted/20 flex h-16 w-16 items-center justify-center rounded-full">
           <Music className="text-muted-foreground h-8 w-8" />
         </div>
-        <audio src={fixedUrl} controls autoPlay />
+        <audio src={fileUrl} controls />
       </div>
     )
   }
 
   if (category === 'markdown' && displayText !== null) {
     return (
-      <div className="markdown-body h-full w-full overflow-auto px-8 py-6">
-        <div className="mx-auto max-w-3xl">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{displayText}</ReactMarkdown>
+      <PreviewErrorBoundary
+        fallback={
+          <div className="flex flex-col items-center justify-center gap-4 text-center">
+            <AlertCircle className="text-muted-foreground h-8 w-8" />
+            <p className="text-muted-foreground text-sm">Failed to render markdown.</p>
+            <Button onClick={onDownload} className="gap-2">
+              <Download className="h-4 w-4" /> Download File
+            </Button>
+          </div>
+        }
+      >
+        <div className="markdown-body h-full w-full overflow-auto px-8 py-6">
+          <div className="mx-auto max-w-3xl">
+            <Suspense
+              fallback={
+                <div className="flex h-full items-center justify-center">
+                  <Loader2 className="text-primary h-8 w-8 animate-spin" />
+                </div>
+              }
+            >
+              <LazyMarkdown>{displayText}</LazyMarkdown>
+            </Suspense>
+          </div>
         </div>
-      </div>
+      </PreviewErrorBoundary>
     )
   }
 
   if (category === 'code' && displayText !== null) {
     const ext = fileName.split('.').pop()?.toLowerCase() || 'text'
+    const lang = getPrismLanguage(ext)
     return (
-      <div className="h-full w-full overflow-auto rounded-lg bg-[#1e1e1e]">
-        <SyntaxHighlighter
-          language={ext}
-          style={vscDarkPlus}
-          showLineNumbers
-          wrapLongLines
-          customStyle={{ margin: 0, padding: '1rem', background: 'transparent', fontSize: '13px' }}
-        >
-          {displayText}
-        </SyntaxHighlighter>
+      <PreviewErrorBoundary
+        fallback={
+          <div className="flex flex-col items-center justify-center gap-4 text-center">
+            <AlertCircle className="text-muted-foreground h-8 w-8" />
+            <p className="text-muted-foreground text-sm">Failed to render code.</p>
+            <Button onClick={onDownload} className="gap-2">
+              <Download className="h-4 w-4" /> Download File
+            </Button>
+          </div>
+        }
+      >
+        <div className="h-full w-full overflow-auto rounded-lg bg-[#1e1e1e]">
+          <Suspense
+            fallback={
+              <div className="flex h-full items-center justify-center">
+                <Loader2 className="text-primary h-8 w-8 animate-spin" />
+              </div>
+            }
+          >
+            <LazyCodeBlock language={lang}>{displayText}</LazyCodeBlock>
+          </Suspense>
+        </div>
+      </PreviewErrorBoundary>
+    )
+  }
+
+  if (category === 'text' && displayText !== null) {
+    return (
+      <div className="h-full w-full overflow-auto rounded-lg bg-[#1e1e1e] p-4">
+        <pre className="text-sm break-words whitespace-pre-wrap text-gray-300">{displayText}</pre>
       </div>
     )
   }
 
-  if (category === '3d' && fixedUrl) {
+  if (category === '3d' && fileUrl) {
     return (
-      <ModelErrorBoundary
+      <PreviewErrorBoundary
         fallback={
           <div className="flex flex-col items-center justify-center gap-4 text-center">
             <div className="bg-muted/20 flex h-16 w-16 items-center justify-center rounded-full">
@@ -294,25 +405,44 @@ export function FilePreviewer({ fileName, fileUrl, fileText, onDownload }: FileP
             </div>
           }
         >
-          <ModelViewer url={fixedUrl} />
+          <ModelViewer url={fileUrl} />
         </Suspense>
-      </ModelErrorBoundary>
+      </PreviewErrorBoundary>
     )
   }
 
-  if (category === 'epub' && fixedUrl) {
+  if (category === 'epub' && fileUrl) {
     return (
-      <Suspense
+      <PreviewErrorBoundary
         fallback={
-          <div className="flex h-full w-full items-center justify-center">
-            <Loader2 className="text-primary h-8 w-8 animate-spin" />
+          <div className="flex flex-col items-center justify-center gap-4 text-center">
+            <div className="bg-muted/20 flex h-16 w-16 items-center justify-center rounded-full">
+              <AlertCircle className="text-muted-foreground h-8 w-8" />
+            </div>
+            <div>
+              <p className="text-foreground font-medium">Preview not available</p>
+              <p className="text-muted-foreground mt-1 text-sm">
+                The EPUB file is invalid or corrupted.
+              </p>
+            </div>
+            <Button onClick={onDownload} className="gap-2">
+              <Download className="h-4 w-4" /> Download File
+            </Button>
           </div>
         }
       >
-        <div className="h-full w-full bg-white">
-          <EpubViewer ref={epubViewerRef} url={fixedUrl} />
-        </div>
-      </Suspense>
+        <Suspense
+          fallback={
+            <div className="flex h-full w-full items-center justify-center">
+              <Loader2 className="text-primary h-8 w-8 animate-spin" />
+            </div>
+          }
+        >
+          <div className="h-full w-full bg-white">
+            <EpubViewer url={fileUrl} />
+          </div>
+        </Suspense>
+      </PreviewErrorBoundary>
     )
   }
 

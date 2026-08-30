@@ -1,14 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ZipReader, BlobReader, BlobWriter } from '@zip.js/zip.js'
 import { downloadFile } from '@services/files/downloadOrchestrator'
 import { useAuthStore } from '@stores/authStore'
 import { Loader2, File, Folder, Download, ArrowLeft, Eye } from 'lucide-react'
-import { cn } from '@lib/utils'
+import { cn, formatBytes } from '@lib/utils'
 
 interface ZipPreviewProps {
   fileId: string
   fileName: string
 }
+const MAX_EXTRACTION_SIZE = 100 * 1024 * 1024
 
 function getMimeType(filename: string): string {
   const ext = filename.split('.').pop()?.toLowerCase() || ''
@@ -23,38 +24,83 @@ function getMimeType(filename: string): string {
 export function ZipPreview({ fileId, fileName }: ZipPreviewProps) {
   const [entries, setEntries] = useState<{ filename: string; directory: boolean; entry: any }[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [previewName, setPreviewName] = useState<string | null>(null)
   const dek = useAuthStore((s) => s.cryptoState.dek)
+
+  const readerRef = useRef<ZipReader<BlobReader> | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
     async function loadZip() {
       if (!dek) return
       setIsLoading(true)
+      setError(null)
+
+      if (abortRef.current) abortRef.current.abort()
+      const controller = new AbortController()
+      abortRef.current = controller
+
       try {
-        const blob = await downloadFile({ dek, fileId })
+        const blob = await downloadFile({ dek, fileId, signal: controller.signal })
+        if (controller.signal.aborted) return
+
         const reader = new ZipReader(new BlobReader(blob))
+        readerRef.current = reader
         const zipEntries = await reader.getEntries()
+        if (controller.signal.aborted) return
+
         setEntries(
           zipEntries.map((e) => ({ filename: e.filename, directory: e.directory, entry: e }))
         )
-        await reader.close()
       } catch (err) {
+        if (controller.signal.aborted) return
         console.error('Failed to read zip', err)
+        setError('Failed to read ZIP archive.')
       } finally {
-        setIsLoading(false)
+        if (!controller.signal.aborted) setIsLoading(false)
       }
     }
     loadZip()
+
+    return () => {
+      if (abortRef.current) abortRef.current.abort()
+      if (readerRef.current) {
+        readerRef.current.close().catch(() => {})
+        readerRef.current = null
+      }
+      setPreviewUrl((url) => {
+        if (url) URL.revokeObjectURL(url)
+        return null
+      })
+    }
   }, [fileId, dek])
 
   const handleExtractFile = async (entry: any, isDownload: boolean = false) => {
     if (!entry || entry.directory) return
     try {
       setIsLoading(true)
+      setError(null)
+
+      if (entry.uncompressedSize && entry.uncompressedSize > MAX_EXTRACTION_SIZE) {
+        setError(
+          `File too large to extract: ${formatBytes(entry.uncompressedSize)}. ` +
+            `Maximum is ${formatBytes(MAX_EXTRACTION_SIZE)}.`
+        )
+        return
+      }
 
       const mimeType = getMimeType(entry.filename)
       const blob = await entry.getData(new BlobWriter(mimeType))
+
+      if (blob.size > MAX_EXTRACTION_SIZE) {
+        setError(
+          `File too large to extract: ${formatBytes(blob.size)}. ` +
+            `Maximum is ${formatBytes(MAX_EXTRACTION_SIZE)}.`
+        )
+        return
+      }
 
       if (isDownload) {
         const url = URL.createObjectURL(blob)
@@ -66,20 +112,38 @@ export function ZipPreview({ fileId, fileName }: ZipPreviewProps) {
         document.body.removeChild(a)
         URL.revokeObjectURL(url)
       } else {
-        setPreviewUrl(URL.createObjectURL(blob))
+        setPreviewUrl((oldUrl) => {
+          if (oldUrl) URL.revokeObjectURL(oldUrl)
+          return URL.createObjectURL(blob)
+        })
         setPreviewName(entry.filename.split('/').pop())
       }
     } catch (err) {
       console.error('Extraction failed', err)
+      setError('Failed to extract file from ZIP.')
     } finally {
       setIsLoading(false)
     }
   }
 
-  if (isLoading) {
+  if (isLoading && entries.length === 0) {
     return (
       <div className="flex h-full items-center justify-center">
         <Loader2 className="text-primary h-8 w-8 animate-spin" />
+      </div>
+    )
+  }
+
+  if (error && entries.length === 0) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
+        <div className="bg-muted/20 flex h-16 w-16 items-center justify-center rounded-full">
+          <File className="text-muted-foreground h-8 w-8" />
+        </div>
+        <div>
+          <p className="text-foreground font-medium">Preview Error</p>
+          <p className="text-muted-foreground mt-1 text-sm">{error}</p>
+        </div>
       </div>
     )
   }
@@ -92,6 +156,7 @@ export function ZipPreview({ fileId, fileName }: ZipPreviewProps) {
             onClick={() => {
               URL.revokeObjectURL(previewUrl)
               setPreviewUrl(null)
+              setPreviewName(null)
             }}
             className="text-primary flex items-center gap-1 text-xs font-medium hover:underline"
           >
