@@ -104,6 +104,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: async () => {
+    const { cryptoState } = get()
+    if (cryptoState.masterKey) cryptoState.masterKey.fill(0)
+    if (cryptoState.dek) cryptoState.dek.fill(0)
+
     await tokenManager.clearAll()
     set({
       user: null,

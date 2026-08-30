@@ -7,6 +7,8 @@ import {
   cleanupFileStream,
   generateDek,
   wrapDek,
+  base64ToBytes,
+  unwrapDek,
 } from '@lib/crypto'
 import { validateFile, sanitizeFileName } from '@lib/fileValidation'
 import { UPLOAD_CONFIG } from '@config/upload.config'
@@ -15,6 +17,7 @@ import type { CreateFileRequest, ChunkPlan, ResumeInfo, CreateFileResponse } fro
 import { uploadDb, type PersistedUploadState } from '../upload/uploadDatabase'
 import { createBLAKE3 } from 'hash-wasm'
 import { PLAINTEXT_CHUNK_BYTES, SECRETSTREAM_MESSAGE_OVERHEAD } from '@lib/chunk-constants'
+import { apiClient } from '../api/client'
 
 export interface UploadProgressCallback {
   (uploadedBytes: number, speedBps: number, etaSeconds: number): void
@@ -241,15 +244,37 @@ export async function uploadFile(file: File, options: UploadOptions): Promise<Up
   let wrappedFileKeyB64 = ''
   let wrappedFileKeyNonceB64 = ''
 
-  if (resumeState && resumeState.versionId && resumeState.streamId) {
+  if (resumeState && resumeState.versionId) {
     const resumeInfo: ResumeInfo = await fileService.getResumeInfo(resumeState.versionId)
     fileId = resumeState.fileId!
     versionId = resumeState.versionId
-    streamId = resumeState.streamId
-    encryptionHeaderB64 = resumeState.encryptionHeader
-    chunkPlans = resumeState.chunkPlans
     deduplicated = false
     alreadyUploadedChunks = new Set(resumeInfo.uploaded_chunks)
+    chunkPlans = resumeState.chunkPlans
+
+    const { data: versionData } = await apiClient.get(
+      `/api/v1/files/${fileId}/versions/${versionId}`
+    )
+    const wrappedFileKey = {
+      ciphertext: await base64ToBytes(versionData.wrapped_file_key),
+      nonce: await base64ToBytes(versionData.wrapped_file_key_nonce),
+    }
+    const fileKey = await unwrapDek(wrappedFileKey, dek)
+    if (!fileKey) throw new Error('Failed to unwrap file key for resume.')
+
+    const initResult = await initFileEncryption(fileKey)
+    streamId = initResult.streamId
+    encryptionHeaderB64 = await bytesToBase64(initResult.header)
+
+    const newSegmentIndex = resumeState.chunkPlans[0]?.segment_index
+      ? resumeState.chunkPlans[0].segment_index + 1
+      : 1
+    chunkPlans = chunkPlans.map((plan) => ({
+      ...plan,
+      segment_index: alreadyUploadedChunks.has(plan.chunk_index)
+        ? plan.segment_index
+        : newSegmentIndex,
+    }))
 
     if (resumeInfo.upload_urls && resumeInfo.upload_urls.length > 0) {
       uploadUrls = resumeInfo.upload_urls
