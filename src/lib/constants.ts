@@ -1,8 +1,8 @@
 export const APP_NAME = 'Uoozer Vault'
 export const APP_VERSION = '0.1.0'
 
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
-export const SSE_BASE_URL = import.meta.env.VITE_SSE_BASE_URL || ''
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api/v1'
+export const SSE_BASE_URL = import.meta.env.VITE_SSE_BASE_URL || '/api/v1'
 export const STORAGE_KEYS = {
   THEME: 'uoozer-theme',
   ACCESS_TOKEN: 'vault:access_token',
