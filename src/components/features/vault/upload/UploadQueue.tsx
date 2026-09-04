@@ -3,7 +3,6 @@ import {
   X,
   ChevronDown,
   ChevronUp,
-  File,
   CheckCircle2,
   AlertCircle,
   Loader2,
@@ -182,9 +181,6 @@ function UploadRow({ upload }: { upload: UploadFile }) {
 export function UploadQueue() {
   const uploadsMap = useUploadStore((s) => s.uploads)
   const clearCompleted = useUploadStore((s) => s.clearCompleted)
-  const pauseUpload = useUploadStore((s) => s.pauseUpload)
-  const resumeUpload = useUploadStore((s) => s.resumeUpload)
-  const retryUpload = useUploadStore((s) => s.retryUpload)
 
   const [isMinimized, setIsMinimized] = useState(false)
   const [activeTab, setActiveTab] = useState<TabId>('all')

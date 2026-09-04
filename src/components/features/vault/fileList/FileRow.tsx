@@ -33,7 +33,6 @@ export const FileRow = memo(function FileRow({
 
   const {
     isFolder,
-    isTrash,
     isShareMode,
     copied,
     handleCopyLink,

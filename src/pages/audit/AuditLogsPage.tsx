@@ -1,34 +1,17 @@
-import { useState } from 'react'
-import {
-  Activity,
-  Upload,
-  Download,
-  Trash2,
-  Share2,
-  LogIn,
-  LogOut,
-  Edit3,
-  Eye,
-  Filter,
-  Calendar,
-  ChevronDown,
-} from 'lucide-react'
-import { cn, formatRelativeDate } from '@lib/utils'
-import { Button } from '@ui/Button'
-import { mockLogs, type LogAction } from '@/test/mocks/auditLogs'
-import { PageHeader, StatCard } from '@/components/ui'
+import { Activity } from 'lucide-react'
+
 import { ComingSoon } from '@/components/ui/feedback'
 
-const actionConfig: Record<LogAction, { icon: React.ElementType; label: string; color: string }> = {
-  upload: { icon: Upload, label: 'Uploaded', color: 'text-emerald-500 bg-emerald-500/10' },
-  download: { icon: Download, label: 'Downloaded', color: 'text-blue-500 bg-blue-500/10' },
-  delete: { icon: Trash2, label: 'Deleted', color: 'text-destructive bg-destructive/10' },
-  share: { icon: Share2, label: 'Shared', color: 'text-purple-500 bg-purple-500/10' },
-  login: { icon: LogIn, label: 'Signed in', color: 'text-primary bg-primary/10' },
-  logout: { icon: LogOut, label: 'Signed out', color: 'text-muted-foreground bg-muted/80' },
-  edit: { icon: Edit3, label: 'Modified', color: 'text-amber-500 bg-amber-500/10' },
-  preview: { icon: Eye, label: 'Previewed', color: 'text-cyan-500 bg-cyan-500/10' },
-}
+// const actionConfig: Record<LogAction, { icon: React.ElementType; label: string; color: string }> = {
+//   upload: { icon: Upload, label: 'Uploaded', color: 'text-emerald-500 bg-emerald-500/10' },
+//   download: { icon: Download, label: 'Downloaded', color: 'text-blue-500 bg-blue-500/10' },
+//   delete: { icon: Trash2, label: 'Deleted', color: 'text-destructive bg-destructive/10' },
+//   share: { icon: Share2, label: 'Shared', color: 'text-purple-500 bg-purple-500/10' },
+//   login: { icon: LogIn, label: 'Signed in', color: 'text-primary bg-primary/10' },
+//   logout: { icon: LogOut, label: 'Signed out', color: 'text-muted-foreground bg-muted/80' },
+//   edit: { icon: Edit3, label: 'Modified', color: 'text-amber-500 bg-amber-500/10' },
+//   preview: { icon: Eye, label: 'Previewed', color: 'text-cyan-500 bg-cyan-500/10' },
+// }
 
 export function AuditLogsPage() {
   return (

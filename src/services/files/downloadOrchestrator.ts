@@ -135,7 +135,7 @@ export async function downloadFile(options: DownloadOptions): Promise<Blob> {
 
 export async function downloadFileToDisk(
   fileName: string,
-  totalSize: number,
+  _totalSize: number,
   params: { dek: Uint8Array; fileId: string; versionId?: string }
 ) {
   const blob = await downloadFile(params)
@@ -316,7 +316,7 @@ function triggerBrowserDownload(filename: string, blob: Blob): void {
 
 export async function downloadSharedFileToDisk(
   fileName: string,
-  fileSize: number,
+  _fileSize: number,
   options: {
     shareId: string
     fileId: string

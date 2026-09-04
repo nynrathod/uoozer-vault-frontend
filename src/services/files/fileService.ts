@@ -21,8 +21,8 @@ function handleApiError(error: any, defaultMessage: string): AuthError {
 export const fileService = {
   async list(
     folderId?: string | null,
-    limit: number = 100,
-    offset: number = 0,
+    _limit: number = 100,
+    _offset: number = 0,
     trashed: boolean = false
   ): Promise<BackendListFilesResponse> {
     try {

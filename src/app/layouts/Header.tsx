@@ -1,6 +1,4 @@
-import { useLocation } from 'react-router-dom'
-import { Search, Bell } from 'lucide-react'
-import { Button } from '@ui/Button'
+import { Search } from 'lucide-react'
 import { useUIStore } from '@stores/uiStore'
 import { cn } from '@lib/utils'
 
@@ -10,10 +8,7 @@ import { SearchCommand } from '@/components/ui/overlays'
 
 /** Top app bar with search, vault actions, notifications, and profile. */
 export function Header() {
-  const location = useLocation()
   const setSearchOpen = useUIStore((s) => s.setSearchOpen)
-
-  const isVault = location.pathname.startsWith('/vault')
 
   return (
     <header className="border-border/60 bg-background/80 z-50 flex h-[60px] shrink-0 items-center justify-between border-b px-4 backdrop-blur-xl lg:px-5">

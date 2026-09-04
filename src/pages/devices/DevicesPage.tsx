@@ -1,21 +1,7 @@
-import { useState } from 'react'
-import {
-  Monitor,
-  Smartphone,
-  Tablet,
-  Globe,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  Shield,
-  HardDrive,
-} from 'lucide-react'
-import { cn } from '@lib/utils'
-import { Button } from '@ui/Button'
-import { mockDevices } from '@/test/mocks/devices'
+import { HardDrive } from 'lucide-react'
 import { ComingSoon } from '@/components/ui/feedback'
 
-const iconMap = { desktop: Monitor, mobile: Smartphone, tablet: Tablet }
+// const iconMap = { desktop: Monitor, mobile: Smartphone, tablet: Tablet }
 
 export function DevicesPage() {
   return (

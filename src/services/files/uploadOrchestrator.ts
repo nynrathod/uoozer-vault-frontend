@@ -16,7 +16,7 @@ import { uploadSync } from '@services/upload/uploadSync'
 import type { CreateFileRequest, ChunkPlan, ResumeInfo, CreateFileResponse } from '@/types/files'
 import { uploadDb, type PersistedUploadState } from '../upload/uploadDatabase'
 import { createBLAKE3 } from 'hash-wasm'
-import { PLAINTEXT_CHUNK_BYTES, SECRETSTREAM_MESSAGE_OVERHEAD } from '@lib/chunk-constants'
+import { PLAINTEXT_CHUNK_BYTES } from '@lib/chunk-constants'
 import { apiClient } from '../api/client'
 
 export interface UploadProgressCallback {

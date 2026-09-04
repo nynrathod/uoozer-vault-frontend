@@ -2,7 +2,6 @@ import { useMutation, useQueryClient, type QueryKey } from '@tanstack/react-quer
 import { toast } from 'sonner'
 import { fileService } from '@services/files/fileService'
 import { folderService } from '@services/folders/folderService'
-import { useFileStore } from '@stores/fileStore'
 import { usePreviewStore } from '@stores/previewStore'
 import { useAuthStore } from '@stores/authStore'
 import { encryptMetadataObject } from '@lib/crypto'
@@ -26,7 +25,6 @@ export function useVaultActions() {
     mutationFn: async ({
       name,
       parentId,
-      tempId,
     }: {
       name: string
       parentId: string | null

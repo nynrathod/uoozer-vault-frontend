@@ -1,7 +1,4 @@
-import { KeyRound, Smartphone, Fingerprint, ShieldCheck } from 'lucide-react'
-import { Button } from '@ui/Button'
-import { Input } from '@ui/Input'
-import { Separator } from '@ui/Separator'
+import { ShieldCheck } from 'lucide-react'
 import { ComingSoon } from '@/components/ui/feedback'
 
 /** Settings section for password change, 2FA via authenticator app, and biometric login. */

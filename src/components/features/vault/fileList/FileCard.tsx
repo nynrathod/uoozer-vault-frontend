@@ -39,7 +39,6 @@ export const FileCard = memo(function FileCard({
     handleCancel,
   } = useItemActions(item, () => onRenameRequest?.(null))
 
-  const deleteItem = useFileStore((s) => s.deleteItem)
   const moveItem = useFileStore((s) => s.moveItem)
   const setShareTarget = useFileStore((s) => s.setShareTarget)
   const setVersionFileId = useFileStore((s) => s.setVersionFileId)

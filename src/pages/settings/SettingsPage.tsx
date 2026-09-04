@@ -6,7 +6,6 @@ import { Button } from '@ui/Button'
 import { ScrollArea } from '@ui/ScrollArea'
 import { Tabs, TabsList, TabsTrigger, PageHeader } from '@/components/ui'
 import { useTheme } from '@hooks/useTheme'
-import { useAuthStore } from '@stores/authStore'
 import { ProfileSection } from './ProfileSection'
 import { SecuritySection } from './SecuritySection'
 import { AppearanceSection } from './AppearanceSection'
@@ -23,7 +22,7 @@ const tabs = [
 export function SettingsPage() {
   const [activeTab, setActiveTab] = useState('general')
   const { variant, scheme, setVariant, setScheme } = useTheme()
-  const user = useAuthStore((s) => s.user)
+
   const navigate = useNavigate()
 
   return (

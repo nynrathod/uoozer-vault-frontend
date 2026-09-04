@@ -79,7 +79,7 @@ export function VaultPage({ trashed = false }: { trashed?: boolean }) {
   const previewFileId = usePreviewStore((s) => s.fileId)
   const openPreview = usePreviewStore((s) => s.open)
   const isPreviewOpen = usePreviewStore((s) => !!s.fileId)
-  const isTrashRoute = location.pathname === ROUTES.VAULT_TRASH
+  // const isTrashRoute = location.pathname === ROUTES.VAULT_TRASH
   const { isLoading, isError, error, refresh, breadcrumbPath } = useVaultFiles(
     currentFolderId,
     trashed
@@ -94,17 +94,17 @@ export function VaultPage({ trashed = false }: { trashed?: boolean }) {
   const versionFileId = useFileStore((s) => s.versionFileId)
   const viewMode = useFileStore((s) => s.viewMode)
   const setShareTarget = useFileStore((s) => s.setShareTarget)
-  const setVersionFileId = useFileStore((s) => s.setVersionFileId)
+  // const setVersionFileId = useFileStore((s) => s.setVersionFileId)
   const toggleFileSelection = useFileStore((s) => s.toggleFileSelection)
-  const editingId = useFileStore((s) => s.editingId)
+  // const editingId = useFileStore((s) => s.editingId)
   const setEditingId = useFileStore((s) => s.setEditingId)
 
   const sharedItem = useFileStore((s) =>
     s.shareTargetId ? s.files.get(s.shareTargetId) || s.folders.get(s.shareTargetId) : null
   )
-  const isSharedItemFolder = useFileStore((s) =>
-    s.shareTargetId ? s.folders.has(s.shareTargetId) : false
-  )
+  // const isSharedItemFolder = useFileStore((s) =>
+  //   s.shareTargetId ? s.folders.has(s.shareTargetId) : false
+  // )
 
   const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)

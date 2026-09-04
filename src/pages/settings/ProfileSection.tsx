@@ -1,24 +1,21 @@
-import { Mail, Save, KeyRound, Loader2, Camera, Trash2 } from 'lucide-react'
+import { Mail, Save, Loader2, Camera, Trash2 } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
-import { toast } from 'sonner'
 import { Button } from '@ui/Button'
 import { Input } from '@ui/Input'
-import { Separator } from '@ui/Separator'
 import { SectionHeader } from '@/components/ui'
 import { useAuth } from '@hooks/useAuth'
-import { passwordSchema } from '@/lib/validator'
 
 export function ProfileSection() {
-  const { user, updateProfile, changePassword, uploadAvatar, removeAvatar } = useAuth()
+  const { user, updateProfile, uploadAvatar, removeAvatar } = useAuth()
 
   const [fullName, setFullName] = useState(user?.fullName || '')
   const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || '')
 
-  const [newPassword, setNewPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
+  // const [newPassword, setNewPassword] = useState('')
+  // const [confirmPassword, setConfirmPassword] = useState('')
 
   const [isSavingProfile, setIsSavingProfile] = useState(false)
-  const [isSavingPassword, setIsSavingPassword] = useState(false)
+  // const [isSavingPassword, setIsSavingPassword] = useState(false)
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -66,30 +63,30 @@ export function ProfileSection() {
     }
   }
 
-  const handlePasswordSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  // const handlePasswordSubmit = async (e: React.FormEvent) => {
+  //   e.preventDefault()
 
-    const validation = passwordSchema.safeParse(newPassword)
-    if (!validation.success) {
-      toast.error(validation.error.issues[0].message)
-      return
-    }
+  //   const validation = passwordSchema.safeParse(newPassword)
+  //   if (!validation.success) {
+  //     toast.error(validation.error.issues[0].message)
+  //     return
+  //   }
 
-    if (newPassword !== confirmPassword) {
-      toast.error('Passwords do not match')
-      return
-    }
+  //   if (newPassword !== confirmPassword) {
+  //     toast.error('Passwords do not match')
+  //     return
+  //   }
 
-    setIsSavingPassword(true)
-    try {
-      await changePassword(newPassword)
-      setNewPassword('')
-      setConfirmPassword('')
-    } catch (err) {
-    } finally {
-      setIsSavingPassword(false)
-    }
-  }
+  //   setIsSavingPassword(true)
+  //   try {
+  //     await changePassword(newPassword)
+  //     setNewPassword('')
+  //     setConfirmPassword('')
+  //   } catch (err) {
+  //   } finally {
+  //     setIsSavingPassword(false)
+  //   }
+  // }
 
   return (
     <div className="space-y-8">

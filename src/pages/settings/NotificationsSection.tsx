@@ -1,23 +1,19 @@
-import { useState } from 'react'
-import { Save, Check, BellRing } from 'lucide-react'
-import { toast } from 'sonner'
-import { Button } from '@ui/Button'
-import { Switch } from '@ui/Switch'
-import { SectionHeader } from '@/components/ui'
+import { BellRing } from 'lucide-react'
+
 import { ComingSoon } from '@/components/ui/feedback'
 
 /** Reusable settings row with a label, description, and toggle switch. */
-function ToggleRow({ title, description, checked, onChange }: any) {
-  return (
-    <div className="border-border/60 flex items-center justify-between border-b py-3 last:border-b-0">
-      <div className="pr-4">
-        <p className="text-[13px] font-medium">{title}</p>
-        <p className="text-muted-foreground/60 text-[11px]">{description}</p>
-      </div>
-      <Switch checked={checked} onCheckedChange={onChange} />
-    </div>
-  )
-}
+// function ToggleRow({ title, description, checked, onChange }: any) {
+//   return (
+//     <div className="border-border/60 flex items-center justify-between border-b py-3 last:border-b-0">
+//       <div className="pr-4">
+//         <p className="text-[13px] font-medium">{title}</p>
+//         <p className="text-muted-foreground/60 text-[11px]">{description}</p>
+//       </div>
+//       <Switch checked={checked} onCheckedChange={onChange} />
+//     </div>
+//   )
+// }
 
 /** Settings section for toggling email, product, and security notification preferences. */
 export function NotificationsSection() {

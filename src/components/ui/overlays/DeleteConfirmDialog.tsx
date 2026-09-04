@@ -14,7 +14,6 @@ interface DeleteConfirmDialogProps {
 export function DeleteConfirmDialog({
   open,
   onOpenChange,
-  itemName,
   isFolder,
   isPermanent,
   onConfirm,

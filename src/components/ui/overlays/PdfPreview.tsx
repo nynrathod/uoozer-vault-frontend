@@ -16,7 +16,7 @@ export function PdfPreview({ data, fileName, onDownload }: PdfPreviewProps) {
   const [numPages, setNumPages] = useState(0)
   const [scale, setScale] = useState(1.0)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [, setIsLoading] = useState(true)
 
   const pdfFile = useMemo(
     () => new File([data], fileName, { type: 'application/pdf' }),

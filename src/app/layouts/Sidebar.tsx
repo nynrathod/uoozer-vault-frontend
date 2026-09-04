@@ -12,7 +12,6 @@ import {
   Lock,
   Trash2,
   Pin,
-  KeyRound,
   Check,
   ChevronsUpDown,
   PanelLeftClose,
