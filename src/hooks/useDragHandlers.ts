@@ -53,6 +53,8 @@ export function useDragHandlers(item: FileItem | Folder, isFolder: boolean) {
       const draggedId = e.dataTransfer.getData('text/plain')
       const draggedType = e.dataTransfer.getData('application/x-item-type') || 'file'
 
+      if (!draggedId || draggedId === item.id) return
+
       const isFolderDrag = draggedType === 'folder'
 
       moveItem(draggedId, item.id, isFolderDrag)
@@ -62,15 +64,15 @@ export function useDragHandlers(item: FileItem | Folder, isFolder: boolean) {
         : fileService.moveFile(draggedId, item.id)
 
       movePromise
-        .then(() => {
-          console.log('[MOVE] API success')
-          toast.success(`Moved to "${item.name}"`)
-        })
+        .then(() => toast.success(`Moved to "${item.name}"`))
         .catch((error: any) => {
-          console.error('[MOVE] API failed:', error)
+          console.error('[MOVE] failed:', error)
+          toast.error(error?.message ?? 'Failed to move item')
+        })
+        .finally(() => {
           queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FILES.LIST] })
           queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FOLDERS.LIST] })
-          toast.error(error?.message ?? 'Failed to move item')
+          queryClient.invalidateQueries({ queryKey: ['breadcrumb'] })
         })
     },
     onDragEnd: () => {

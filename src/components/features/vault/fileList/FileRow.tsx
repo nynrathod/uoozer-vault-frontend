@@ -118,6 +118,7 @@ export const FileRow = memo(function FileRow({
           e.stopPropagation()
           setDragOverId(null)
           setIsDragging(false)
+
           const draggedId = e.dataTransfer.getData('text/plain')
           const draggedType = e.dataTransfer.getData('application/x-item-type') || 'file'
 
@@ -135,9 +136,12 @@ export const FileRow = memo(function FileRow({
             .then(() => toast.success(`Moved to "${item.name}"`))
             .catch((err: any) => {
               console.error('[MOVE] failed:', err)
+              toast.error(err?.message ?? 'Failed to move item')
+            })
+            .finally(() => {
               queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FILES.LIST] })
               queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FOLDERS.LIST] })
-              toast.error(err?.message ?? 'Failed to move item')
+              queryClient.invalidateQueries({ queryKey: ['breadcrumb'] })
             })
         }
       }}
