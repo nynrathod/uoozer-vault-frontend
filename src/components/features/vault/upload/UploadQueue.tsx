@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   X,
   ChevronDown,
@@ -17,10 +17,10 @@ import { useUploadStore } from '@stores/uploadStore'
 import { cn } from '@lib/utils'
 import { Button } from '@ui/Button'
 import { Tabs, TabsList, TabsTrigger } from '@ui/Tabs'
-import { useClipboard } from '@hooks/useClipboard'
 import { useUploadManager } from '@hooks/useUploadManager'
-import { MOCK_URLS } from '@lib/constants'
+import { useItemActions } from '@hooks/useItemActions'
 import type { UploadFile } from '@/types/upload'
+import type { FileItem } from '@/types/files'
 
 type TabId = 'all' | 'completed' | 'failed'
 
@@ -48,13 +48,51 @@ function getStatusText(status: UploadFile['status']): string {
 }
 
 function UploadRow({ upload }: { upload: UploadFile }) {
-  const { copied, copy } = useClipboard()
   const { pauseUpload, resumeUpload, cancelUpload, retryUpload } = useUploadManager()
+
+  const shareItem = useMemo(
+    () =>
+      ({
+        id: upload.fileId ?? upload.id,
+        name: upload.file.name,
+        encryptedMimeType: upload.file.type || 'application/octet-stream',
+        size: upload.totalSize,
+        folderId: upload.folderId,
+      }) as unknown as FileItem,
+    [
+      upload.fileId,
+      upload.id,
+      upload.file.name,
+      upload.file.type,
+      upload.totalSize,
+      upload.folderId,
+    ]
+  )
+
+  const { handleCopyLink, isGeneratingLink } = useItemActions(shareItem, () => {})
+
+  const [justCopied, setJustCopied] = useState(false)
+  const wasGenerating = useRef(false)
+  useEffect(() => {
+    if (wasGenerating.current && !isGeneratingLink) {
+      setJustCopied(true)
+      const t = setTimeout(() => setJustCopied(false), 2000)
+      wasGenerating.current = isGeneratingLink
+      return () => clearTimeout(t)
+    }
+    wasGenerating.current = isGeneratingLink
+  }, [isGeneratingLink])
 
   const isDone = upload.status === 'done'
   const isError = upload.status === 'error' || upload.status === 'cancelled'
   const isPaused = upload.status === 'paused'
   const isActive = !isDone && !isError && !isPaused
+  const canPause = upload.status === 'uploading' || upload.status === 'encrypting'
+
+  const handleCopyClick = () => {
+    if (isGeneratingLink || justCopied) return
+    handleCopyLink('public')
+  }
 
   return (
     <div className="border-border/40 hover:bg-accent/30 group flex items-start gap-3 rounded-lg border p-2.5 transition-colors">
@@ -112,7 +150,7 @@ function UploadRow({ upload }: { upload: UploadFile }) {
       </div>
 
       <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-        {isActive && (
+        {canPause && (
           <Button
             variant="ghost"
             size="icon-sm"
@@ -163,10 +201,11 @@ function UploadRow({ upload }: { upload: UploadFile }) {
             variant="ghost"
             size="icon-sm"
             className="text-muted-foreground hover:bg-accent hover:text-primary h-6 w-6 rounded-md"
-            onClick={() => copy(`${MOCK_URLS.SHARE_LINK_BASE}${upload.fileId}`)}
-            title="Copy link"
+            onClick={handleCopyClick}
+            loading={isGeneratingLink}
+            title={justCopied ? 'Link copied' : 'Copy link'}
           >
-            {copied ? (
+            {isGeneratingLink ? null : justCopied ? (
               <Check className="h-3.5 w-3.5 text-emerald-500" />
             ) : (
               <Copy className="h-3.5 w-3.5" />
@@ -303,8 +342,7 @@ export function UploadQueue() {
               ))}
             </TabsList>
           </Tabs>
-
-          <div className="flex max-h-[320px] min-h-[280px] flex-col overflow-y-auto p-2">
+          <div className="flex max-h-80 min-h-80 flex-col overflow-y-auto p-2">
             {currentItems.length === 0 ? (
               <div className="text-muted-foreground/70 flex flex-1 flex-col items-center justify-center text-[13px]">
                 <Upload className="mb-2 h-8 w-8 opacity-40" strokeWidth={1.75} />

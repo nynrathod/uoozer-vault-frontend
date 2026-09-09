@@ -71,7 +71,7 @@ export const FileActionsMenu = memo(function FileActionsMenu({
           </>
         ) : (
           <>
-            {!isFolder && <DropdownItem icon={<Eye className="h-4 w-4" />}>Preview</DropdownItem>}
+            {/* {!isFolder && <DropdownItem icon={<Eye className="h-4 w-4" />}>Preview</DropdownItem>} */}
             <DropdownItem icon={<Download className="h-4 w-4" />} onClick={onDownload}>
               Download
             </DropdownItem>

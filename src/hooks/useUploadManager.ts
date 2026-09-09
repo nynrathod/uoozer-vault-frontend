@@ -4,7 +4,6 @@ import { useAuthStore } from '@stores/authStore'
 import { uploadDb, type PersistedUploadState } from '@services/upload/uploadDatabase'
 import { uploadSync } from '@services/upload/uploadSync'
 import { networkMonitor } from '@services/upload/networkMonitor'
-import { fileService } from '@services/files/fileService'
 import { cancelUpload } from '@services/files/uploadOrchestrator'
 
 export function useUploadManager() {
@@ -17,7 +16,6 @@ export function useUploadManager() {
     },
     []
   )
-
   const unregisterResumeHandler = useCallback((uploadId: string) => {
     resumeHandlers.current.delete(uploadId)
   }, [])
@@ -27,7 +25,6 @@ export function useUploadManager() {
       const pending = await uploadDb.getPendingUploads()
       const dek = useAuthStore.getState().cryptoState.dek
       if (!dek) return
-
       for (const upload of pending) {
         useUploadStore.getState().updateUpload(upload.uploadId, {
           status: upload.status === 'uploading' ? 'paused' : upload.status,
@@ -88,36 +85,21 @@ export function useUploadManager() {
     }
     window.addEventListener('beforeunload', handleBeforeUnload)
 
-    const handlePageHide = async () => {
-      const uploads = useUploadStore.getState().uploads
-      const activeUploads = Array.from(uploads.values()).filter(
-        (u) => u.status === 'uploading' || u.status === 'encrypting'
-      )
-      for (const upload of activeUploads) {
-        if (upload.fileId && upload.versionId) {
-          try {
-            await fileService.cancelUpload(upload.fileId, upload.versionId)
-          } catch {}
-        }
-      }
-    }
-    window.addEventListener('pagehide', handlePageHide)
-
     return () => {
       unsubscribeNetwork()
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('beforeunload', handleBeforeUnload)
-      window.removeEventListener('pagehide', handlePageHide)
     }
   }, [])
 
   const pauseUpload = useCallback((uploadId: string) => {
     const controller = abortControllers.current.get(uploadId)
-    if (controller && !controller.signal.aborted) {
-      controller.abort()
+    if (controller && !controller.signal.aborted) controller.abort()
+    const current = useUploadStore.getState().uploads.get(uploadId)
+    if (current && (current.status === 'uploading' || current.status === 'encrypting')) {
+      useUploadStore.getState().updateUpload(uploadId, { status: 'paused' })
+      uploadSync.notifyUpdate(uploadId)
     }
-    useUploadStore.getState().updateUpload(uploadId, { status: 'paused' })
-    uploadSync.notifyUpdate(uploadId)
   }, [])
 
   const resumeUpload = useCallback(async (uploadId: string) => {
