@@ -10,8 +10,12 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 30_000,
       gcTime: 1000 * 60 * 30,
-      retry: 1,
-      refetchOnWindowFocus: true,
+      retry: (failureCount, error: any) => {
+        const status = error?.statusCode ?? error?.response?.status
+        if (status !== undefined && status >= 400 && status < 500) return false
+        return failureCount < 1
+      },
+      refetchOnWindowFocus: false,
     },
     mutations: {
       retry: 0,
