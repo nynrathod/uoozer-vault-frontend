@@ -1,5 +1,14 @@
 import { memo } from 'react'
-import { Check, Clock, MoreHorizontal, Download, Share2, Link2, Loader2 } from 'lucide-react'
+import {
+  Check,
+  Clock,
+  MoreHorizontal,
+  Download,
+  Share2,
+  Link2,
+  Loader2,
+  RotateCcw,
+} from 'lucide-react'
 import { cn, formatBytes, formatRelativeDate } from '@lib/utils'
 import { FileIcon } from './FileIcon'
 import { FileActionsMenu } from '../fileActions/FileActionsMenu'
@@ -30,10 +39,10 @@ export const FileRow = memo(function FileRow({
   onShare,
 }: FileRowProps) {
   const queryClient = useQueryClient()
-
   const {
     isFolder,
     isShareMode,
+    isTrash,
     copied,
     handleCopyLink,
     handleDownload,
@@ -83,36 +92,36 @@ export const FileRow = memo(function FileRow({
           'bg-primary/[0.04] border-l-primary animate-pulse border-l-2'
       )}
       onClick={onClick}
-      draggable={!isShareMode && !item.deletedAt}
+      draggable={!isShareMode && !isTrash}
       onDragStart={(e) => {
-        if (isShareMode || item.deletedAt) return
+        if (isShareMode || isTrash) return
         e.dataTransfer.setData('text/plain', item.id)
         e.dataTransfer.setData('application/x-item-type', isFolder ? 'folder' : 'file')
         e.dataTransfer.effectAllowed = 'move'
         setIsDragging(true)
       }}
       onDragEnter={(e) => {
-        if (isShareMode || item.deletedAt) return
+        if (isShareMode || isTrash) return
         if (isFolder && Array.from(e.dataTransfer.types).includes('text/plain')) {
           e.preventDefault()
           setDragOverId(item.id)
         }
       }}
       onDragOver={(e) => {
-        if (isShareMode || item.deletedAt) return
+        if (isShareMode || isTrash) return
         if (isFolder && Array.from(e.dataTransfer.types).includes('text/plain')) {
           e.preventDefault()
           e.stopPropagation()
         }
       }}
       onDragLeave={(e) => {
-        if (isShareMode || item.deletedAt) return
+        if (isShareMode || isTrash) return
         if (isFolder && Array.from(e.dataTransfer.types).includes('text/plain')) {
           if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverId(null)
         }
       }}
       onDrop={(e) => {
-        if (isShareMode || item.deletedAt) return
+        if (isShareMode || isTrash) return
         if (isFolder && Array.from(e.dataTransfer.types).includes('text/plain')) {
           e.preventDefault()
           e.stopPropagation()
@@ -207,7 +216,7 @@ export const FileRow = memo(function FileRow({
         ) : (
           <div
             className="flex h-full w-full min-w-0 cursor-pointer items-center gap-2"
-            onDoubleClick={item.deletedAt ? undefined : () => setEditingId(item.id)}
+            onDoubleClick={isTrash ? undefined : () => setEditingId(item.id)}
             onClick={(e) => {
               e.stopPropagation()
               onClick()
@@ -228,64 +237,86 @@ export const FileRow = memo(function FileRow({
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        <button
-          type="button"
-          onClick={handleDownload}
-          className="text-muted-foreground hover:bg-accent hover:text-foreground flex h-8 w-8 cursor-pointer items-center justify-center rounded-md"
-          title="Download"
-        >
-          <Download className="h-4 w-4" />
-        </button>
-        {!isShareMode && (
-          <button
-            type="button"
-            onClick={() => handleCopyLink()}
-            className="text-muted-foreground hover:bg-accent hover:text-foreground flex h-8 w-8 cursor-pointer items-center justify-center rounded-md"
-            title="Copy Link"
-          >
-            {copied ? (
-              <Check className="h-4 w-4 text-emerald-500" />
-            ) : (
-              <Link2 className="h-4 w-4" />
-            )}
-          </button>
-        )}
-        {!isShareMode && (
-          <button
-            type="button"
-            onClick={() => onShare(item, isFolder)}
-            className="text-muted-foreground hover:bg-accent hover:text-foreground flex h-8 w-8 cursor-pointer items-center justify-center rounded-md"
-            title="Share"
-          >
-            <Share2 className="h-4 w-4" />
-          </button>
-        )}
-
-        <FileActionsMenu
-          item={item}
-          isFolder={isFolder}
-          onRenameRequest={() => setEditingId(item.id)}
-          onDelete={handleDelete}
-          onRestore={handleRestore}
-          onDownload={handleDownload}
-          onShare={() => setShareTarget(item.id)}
-          copied={copied}
-          onCopyLink={() => handleCopyLink()}
-          onVersions={() => !isFolder && setVersionFileId(item.id)}
-          open={isMenuActive}
-          onOpenChange={(open) => setActiveMenuId(open ? item.id : null)}
-          trigger={
+        {isTrash ? (
+          <>
             <button
               type="button"
+              onClick={handleRestore}
               className="text-muted-foreground hover:bg-accent hover:text-foreground flex h-8 w-8 cursor-pointer items-center justify-center rounded-md"
-              title="More"
+              title="Restore"
             >
-              <MoreHorizontal className="h-4 w-4" />
+              <RotateCcw className="h-4 w-4" />
             </button>
-          }
-        />
-      </div>
+            <button
+              type="button"
+              onClick={handleDownload}
+              className="text-muted-foreground hover:bg-accent hover:text-foreground flex h-8 w-8 cursor-pointer items-center justify-center rounded-md"
+              title="Download"
+            >
+              <Download className="h-4 w-4" />
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={handleDownload}
+              className="text-muted-foreground hover:bg-accent hover:text-foreground flex h-8 w-8 cursor-pointer items-center justify-center rounded-md"
+              title="Download"
+            >
+              <Download className="h-4 w-4" />
+            </button>
+            {!isShareMode && (
+              <button
+                type="button"
+                onClick={() => handleCopyLink()}
+                className="text-muted-foreground hover:bg-accent hover:text-foreground flex h-8 w-8 cursor-pointer items-center justify-center rounded-md"
+                title="Copy Link"
+              >
+                {copied ? (
+                  <Check className="h-4 w-4 text-emerald-500" />
+                ) : (
+                  <Link2 className="h-4 w-4" />
+                )}
+              </button>
+            )}
+            {!isShareMode && (
+              <button
+                type="button"
+                onClick={() => onShare(item, isFolder)}
+                className="text-muted-foreground hover:bg-accent hover:text-foreground flex h-8 w-8 cursor-pointer items-center justify-center rounded-md"
+                title="Share"
+              >
+                <Share2 className="h-4 w-4" />
+              </button>
+            )}
 
+            <FileActionsMenu
+              item={item}
+              isFolder={isFolder}
+              onRenameRequest={() => setEditingId(item.id)}
+              onDelete={handleDelete}
+              onRestore={handleRestore}
+              onDownload={handleDownload}
+              onShare={() => setShareTarget(item.id)}
+              copied={copied}
+              onCopyLink={() => handleCopyLink()}
+              onVersions={() => !isFolder && setVersionFileId(item.id)}
+              open={isMenuActive}
+              onOpenChange={(open) => setActiveMenuId(open ? item.id : null)}
+              trigger={
+                <button
+                  type="button"
+                  className="text-muted-foreground hover:bg-accent hover:text-foreground flex h-8 w-8 cursor-pointer items-center justify-center rounded-md"
+                  title="More"
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </button>
+              }
+            />
+          </>
+        )}
+      </div>
       <div className="text-muted-foreground/70 hidden items-center justify-start text-xs md:flex">
         <Clock className="mr-1.5 h-3.5 w-3.5" />
         <span>{formatRelativeDate(item.updatedAt)}</span>

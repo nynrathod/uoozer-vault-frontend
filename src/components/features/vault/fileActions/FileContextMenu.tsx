@@ -11,7 +11,7 @@ interface FileContextMenuProps {
   isFolder: boolean
   onDownload?: () => void
   onRename?: () => void
-  onDelete?: () => void
+  onDelete?: () => void | Promise<void>
   onMove?: () => void
   onPreview?: () => void
   onVersions?: () => void
@@ -94,10 +94,7 @@ export function FileContextMenu({
         itemName={item.name}
         isFolder={isFolder}
         isPermanent={isTrash}
-        onConfirm={() => {
-          onDelete?.()
-          setDeleteOpen(false)
-        }}
+        onConfirm={() => onDelete?.()}
       />
     </>
   )

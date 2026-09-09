@@ -107,4 +107,8 @@ export const folderService = {
       throw handleApiError(error, 'Failed to fetch folder tree.')
     }
   },
+  async getPath(folderId: string): Promise<BackendFolderResponse[]> {
+    const { data } = await apiClient.get(`/api/v1/folders/${folderId}/path`)
+    return data
+  },
 }
