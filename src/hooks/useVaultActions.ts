@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient, type QueryKey } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { fileService } from '@services/files/fileService'
 import { folderService } from '@services/folders/folderService'
@@ -58,6 +58,11 @@ export function useVaultActions() {
     },
   })
 
+  const invalidateVault = () => {
+    queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FILES.LIST] })
+    queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FOLDERS.LIST] })
+  }
+
   const deleteItemMutation = useMutation({
     mutationFn: async ({ id, isFolder }: { id: string; isFolder: boolean }) => {
       useUploadStore
@@ -66,63 +71,21 @@ export function useVaultActions() {
         .forEach((u) => {
           if (u.fileId === id) useUploadStore.getState().removeUpload(u.id)
         })
-
       if (usePreviewStore.getState().fileId === id) closePreview()
-
       if (isFolder) return folderService.delete(id)
       return fileService.delete(id)
     },
-    onMutate: async ({ id, isFolder }) => {
-      await queryClient.cancelQueries({ queryKey: [QUERY_KEYS.FILES.LIST] })
-      await queryClient.cancelQueries({ queryKey: [QUERY_KEYS.FOLDERS.LIST] })
-
-      const previousFiles = queryClient.getQueriesData<{ files: FileItem[]; total: number }>({
-        queryKey: [QUERY_KEYS.FILES.LIST],
-      })
-      const previousFolders = queryClient.getQueriesData<Folder[]>({
-        queryKey: [QUERY_KEYS.FOLDERS.LIST],
-      })
-
-      if (isFolder) {
-        queryClient.setQueriesData<Folder[]>({ queryKey: [QUERY_KEYS.FOLDERS.LIST] }, (old = []) =>
-          old.filter((f) => f.id !== id)
-        )
-        queryClient.setQueriesData<{ files: FileItem[]; total: number }>(
-          { queryKey: [QUERY_KEYS.FILES.LIST] },
-          (old) => (old ? { ...old, files: old.files.filter((f) => f.folderId !== id) } : old)
-        )
-      } else {
-        queryClient.setQueriesData<{ files: FileItem[]; total: number }>(
-          { queryKey: [QUERY_KEYS.FILES.LIST] },
-          (old) => (old ? { ...old, files: old.files.filter((f) => f.id !== id) } : old)
-        )
-      }
-
-      return { previousFiles, previousFolders }
+    onSuccess: (_data, { isFolder }) => {
+      toast.success(`${isFolder ? 'Folder' : 'File'} moved to trash`)
     },
-    onError: (error: any, { isFolder }, context: any) => {
-      if (context?.previousFiles) {
-        context.previousFiles.forEach(
-          ([key, data]: [QueryKey, { files: FileItem[]; total: number } | undefined]) => {
-            queryClient.setQueryData(key, data)
-          }
-        )
-      }
-      if (context?.previousFolders) {
-        context.previousFolders.forEach(([key, data]: [QueryKey, Folder[] | undefined]) => {
-          queryClient.setQueryData(key, data)
-        })
-      }
+    onError: (error: any, { isFolder }) => {
       if (error?.code === 'NOT_FOUND') {
         toast.success(`${isFolder ? 'Folder' : 'File'} deleted successfully`)
       } else {
         toast.error(error.message ?? `Failed to delete ${isFolder ? 'folder' : 'file'}`)
       }
     },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FILES.LIST] })
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FOLDERS.LIST] })
-    },
+    onSettled: invalidateVault,
   })
 
   const bulkDeleteMutation = useMutation({
@@ -130,54 +93,19 @@ export function useVaultActions() {
       const isPermanent = items[0]?.permanent ?? false
       const file_ids = items.filter((i) => !i.isFolder).map((i) => i.id)
       const folder_ids = items.filter((i) => i.isFolder).map((i) => i.id)
-
       if (file_ids.length > 0 || folder_ids.length > 0) {
         await fileService.bulkDelete({ file_ids, folder_ids, permanent: isPermanent })
       }
       return null
     },
-    onMutate: async (items) => {
-      await queryClient.cancelQueries({ queryKey: [QUERY_KEYS.FILES.LIST] })
-      await queryClient.cancelQueries({ queryKey: [QUERY_KEYS.FOLDERS.LIST] })
-
-      const previousFiles = queryClient.getQueriesData<{ files: FileItem[]; total: number }>({
-        queryKey: [QUERY_KEYS.FILES.LIST],
-      })
-      const previousFolders = queryClient.getQueriesData<Folder[]>({
-        queryKey: [QUERY_KEYS.FOLDERS.LIST],
-      })
-
-      const idsToDelete = new Set(items.map((item) => item.id))
-
-      queryClient.setQueriesData<{ files: FileItem[]; total: number }>(
-        { queryKey: [QUERY_KEYS.FILES.LIST] },
-        (old) => (old ? { ...old, files: old.files.filter((f) => !idsToDelete.has(f.id)) } : old)
-      )
-      queryClient.setQueriesData<Folder[]>({ queryKey: [QUERY_KEYS.FOLDERS.LIST] }, (old = []) =>
-        old.filter((f) => !idsToDelete.has(f.id))
-      )
-
-      return { previousFiles, previousFolders }
+    onSuccess: (_data, items) => {
+      const isPermanent = items[0]?.permanent ?? false
+      toast.success(isPermanent ? 'Items deleted permanently' : 'Items moved to trash')
     },
-    onError: (error: any, _items, context: any) => {
-      if (context?.previousFiles) {
-        context.previousFiles.forEach(
-          ([key, data]: [QueryKey, { files: FileItem[]; total: number } | undefined]) => {
-            queryClient.setQueryData(key, data)
-          }
-        )
-      }
-      if (context?.previousFolders) {
-        context.previousFolders.forEach(([key, data]: [QueryKey, Folder[] | undefined]) => {
-          queryClient.setQueryData(key, data)
-        })
-      }
+    onError: (error: any) => {
       toast.error(error.message ?? 'Failed to delete items')
     },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FILES.LIST] })
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FOLDERS.LIST] })
-    },
+    onSettled: invalidateVault,
   })
 
   const renameItemMutation = useMutation({
@@ -199,7 +127,6 @@ export function useVaultActions() {
         ? { name: newName }
         : { name: newName, mimeType: currentMimeType || 'application/octet-stream' }
       const { encryptedMetadata, metadataNonce } = await encryptMetadataObject(metadata, dek)
-
       if (isFolder) {
         return folderService.update(id, {
           encrypted_metadata: encryptedMetadata,
@@ -246,48 +173,13 @@ export function useVaultActions() {
       if (isFolder) return folderService.restore(id)
       return fileService.restoreFile(id)
     },
-    onMutate: async ({ id, isFolder }) => {
-      await queryClient.cancelQueries({ queryKey: [QUERY_KEYS.FILES.LIST] })
-      await queryClient.cancelQueries({ queryKey: [QUERY_KEYS.FOLDERS.LIST] })
-
-      const previousFiles = queryClient.getQueriesData<{ files: FileItem[]; total: number }>({
-        queryKey: [QUERY_KEYS.FILES.LIST],
-      })
-      const previousFolders = queryClient.getQueriesData<Folder[]>({
-        queryKey: [QUERY_KEYS.FOLDERS.LIST],
-      })
-
-      if (isFolder) {
-        queryClient.setQueriesData<Folder[]>({ queryKey: [QUERY_KEYS.FOLDERS.LIST] }, (old = []) =>
-          old.filter((f) => f.id !== id)
-        )
-      } else {
-        queryClient.setQueriesData<{ files: FileItem[]; total: number }>(
-          { queryKey: [QUERY_KEYS.FILES.LIST] },
-          (old) => (old ? { ...old, files: old.files.filter((f) => f.id !== id) } : old)
-        )
-      }
-
-      return { previousFiles, previousFolders }
+    onSuccess: (_data, { isFolder }) => {
+      toast.success(`${isFolder ? 'Folder' : 'File'} restored`)
     },
-    onError: (error: any, _vars, context: any) => {
-      if (context?.previousFiles) {
-        context.previousFiles.forEach(
-          ([key, data]: [QueryKey, { files: FileItem[]; total: number } | undefined]) =>
-            queryClient.setQueryData(key, data)
-        )
-      }
-      if (context?.previousFolders) {
-        context.previousFolders.forEach(([key, data]: [QueryKey, Folder[] | undefined]) =>
-          queryClient.setQueryData(key, data)
-        )
-      }
+    onError: (error: any) => {
       toast.error(error.message ?? 'Failed to restore item')
     },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FILES.LIST] })
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FOLDERS.LIST] })
-    },
+    onSettled: invalidateVault,
   })
 
   const permanentDeleteItemMutation = useMutation({
@@ -295,48 +187,13 @@ export function useVaultActions() {
       if (isFolder) return folderService.permanentDelete(id)
       return fileService.permanentDelete(id)
     },
-    onMutate: async ({ id, isFolder }) => {
-      await queryClient.cancelQueries({ queryKey: [QUERY_KEYS.FILES.LIST] })
-      await queryClient.cancelQueries({ queryKey: [QUERY_KEYS.FOLDERS.LIST] })
-
-      const previousFiles = queryClient.getQueriesData<{ files: FileItem[]; total: number }>({
-        queryKey: [QUERY_KEYS.FILES.LIST],
-      })
-      const previousFolders = queryClient.getQueriesData<Folder[]>({
-        queryKey: [QUERY_KEYS.FOLDERS.LIST],
-      })
-
-      if (isFolder) {
-        queryClient.setQueriesData<Folder[]>({ queryKey: [QUERY_KEYS.FOLDERS.LIST] }, (old = []) =>
-          old.filter((f) => f.id !== id)
-        )
-      } else {
-        queryClient.setQueriesData<{ files: FileItem[]; total: number }>(
-          { queryKey: [QUERY_KEYS.FILES.LIST] },
-          (old) => (old ? { ...old, files: old.files.filter((f) => f.id !== id) } : old)
-        )
-      }
-
-      return { previousFiles, previousFolders }
+    onSuccess: (_data, { isFolder }) => {
+      toast.success(`${isFolder ? 'Folder' : 'File'} deleted permanently`)
     },
-    onError: (error: any, _vars, context: any) => {
-      if (context?.previousFiles) {
-        context.previousFiles.forEach(
-          ([key, data]: [QueryKey, { files: FileItem[]; total: number } | undefined]) =>
-            queryClient.setQueryData(key, data)
-        )
-      }
-      if (context?.previousFolders) {
-        context.previousFolders.forEach(([key, data]: [QueryKey, Folder[] | undefined]) =>
-          queryClient.setQueryData(key, data)
-        )
-      }
+    onError: (error: any) => {
       toast.error(error.message ?? 'Failed to permanently delete item')
     },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FILES.LIST] })
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FOLDERS.LIST] })
-    },
+    onSettled: invalidateVault,
   })
 
   const emptyTrashMutation = useMutation({
@@ -344,8 +201,8 @@ export function useVaultActions() {
       return fileService.emptyTrash()
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FILES.LIST] })
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FOLDERS.LIST] })
+      toast.success('Trash emptied')
+      invalidateVault()
     },
     onError: (error: any) => {
       toast.error(error.message ?? 'Failed to empty trash')
@@ -355,14 +212,17 @@ export function useVaultActions() {
   return {
     bulkDelete: bulkDeleteMutation.mutate,
     deleteItem: deleteItemMutation.mutate,
-    renameItem: renameItemMutation.mutateAsync,
-    createFolder: createFolderMutation.mutateAsync,
-    isDeleting: bulkDeleteMutation.isPending || deleteItemMutation.isPending,
-    isRenaming: renameItemMutation.isPending,
-
     restoreItem: restoreItemMutation.mutate,
     permanentDeleteItem: permanentDeleteItemMutation.mutate,
     emptyTrash: emptyTrashMutation.mutate,
+    bulkDeleteAsync: bulkDeleteMutation.mutateAsync,
+    deleteItemAsync: deleteItemMutation.mutateAsync,
+    restoreItemAsync: restoreItemMutation.mutateAsync,
+    permanentDeleteItemAsync: permanentDeleteItemMutation.mutateAsync,
+    isDeleting: bulkDeleteMutation.isPending || deleteItemMutation.isPending,
+    isRenaming: renameItemMutation.isPending,
     isEmptyingTrash: emptyTrashMutation.isPending,
+    renameItem: renameItemMutation.mutateAsync,
+    createFolder: createFolderMutation.mutateAsync,
   }
 }

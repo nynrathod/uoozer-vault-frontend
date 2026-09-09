@@ -2,14 +2,14 @@ import { HardDrive, Calendar, User, History } from 'lucide-react'
 import { formatBytes, formatRelativeDate } from '@lib/utils'
 import { useFileStore, selectFileById } from '@stores/fileStore'
 import { usePreviewStore } from '@stores/previewStore'
+import { useShareContext } from '@/contexts/ShareContext'
 
-/** Metadata panel showing file size, modified date, owner, and version. */
 export function PreviewFooter() {
   const fileId = usePreviewStore((s) => s.fileId)
   const file = useFileStore(selectFileById(fileId))
-
+  const shareCtx = useShareContext()
+  const isShareMode = !!shareCtx
   if (!file) return null
-
   return (
     <div className="border-border bg-background h-auto shrink-0 space-y-3 border-t p-4">
       <h4 className="text-muted-foreground/60 text-[11px] font-semibold tracking-wider uppercase">
@@ -26,14 +26,18 @@ export function PreviewFooter() {
             {formatRelativeDate(file.updatedAt)}
           </span>
         </div>
-        <div className="text-muted-foreground flex items-center gap-2">
-          <User className="h-3.5 w-3.5" /> Owner{' '}
-          <span className="text-foreground ml-auto font-medium">You</span>
-        </div>
-        <div className="text-muted-foreground flex items-center gap-2">
-          <History className="h-3.5 w-3.5" /> Version{' '}
-          <span className="text-foreground ml-auto font-medium">v{file.version}</span>
-        </div>
+        {!isShareMode && (
+          <>
+            <div className="text-muted-foreground flex items-center gap-2">
+              <User className="h-3.5 w-3.5" /> Owner{' '}
+              <span className="text-foreground ml-auto font-medium">You</span>
+            </div>
+            <div className="text-muted-foreground flex items-center gap-2">
+              <History className="h-3.5 w-3.5" /> Version{' '}
+              <span className="text-foreground ml-auto font-medium">v{file.version}</span>
+            </div>
+          </>
+        )}
       </div>
     </div>
   )

@@ -16,6 +16,7 @@ import { cn, formatBytes } from '@lib/utils'
 import { useItemActions } from '@hooks/useItemActions'
 import { useFileStore, selectFileById } from '@stores/fileStore'
 import { usePreviewStore } from '@stores/previewStore'
+import { useShareContext } from '@/contexts/ShareContext'
 
 export function PreviewHeader() {
   const fileId = usePreviewStore((s) => s.fileId)
@@ -24,10 +25,10 @@ export function PreviewHeader() {
   const setFullscreen = usePreviewStore((s) => s.setFullscreen)
   const setEditing = usePreviewStore((s) => s.setEditing)
   const close = usePreviewStore((s) => s.close)
-
   const file = useFileStore(selectFileById(fileId))
   const setShareTarget = useFileStore((s) => s.setShareTarget)
-
+  const shareCtx = useShareContext()
+  const isShareMode = !!shareCtx
   const {
     copied,
     handleCopyLink,
@@ -38,16 +39,10 @@ export function PreviewHeader() {
     isSaving,
     handleSubmit,
   } = useItemActions(file, () => setEditing(false))
-
   if (!file) return null
-
-  const headerClasses = isFullscreen
-    ? 'h-16 flex items-center justify-between px-4 border-b border-border text-foreground shrink-0 bg-background'
-    : 'h-16 flex items-center justify-between px-4 border-b border-border text-foreground shrink-0 bg-background'
-  const iconBtnClasses = isFullscreen
-    ? 'text-muted-foreground hover:bg-accent hover:text-foreground'
-    : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-
+  const headerClasses =
+    'h-16 flex items-center justify-between px-4 border-b border-border text-foreground shrink-0 bg-background'
+  const iconBtnClasses = 'text-muted-foreground hover:bg-accent hover:text-foreground'
   return (
     <div className={headerClasses}>
       <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -71,21 +66,12 @@ export function PreviewHeader() {
             <ChevronLeft className="h-5 w-5" />
           </Button>
         )}
-
         <div className="flex min-w-0 items-center gap-3">
-          <div
-            className={cn(
-              'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
-              isFullscreen ? 'bg-secondary' : 'bg-secondary'
-            )}
-          >
+          <div className="bg-secondary flex h-9 w-9 shrink-0 items-center justify-center rounded-lg">
             <FileIcon
               mimeType={file.mimeType}
               size="sm"
-              className={cn(
-                'bg-transparent',
-                isFullscreen ? 'text-muted-foreground' : 'text-muted-foreground'
-              )}
+              className="text-muted-foreground bg-transparent"
             />
           </div>
           <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -116,7 +102,10 @@ export function PreviewHeader() {
                 )}
               </>
             ) : (
-              <div className="min-w-0" onDoubleClick={() => setEditing(true)}>
+              <div
+                className="min-w-0"
+                onDoubleClick={isShareMode ? undefined : () => setEditing(true)}
+              >
                 <p className="cursor-pointer truncate text-sm font-semibold">{file.name}</p>
                 <p className="text-muted-foreground/60 truncate text-xs">
                   {file.mimeType?.replace('application/', '').toUpperCase()} •{' '}
@@ -127,25 +116,27 @@ export function PreviewHeader() {
           </div>
         </div>
       </div>
-
       <div className="flex shrink-0 items-center gap-1">
-        <Button
-          variant="ghost"
-          size="icon"
-          className={cn(iconBtnClasses, 'h-9 w-9 md:hidden')}
-          onClick={() => setShareTarget(file.id)}
-        >
-          <Share2 className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className={cn(iconBtnClasses, 'hidden h-9 gap-1.5 px-3 font-medium md:flex')}
-          onClick={() => setShareTarget(file.id)}
-        >
-          <Share2 className="h-4 w-4" /> Share
-        </Button>
-
+        {!isShareMode && (
+          <>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(iconBtnClasses, 'h-9 w-9 md:hidden')}
+              onClick={() => setShareTarget(file.id)}
+            >
+              <Share2 className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn(iconBtnClasses, 'hidden h-9 gap-1.5 px-3 font-medium md:flex')}
+              onClick={() => setShareTarget(file.id)}
+            >
+              <Share2 className="h-4 w-4" /> Share
+            </Button>
+          </>
+        )}
         <Button
           variant="ghost"
           size="icon"
@@ -162,7 +153,6 @@ export function PreviewHeader() {
         >
           <Download className="h-4 w-4" /> Download
         </Button>
-
         <Button
           variant="ghost"
           size="icon"
@@ -171,7 +161,6 @@ export function PreviewHeader() {
         >
           {isFullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
         </Button>
-
         <FileActionsMenu
           item={file}
           isFolder={false}
@@ -187,7 +176,6 @@ export function PreviewHeader() {
             </Button>
           }
         />
-
         {!isFullscreen && (
           <>
             <div className={cn('bg-border/60 mx-1 hidden h-5 w-px md:block')} />

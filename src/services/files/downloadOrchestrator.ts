@@ -29,7 +29,6 @@ export class DownloadError extends Error {
     | 'DECRYPTION_FAILED'
     | 'NETWORK_ERROR'
     | 'CANCELLED'
-
   constructor(code: DownloadError['code'], message: string, options?: { cause?: unknown }) {
     super(message)
     this.name = 'DownloadError'
@@ -46,7 +45,6 @@ function verifyChunkSize(
   if (expectedEncryptedSize === undefined || expectedEncryptedSize === null) {
     return
   }
-
   if (ciphertext.length !== expectedEncryptedSize) {
     throw new DownloadError(
       'CHUNK_CORRUPTED',
@@ -57,17 +55,14 @@ function verifyChunkSize(
 
 export async function downloadFile(options: DownloadOptions): Promise<Blob> {
   const { dek, fileId, versionId, onProgress, signal } = options
-
   if (!dek || dek.length === 0) {
     throw new DownloadError('VAULT_LOCKED', 'Vault is locked. Please unlock to download.')
   }
-
   const controller = new AbortController()
   if (signal) {
     if (signal.aborted) controller.abort()
     else signal.addEventListener('abort', () => controller.abort(), { once: true })
   }
-
   let manifest: DownloadManifest
   try {
     manifest = await fileService.getDownloadManifest(fileId, versionId)
@@ -76,36 +71,28 @@ export async function downloadFile(options: DownloadOptions): Promise<Blob> {
       throw new DownloadError('FILE_NOT_FOUND', 'This file no longer exists.')
     throw new DownloadError('NETWORK_ERROR', 'Failed to fetch download manifest.', { cause: error })
   }
-
   if (manifest.chunks.length === 0) throw new DownloadError('MISSING_CHUNKS', 'File has no chunks.')
-
   if (!manifest.wrapped_file_key || !manifest.wrapped_file_key_nonce) {
     throw new DownloadError('DECRYPTION_FAILED', 'Missing file key in manifest.')
   }
-
   const wrappedFileKey = {
     ciphertext: await base64ToBytes(manifest.wrapped_file_key),
     nonce: await base64ToBytes(manifest.wrapped_file_key_nonce),
   }
   const fileKey = await unwrapDek(wrappedFileKey, dek)
-
   if (!fileKey) throw new DownloadError('DECRYPTION_FAILED', 'Failed to unwrap file key.')
-
   const header = await base64ToBytes(manifest.encryption_header)
   const streamId = await initFileDecryption(header, fileKey)
-
   const sortedChunks = [...manifest.chunks].sort((a, b) => a.chunk_index - b.chunk_index)
   const decryptedParts: Uint8Array[] = []
   let downloadedBytes = 0
   const totalBytes = manifest.total_size
-
   try {
     for (const chunkInfo of sortedChunks) {
       if (signal?.aborted) {
         await cleanupFileStream(streamId)
         throw new DownloadError('CANCELLED', 'Download cancelled')
       }
-
       const response = await fetch(chunkInfo.presigned_url, { signal })
       if (!response.ok) {
         throw new DownloadError(
@@ -113,12 +100,9 @@ export async function downloadFile(options: DownloadOptions): Promise<Blob> {
           `Failed to download chunk ${chunkInfo.chunk_index}`
         )
       }
-
       const arrayBuffer = await response.arrayBuffer()
       const ciphertext = new Uint8Array(arrayBuffer)
-
       verifyChunkSize(chunkInfo.chunk_index, ciphertext, chunkInfo.chunk_size)
-
       const plaintext = await decryptFileChunk(streamId, ciphertext)
       decryptedParts.push(plaintext)
       downloadedBytes += plaintext.byteLength
@@ -129,7 +113,6 @@ export async function downloadFile(options: DownloadOptions): Promise<Blob> {
     await cleanupFileStream(streamId)
     throw error
   }
-
   return new Blob(decryptedParts as BlobPart[], { type: 'application/octet-stream' })
 }
 
@@ -151,10 +134,8 @@ export async function downloadFolderAsZip(
   if (!dek || dek.length === 0) {
     throw new DownloadError('VAULT_LOCKED', 'Vault is locked. Please unlock to download.')
   }
-
   let zipWriter: any
   let writableStream: any | null = null
-
   try {
     if ('showSaveFilePicker' in window) {
       const handle = await (window as any).showSaveFilePicker({
@@ -165,14 +146,11 @@ export async function downloadFolderAsZip(
     } else {
       zipWriter = new ZipWriter(new BlobWriter('application/zip'), { useWebWorkers: true })
     }
-
     async function addFolderContents(currentFolderId: string | null, basePath: string) {
       if (signal?.aborted) throw new DownloadError('CANCELLED', 'Download cancelled')
-
       const filesRes = await fileService.list(currentFolderId)
       for (const backendFile of filesRes.files) {
         if (signal?.aborted) throw new DownloadError('CANCELLED', 'Download cancelled')
-
         const metadata = await decryptMetadataObject<{ name: string }>(
           backendFile.encrypted_metadata,
           backendFile.metadata_nonce,
@@ -180,15 +158,12 @@ export async function downloadFolderAsZip(
         )
         const fileName = sanitizeZipPath(metadata?.name || 'Unnamed File')
         const fullPath = basePath ? `${basePath}/${fileName}` : fileName
-
         const blob = await downloadFile({ dek, fileId: backendFile.file_id, signal })
         await zipWriter.add(fullPath, new BlobReader(blob))
       }
-
       const foldersRes = await folderService.list(currentFolderId)
       for (const backendFolder of foldersRes) {
         if (signal?.aborted) throw new DownloadError('CANCELLED', 'Download cancelled')
-
         const folderMetadata = await decryptMetadataObject<{ name: string }>(
           backendFolder.encrypted_metadata,
           backendFolder.metadata_nonce,
@@ -201,11 +176,8 @@ export async function downloadFolderAsZip(
         )
       }
     }
-
     await addFolderContents(folderId, '')
-
     const zipBlob = await zipWriter.close()
-
     if (!writableStream && zipBlob) {
       triggerBrowserDownload(`${folderName}.zip`, zipBlob as Blob)
     }
@@ -225,17 +197,13 @@ export async function downloadItemsAsZip(
   if (!dek || dek.length === 0) {
     throw new DownloadError('VAULT_LOCKED', 'Vault is locked. Please unlock to download.')
   }
-
   let zipWriter: any
   let writableStream: any | null = null
-
   const totalFileSize = items.reduce((acc, item) => acc + (item.size || 0), 0)
   const hasFolder = items.some((item) => item.isFolder)
-
   const LARGE_FILE_THRESHOLD = 500 * 1024 * 1024
   const shouldStreamToDisk =
     (hasFolder || totalFileSize > LARGE_FILE_THRESHOLD) && 'showSaveFilePicker' in window
-
   try {
     if (shouldStreamToDisk) {
       const handle = await (window as any).showSaveFilePicker({
@@ -246,7 +214,6 @@ export async function downloadItemsAsZip(
     } else {
       zipWriter = new ZipWriter(new BlobWriter('application/zip'), { useWebWorkers: true })
     }
-
     async function addFolderContents(currentFolderId: string | null, basePath: string) {
       const filesRes = await fileService.list(currentFolderId)
       for (const backendFile of filesRes.files) {
@@ -260,7 +227,6 @@ export async function downloadItemsAsZip(
         const blob = await downloadFile({ dek, fileId: backendFile.file_id })
         await zipWriter.add(fullPath, new BlobReader(blob))
       }
-
       const foldersRes = await folderService.list(currentFolderId)
       for (const backendFolder of foldersRes) {
         const folderMetadata = await decryptMetadataObject<{ name: string }>(
@@ -275,18 +241,15 @@ export async function downloadItemsAsZip(
         )
       }
     }
-
     for (const item of items) {
       if (item.isFolder) {
         await addFolderContents(item.id, item.name)
       } else {
         const blob = await downloadFile({ dek, fileId: item.id })
-        await zipWriter.add(item.name, new BlobReader(blob))
+        await zipWriter.add(sanitizeZipPath(item.name), new BlobReader(blob))
       }
     }
-
     const zipBlob = await zipWriter.close()
-
     if (!writableStream && zipBlob) {
       triggerBrowserDownload(`uoozer-vault-${Date.now()}.zip`, zipBlob as Blob)
     }
@@ -299,19 +262,45 @@ export async function downloadItemsAsZip(
   }
 }
 
-function sanitizeZipPath(name: string): string {
-  return name.replace(/\.\./g, '_').replace(/[\\]/g, '/').replace(/^\/+/, '')
+interface SharedFileNode {
+  id: string
+  name: string
+  file_key: string | null
 }
 
-function triggerBrowserDownload(filename: string, blob: Blob): void {
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
+async function decryptSharedFileToBlob(
+  shareId: string,
+  node: SharedFileNode,
+  signal?: AbortSignal,
+  onProgress?: (downloadedBytes: number, totalBytes: number) => void
+): Promise<Blob> {
+  if (!node.file_key) {
+    throw new DownloadError('DECRYPTION_FAILED', 'Missing file key for shared file.')
+  }
+  const { data: manifest } = await apiClient.get(`/api/v1/shares/${shareId}/files/${node.id}`)
+  const fileKey = await base64ToBytes(node.file_key)
+  const header = await base64ToBytes(manifest.encryption_header)
+  const streamId = await initFileDecryption(header, fileKey)
+  const sortedChunks = [...manifest.chunks].sort((a, b) => a.chunk_index - b.chunk_index)
+  const decryptedParts: Uint8Array[] = []
+  let downloadedBytes = 0
+  try {
+    for (const chunkInfo of sortedChunks) {
+      if (signal?.aborted) throw new DownloadError('CANCELLED', 'Download cancelled')
+      const response = await fetch(chunkInfo.presigned_url, { signal })
+      if (!response.ok) throw new DownloadError('NETWORK_ERROR', 'Network error')
+      const arrayBuffer = await response.arrayBuffer()
+      const ciphertext = new Uint8Array(arrayBuffer)
+      verifyChunkSize(chunkInfo.chunk_index, ciphertext, chunkInfo.chunk_size)
+      const plaintext = await decryptFileChunk(streamId, ciphertext)
+      decryptedParts.push(plaintext)
+      downloadedBytes += plaintext.byteLength
+      onProgress?.(downloadedBytes, manifest.total_size)
+    }
+  } finally {
+    await cleanupFileStream(streamId)
+  }
+  return new Blob(decryptedParts as BlobPart[], { type: 'application/octet-stream' })
 }
 
 export async function downloadSharedFileToDisk(
@@ -326,48 +315,62 @@ export async function downloadSharedFileToDisk(
   }
 ): Promise<void> {
   const { shareId, fileId, fileKeyB64, onProgress, signal } = options
+  const blob = await decryptSharedFileToBlob(
+    shareId,
+    { id: fileId, name: fileName, file_key: fileKeyB64 },
+    signal,
+    onProgress
+  )
+  triggerBrowserDownload(fileName, blob)
+}
 
-  try {
-    const { data: manifest } = await apiClient.get(`/api/v1/shares/${shareId}/files/${fileId}`)
-
-    const fileKey = await base64ToBytes(fileKeyB64)
-    const header = await base64ToBytes(manifest.encryption_header)
-    const streamId = await initFileDecryption(header, fileKey)
-
-    const sortedChunks = [...manifest.chunks].sort((a, b) => a.chunk_index - b.chunk_index)
-    const decryptedParts: Uint8Array[] = []
-    let downloadedBytes = 0
-
-    for (const chunkInfo of sortedChunks) {
-      if (signal?.aborted) {
-        await cleanupFileStream(streamId)
-        throw new DownloadError('CANCELLED', 'Download cancelled')
-      }
-
-      const response = await fetch(chunkInfo.presigned_url, { signal })
-      if (!response.ok) throw new Error('Network error')
-
-      const arrayBuffer = await response.arrayBuffer()
-      const ciphertext = new Uint8Array(arrayBuffer)
-
-      verifyChunkSize(chunkInfo.chunk_index, ciphertext, chunkInfo.chunk_size)
-
-      const plaintext = await decryptFileChunk(streamId, ciphertext)
-
-      decryptedParts.push(plaintext)
-      downloadedBytes += plaintext.byteLength
-      onProgress?.(downloadedBytes, manifest.total_size)
-    }
-
-    await cleanupFileStream(streamId)
-    const blob = new Blob(decryptedParts as BlobPart[], { type: 'application/octet-stream' })
-    triggerBrowserDownload(fileName, blob)
-  } catch (error: any) {
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      throw new DownloadError('CANCELLED', 'Download cancelled by user.')
-    }
-    throw error
+async function createZipStream(
+  suggestedName: string
+): Promise<{ zipWriter: any; writableStream: any | null }> {
+  if ('showSaveFilePicker' in window) {
+    const handle = await (window as any).showSaveFilePicker({ suggestedName })
+    const writableStream = await handle.createWritable()
+    return { zipWriter: new ZipWriter(writableStream, { useWebWorkers: true }), writableStream }
   }
+  return {
+    zipWriter: new ZipWriter(new BlobWriter('application/zip'), { useWebWorkers: true }),
+    writableStream: null,
+  }
+}
+
+async function finishZip(
+  zipWriter: any,
+  writableStream: any | null,
+  fallbackName: string
+): Promise<void> {
+  const zipBlob = await zipWriter.close()
+  if (!writableStream && zipBlob) {
+    triggerBrowserDownload(fallbackName, zipBlob as Blob)
+  }
+}
+
+async function addSharedTreeToZip(
+  zipWriter: any,
+  rootFolderId: string,
+  rootName: string,
+  treeData: any[],
+  shareId: string
+): Promise<void> {
+  async function addContents(currentFolderId: string | null, basePath: string) {
+    const items = treeData.filter((n) => n.parent_id === currentFolderId)
+    for (const item of items) {
+      if (item.type === 'folder') {
+        await addContents(item.id, basePath ? `${basePath}/${item.name}` : item.name)
+      } else {
+        const blob = await decryptSharedFileToBlob(shareId, item)
+        const fullPath = basePath
+          ? `${basePath}/${sanitizeZipPath(item.name)}`
+          : sanitizeZipPath(item.name)
+        await zipWriter.add(fullPath, new BlobReader(blob))
+      }
+    }
+  }
+  await addContents(rootFolderId, rootName)
 }
 
 export async function downloadSharedFolderAsZip(
@@ -377,59 +380,11 @@ export async function downloadSharedFolderAsZip(
   shareId: string
 ): Promise<void> {
   let zipWriter: any
-  let writableStream: any = null
-
+  let writableStream: any | null = null
   try {
-    if ('showSaveFilePicker' in window) {
-      const handle = await (window as any).showSaveFilePicker({
-        suggestedName: `${rootFolderName}.zip`,
-      })
-      writableStream = await handle.createWritable()
-      zipWriter = new ZipWriter(writableStream, { useWebWorkers: true })
-    } else {
-      zipWriter = new ZipWriter(new BlobWriter('application/zip'), { useWebWorkers: true })
-    }
-
-    async function addContents(currentFolderId: string | null, basePath: string) {
-      const items = treeData.filter((n) => n.parent_id === currentFolderId)
-      for (const item of items) {
-        if (item.type === 'folder') {
-          await addContents(item.id, basePath ? `${basePath}/${item.name}` : item.name)
-        } else {
-          const response = await apiClient.get(`/api/v1/shares/${shareId}/files/${item.id}`)
-          const manifest = response.data
-
-          const fileKey = await base64ToBytes(item.file_key)
-          const header = await base64ToBytes(manifest.encryption_header)
-          const streamId = await initFileDecryption(header, fileKey)
-
-          const sortedChunks = [...manifest.chunks].sort((a, b) => a.chunk_index - b.chunk_index)
-          const decryptedParts: Uint8Array[] = []
-
-          for (const chunkInfo of sortedChunks) {
-            const chunkRes = await fetch(chunkInfo.presigned_url)
-            const arrBuf = await chunkRes.arrayBuffer()
-            const ciphertext = new Uint8Array(arrBuf)
-
-            verifyChunkSize(chunkInfo.chunk_index, ciphertext, chunkInfo.chunk_size)
-
-            const plaintext = await decryptFileChunk(streamId, ciphertext)
-            decryptedParts.push(plaintext)
-          }
-          await cleanupFileStream(streamId)
-
-          const blob = new Blob(decryptedParts as BlobPart[], { type: 'application/octet-stream' })
-          const fullPath = basePath ? `${basePath}/${item.name}` : item.name
-          await zipWriter.add(fullPath, new BlobReader(blob))
-        }
-      }
-    }
-
-    await addContents(rootFolderId, '')
-    const zipBlob = await zipWriter.close()
-    if (!writableStream && zipBlob) {
-      triggerBrowserDownload(`${rootFolderName}.zip`, zipBlob as Blob)
-    }
+    ;({ zipWriter, writableStream } = await createZipStream(`${rootFolderName}.zip`))
+    await addSharedTreeToZip(zipWriter, rootFolderId, '', treeData, shareId)
+    await finishZip(zipWriter, writableStream, `${rootFolderName}.zip`)
   } catch (error: any) {
     await zipWriter?.close().catch(() => {})
     if (error instanceof DOMException && error.name === 'AbortError') {
@@ -437,4 +392,47 @@ export async function downloadSharedFolderAsZip(
     }
     throw error
   }
+}
+
+export async function downloadSharedItemsAsZip(
+  items: Array<{ id: string; name: string; isFolder: boolean }>,
+  treeData: any[],
+  shareId: string
+): Promise<void> {
+  let zipWriter: any
+  let writableStream: any | null = null
+  try {
+    ;({ zipWriter, writableStream } = await createZipStream(`shared-${Date.now()}.zip`))
+    for (const item of items) {
+      if (item.isFolder) {
+        await addSharedTreeToZip(zipWriter, item.id, sanitizeZipPath(item.name), treeData, shareId)
+      } else {
+        const node = treeData.find((n) => n.id === item.id)
+        if (!node || !node.file_key) continue
+        const blob = await decryptSharedFileToBlob(shareId, node)
+        await zipWriter.add(sanitizeZipPath(item.name), new BlobReader(blob))
+      }
+    }
+    await finishZip(zipWriter, writableStream, `shared-${Date.now()}.zip`)
+  } catch (error: any) {
+    await zipWriter?.close().catch(() => {})
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new DownloadError('CANCELLED', 'Download cancelled by user.')
+    }
+    throw error
+  }
+}
+
+function sanitizeZipPath(name: string): string {
+  return name.replace(/\.\./g, '_').replace(/[\\]/g, '/').replace(/^\/+/, '')
+}
+function triggerBrowserDownload(filename: string, blob: Blob): void {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }

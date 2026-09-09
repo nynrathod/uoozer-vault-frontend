@@ -74,21 +74,13 @@ async function mapFolderResponse(backend: BackendFolderResponse, dek: Uint8Array
 
 /** Recursively fetches the parent chain of a folder for the breadcrumb */
 async function fetchBreadcrumbPath(folderId: string, dek: Uint8Array): Promise<Folder[]> {
-  const path: Folder[] = []
-  let currentId: string | null = folderId
-
-  while (currentId) {
-    try {
-      const backendFolder = await folderService.getById(currentId)
-      const folder = await mapFolderResponse(backendFolder, dek)
-      path.unshift(folder)
-      currentId = folder.parentId
-    } catch (e) {
-      console.error('Failed to fetch breadcrumb folder', e)
-      break
-    }
+  try {
+    const backendFolders = await folderService.getPath(folderId)
+    return Promise.all(backendFolders.map((f) => mapFolderResponse(f, dek)))
+  } catch (e) {
+    console.error('Failed to fetch breadcrumb path', e)
+    return []
   }
-  return path
 }
 
 /** Hook for fetching and managing vault files/folders with zero-knowledge decryption. */

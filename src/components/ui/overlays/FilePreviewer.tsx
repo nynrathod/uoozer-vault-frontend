@@ -3,8 +3,8 @@ import { Music, AlertCircle, Download, File as FileIcon, Loader2 } from 'lucide-
 import { Button } from '@ui/Button'
 
 const ModelViewer = lazy(() => import('./ModelViewer'))
+const LazyPdfPreview = lazy(() => import('./PdfPreview').then((m) => ({ default: m.PdfPreview })))
 const EpubViewer = lazy(() => import('react-epub-viewer').then((m) => ({ default: m.EpubViewer })))
-
 const LazyMarkdown = lazy(async () => {
   const [{ default: ReactMarkdown }, { default: remarkGfm }] = await Promise.all([
     import('react-markdown'),
@@ -16,7 +16,6 @@ const LazyMarkdown = lazy(async () => {
     },
   }
 })
-
 const LazyCodeBlock = lazy(async () => {
   const [{ Prism: SyntaxHighlighter }, { vscDarkPlus }] = await Promise.all([
     import('react-syntax-highlighter'),
@@ -46,7 +45,6 @@ const LazyCodeBlock = lazy(async () => {
 
 type FileCategory =
   'image' | 'pdf' | 'video' | 'audio' | 'markdown' | 'code' | 'text' | 'epub' | '3d' | 'other'
-
 const IMAGE_EXTS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'avif', 'ico']
 const VIDEO_EXTS = ['mp4', 'webm', 'mov', 'ogv']
 const AUDIO_EXTS = ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac']
@@ -54,7 +52,6 @@ const MARKDOWN_EXTS = ['md', 'markdown']
 const PLAIN_TEXT_EXTS = ['txt', 'log', 'csv', 'tsv']
 const EPUB_EXTS = ['epub']
 const MODEL_EXTS = ['gltf', 'glb']
-
 const CODE_EXTS = new Set([
   'js',
   'ts',
@@ -98,7 +95,6 @@ const CODE_EXTS = new Set([
   'graphql',
   'gql',
 ])
-
 function getCategory(fileName: string): FileCategory {
   const ext = fileName.split('.').pop()?.toLowerCase() || ''
   if (IMAGE_EXTS.includes(ext)) return 'image'
@@ -112,7 +108,6 @@ function getCategory(fileName: string): FileCategory {
   if (MODEL_EXTS.includes(ext)) return '3d'
   return 'other'
 }
-
 const EXT_TO_PRISM: Record<string, string> = {
   js: 'javascript',
   ts: 'typescript',
@@ -156,11 +151,9 @@ const EXT_TO_PRISM: Record<string, string> = {
   graphql: 'graphql',
   gql: 'graphql',
 }
-
 function getPrismLanguage(ext: string): string {
   return EXT_TO_PRISM[ext] || 'text'
 }
-
 interface ErrorBoundaryProps {
   children: ReactNode
   fallback: ReactNode
@@ -181,8 +174,12 @@ class PreviewErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     return this.props.children
   }
 }
-
 const MAX_TEXT_PREVIEW_SIZE = 5 * 1024 * 1024
+const spinner = (
+  <div className="flex h-full w-full items-center justify-center">
+    <Loader2 className="text-primary h-8 w-8 animate-spin" />
+  </div>
+)
 
 interface FilePreviewerProps {
   fileName: string
@@ -190,11 +187,12 @@ interface FilePreviewerProps {
   fileText: string | null
   onDownload: () => void
 }
-
 export function FilePreviewer({ fileName, fileUrl, fileText, onDownload }: FilePreviewerProps) {
   const category = getCategory(fileName)
   const [autoText, setAutoText] = useState<string | null>(fileText)
   const [textError, setTextError] = useState<string | null>(null)
+  const [pdfData, setPdfData] = useState<ArrayBuffer | null>(null)
+  const [pdfFailed, setPdfFailed] = useState(false)
 
   useEffect(() => {
     if (category !== 'code' && category !== 'markdown' && category !== 'text') {
@@ -211,7 +209,6 @@ export function FilePreviewer({ fileName, fileUrl, fileText, onDownload }: FileP
       setAutoText(null)
       return
     }
-
     setAutoText(null)
     setTextError(null)
     fetch(fileUrl)
@@ -229,20 +226,35 @@ export function FilePreviewer({ fileName, fileUrl, fileText, onDownload }: FileP
       .catch(() => setTextError('Failed to load text content.'))
   }, [category, fileText, fileUrl])
 
-  const displayText = fileText !== null ? fileText : autoText
+  useEffect(() => {
+    setPdfData(null)
+    setPdfFailed(false)
+    if (category !== 'pdf' || !fileUrl) return
+    let cancelled = false
+    fetch(fileUrl)
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to load PDF')
+        return res.arrayBuffer()
+      })
+      .then((buf) => {
+        if (!cancelled) setPdfData(buf)
+      })
+      .catch(() => {
+        if (!cancelled) setPdfFailed(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [category, fileUrl])
 
+  const displayText = fileText !== null ? fileText : autoText
   if (
     (category === 'code' || category === 'markdown' || category === 'text') &&
     displayText === null &&
     !textError
   ) {
-    return (
-      <div className="flex h-full w-full items-center justify-center">
-        <Loader2 className="text-primary h-8 w-8 animate-spin" />
-      </div>
-    )
+    return spinner
   }
-
   if (textError) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 text-center">
@@ -259,26 +271,17 @@ export function FilePreviewer({ fileName, fileUrl, fileText, onDownload }: FileP
       </div>
     )
   }
-
-  if (!fileUrl && displayText === null) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-4 text-center">
-        <div className="bg-muted/20 flex h-16 w-16 items-center justify-center rounded-full">
-          <FileIcon className="text-muted-foreground h-8 w-8" />
-        </div>
-        <div>
-          <p className="text-foreground font-medium">Preparing preview...</p>
-          <p className="text-muted-foreground mt-1 text-sm">Decrypting your file securely.</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (category === 'image' && fileUrl) {
-    return <img src={fileUrl} alt={fileName} className="h-full w-full object-contain" />
-  }
-
   if (category === 'pdf') {
+    if (pdfData) {
+      return (
+        <div className="h-full w-full overflow-hidden">
+          <Suspense fallback={spinner}>
+            <LazyPdfPreview data={pdfData} fileName={fileName} onDownload={onDownload} />
+          </Suspense>
+        </div>
+      )
+    }
+    if (fileUrl && !pdfFailed) return spinner
     return (
       <div className="flex flex-col items-center justify-center gap-4 text-center">
         <div className="bg-muted/20 flex h-16 w-16 items-center justify-center rounded-full">
@@ -294,11 +297,25 @@ export function FilePreviewer({ fileName, fileUrl, fileText, onDownload }: FileP
       </div>
     )
   }
-
+  if (!fileUrl && displayText === null) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 text-center">
+        <div className="bg-muted/20 flex h-16 w-16 items-center justify-center rounded-full">
+          <FileIcon className="text-muted-foreground h-8 w-8" />
+        </div>
+        <div>
+          <p className="text-foreground font-medium">Preparing preview...</p>
+          <p className="text-muted-foreground mt-1 text-sm">Decrypting your file securely.</p>
+        </div>
+      </div>
+    )
+  }
+  if (category === 'image' && fileUrl) {
+    return <img src={fileUrl} alt={fileName} className="h-full w-full object-contain" />
+  }
   if (category === 'video' && fileUrl) {
     return <video src={fileUrl} controls className="h-full w-full object-contain" />
   }
-
   if (category === 'audio' && fileUrl) {
     return (
       <div className="flex h-full w-full flex-col items-center justify-center gap-4">
@@ -309,7 +326,6 @@ export function FilePreviewer({ fileName, fileUrl, fileText, onDownload }: FileP
       </div>
     )
   }
-
   if (category === 'markdown' && displayText !== null) {
     return (
       <PreviewErrorBoundary
@@ -325,13 +341,7 @@ export function FilePreviewer({ fileName, fileUrl, fileText, onDownload }: FileP
       >
         <div className="markdown-body h-full w-full overflow-auto px-8 py-6">
           <div className="mx-auto max-w-3xl">
-            <Suspense
-              fallback={
-                <div className="flex h-full items-center justify-center">
-                  <Loader2 className="text-primary h-8 w-8 animate-spin" />
-                </div>
-              }
-            >
+            <Suspense fallback={spinner}>
               <LazyMarkdown>{displayText}</LazyMarkdown>
             </Suspense>
           </div>
@@ -339,7 +349,6 @@ export function FilePreviewer({ fileName, fileUrl, fileText, onDownload }: FileP
       </PreviewErrorBoundary>
     )
   }
-
   if (category === 'code' && displayText !== null) {
     const ext = fileName.split('.').pop()?.toLowerCase() || 'text'
     const lang = getPrismLanguage(ext)
@@ -356,20 +365,13 @@ export function FilePreviewer({ fileName, fileUrl, fileText, onDownload }: FileP
         }
       >
         <div className="h-full w-full overflow-auto rounded-lg bg-[#1e1e1e]">
-          <Suspense
-            fallback={
-              <div className="flex h-full items-center justify-center">
-                <Loader2 className="text-primary h-8 w-8 animate-spin" />
-              </div>
-            }
-          >
+          <Suspense fallback={spinner}>
             <LazyCodeBlock language={lang}>{displayText}</LazyCodeBlock>
           </Suspense>
         </div>
       </PreviewErrorBoundary>
     )
   }
-
   if (category === 'text' && displayText !== null) {
     return (
       <div className="h-full w-full overflow-auto rounded-lg bg-[#1e1e1e] p-4">
@@ -377,7 +379,6 @@ export function FilePreviewer({ fileName, fileUrl, fileText, onDownload }: FileP
       </div>
     )
   }
-
   if (category === '3d' && fileUrl) {
     return (
       <PreviewErrorBoundary
@@ -398,19 +399,12 @@ export function FilePreviewer({ fileName, fileUrl, fileText, onDownload }: FileP
           </div>
         }
       >
-        <Suspense
-          fallback={
-            <div className="flex h-full w-full items-center justify-center">
-              <Loader2 className="text-primary h-8 w-8 animate-spin" />
-            </div>
-          }
-        >
+        <Suspense fallback={spinner}>
           <ModelViewer url={fileUrl} />
         </Suspense>
       </PreviewErrorBoundary>
     )
   }
-
   if (category === 'epub' && fileUrl) {
     return (
       <PreviewErrorBoundary
@@ -431,13 +425,7 @@ export function FilePreviewer({ fileName, fileUrl, fileText, onDownload }: FileP
           </div>
         }
       >
-        <Suspense
-          fallback={
-            <div className="flex h-full w-full items-center justify-center">
-              <Loader2 className="text-primary h-8 w-8 animate-spin" />
-            </div>
-          }
-        >
+        <Suspense fallback={spinner}>
           <div className="h-full w-full bg-white">
             <EpubViewer url={fileUrl} />
           </div>
@@ -445,7 +433,6 @@ export function FilePreviewer({ fileName, fileUrl, fileText, onDownload }: FileP
       </PreviewErrorBoundary>
     )
   }
-
   return (
     <div className="flex flex-col items-center justify-center gap-4 text-center">
       <div className="bg-muted/20 flex h-16 w-16 items-center justify-center rounded-full">
