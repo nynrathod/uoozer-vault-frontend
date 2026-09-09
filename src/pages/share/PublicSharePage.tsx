@@ -41,7 +41,7 @@ export function PublicSharePage() {
   const [error, setError] = useState<string | null>(null)
   const [retryCount, setRetryCount] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
-  const [shareData, setShareData] = useState<any | null>(null)
+  const [, setShareData] = useState<any | null>(null)
   const [shareKey, setShareKey] = useState<Uint8Array | null>(null)
   const [treeData, setTreeData] = useState<any[]>([])
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null)

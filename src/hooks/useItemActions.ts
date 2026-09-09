@@ -22,7 +22,6 @@ import {
   encryptMetadata,
   generateDek,
   unwrapDek,
-  wrapDek,
 } from '@/lib/crypto'
 import { useState } from 'react'
 import { useShareContext } from '@/contexts/ShareContext'
