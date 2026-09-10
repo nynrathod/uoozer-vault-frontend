@@ -152,7 +152,10 @@ export const useFileStore = create<FileStoreState>()(
       selectAll: (ids) => set({ selectedFileIds: new Set(ids) }),
       setSort: (field, order) => set({ sortField: field, sortOrder: order }),
       toggleViewMode: () =>
-        set((state) => ({ viewMode: state.viewMode === 'list' ? 'grid' : 'list' })),
+        set((state) => ({
+          viewMode:
+            state.viewMode === 'list' ? 'grid' : 'grid' === state.viewMode ? 'list' : 'list',
+        })),
       isDragging: false,
       setIsDragging: (val) => set({ isDragging: val }),
       dragOverId: null,
@@ -165,6 +168,24 @@ export const useFileStore = create<FileStoreState>()(
   )
 )
 
+function itemComparator(
+  a: { name: string; updatedAt: string; totalSize?: number },
+  b: { name: string; updatedAt: string; totalSize?: number },
+  sortField: FileStoreState['sortField'],
+  sortOrder: FileStoreState['sortOrder']
+): number {
+  if (!sortField || !sortOrder) {
+    return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+  }
+  const mult = sortOrder === 'asc' ? 1 : -1
+  if (sortField === 'name') return mult * a.name.localeCompare(b.name)
+  if (sortField === 'size') return mult * ((a.totalSize ?? 0) - (b.totalSize ?? 0))
+  if (sortField === 'modified' || sortField === 'created') {
+    return mult * (new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime())
+  }
+  return 0
+}
+
 /** Returns files in the currently-active folder. */
 export const selectCurrentFiles = (s: FileStoreState) =>
   Array.from(s.files.values())
@@ -174,14 +195,7 @@ export const selectCurrentFiles = (s: FileStoreState) =>
       const bIsTemp = b.id.startsWith('temp-')
       if (aIsTemp && !bIsTemp) return -1
       if (!aIsTemp && bIsTemp) return 1
-      if (s.sortField && s.sortOrder) {
-        const mult = s.sortOrder === 'asc' ? 1 : -1
-        if (s.sortField === 'name') return mult * a.name.localeCompare(b.name)
-        if (s.sortField === 'size') return mult * (a.totalSize - b.totalSize)
-        if (s.sortField === 'modified')
-          return mult * (new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime())
-      }
-      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      return itemComparator(a, b, s.sortField, s.sortOrder)
     })
 
 export const selectCurrentFolders = (s: FileStoreState) =>
@@ -192,14 +206,85 @@ export const selectCurrentFolders = (s: FileStoreState) =>
       const bIsTemp = b.id.startsWith('temp-')
       if (aIsTemp && !bIsTemp) return -1
       if (!aIsTemp && bIsTemp) return 1
-      if (s.sortField && s.sortOrder) {
-        const mult = s.sortOrder === 'asc' ? 1 : -1
-        if (s.sortField === 'name') return mult * a.name.localeCompare(b.name)
-        if (s.sortField === 'modified')
-          return mult * (new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime())
-      }
-      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      return itemComparator(a, b, s.sortField, s.sortOrder)
     })
+
+export const selectCurrentItems = (s: FileStoreState) => {
+  const items: Array<{ item: FileItem | Folder; isFolder: boolean }> = []
+  for (const folder of selectCurrentFolders(s)) {
+    items.push({ item: folder, isFolder: true })
+  }
+  for (const file of selectCurrentFiles(s)) {
+    items.push({ item: file, isFolder: false })
+  }
+  // One merged sort pass with the shared comparator (temp rows first).
+  return items.sort((a, b) => {
+    const aIsTemp = a.item.id.startsWith('temp-')
+    const bIsTemp = b.item.id.startsWith('temp-')
+    if (aIsTemp && !bIsTemp) return -1
+    if (!aIsTemp && bIsTemp) return 1
+    return itemComparator(a.item, b.item, s.sortField, s.sortOrder)
+  })
+}
+
+export const selectFolderSizes = (s: FileStoreState) => {
+  const ownSizes = new Map<string, number>()
+  s.files.forEach((f) => {
+    if (f.folderId) {
+      ownSizes.set(f.folderId, (ownSizes.get(f.folderId) ?? 0) + f.totalSize)
+    }
+  })
+  const sizes = new Map<string, number>()
+  const resolve = (folderId: string, visited: Set<string>): number => {
+    if (sizes.has(folderId)) return sizes.get(folderId)!
+    if (visited.has(folderId)) return 0 // corrupt chain guard
+    visited.add(folderId)
+    const folder = s.folders.get(folderId)
+    let total = ownSizes.get(folderId) ?? 0
+    if (folder) {
+      for (const child of s.folders.values()) {
+        if (child.parentId === folderId) {
+          total += resolve(child.id, visited)
+        }
+      }
+    }
+    sizes.set(folderId, total)
+    return total
+  }
+  s.folders.forEach((f) => {
+    if (!sizes.has(f.id)) resolve(f.id, new Set())
+  })
+  return sizes
+}
+
+export const selectFolderItemCounts = (s: FileStoreState) => {
+  const counts = new Map<string, number>()
+  const directFiles = new Map<string, number>()
+  s.files.forEach((f) => {
+    if (f.folderId) directFiles.set(f.folderId, (directFiles.get(f.folderId) ?? 0) + 1)
+  })
+  const directFolders = new Map<string, number>()
+  s.folders.forEach((f) => {
+    if (f.parentId) directFolders.set(f.parentId, (directFolders.get(f.parentId) ?? 0) + 1)
+  })
+  const resolve = (folderId: string, visited: Set<string>): number => {
+    if (counts.has(folderId)) return counts.get(folderId)!
+    if (visited.has(folderId)) return 0
+    visited.add(folderId)
+    let total = (directFiles.get(folderId) ?? 0) + (directFolders.get(folderId) ?? 0)
+    for (const child of s.folders.values()) {
+      if (child.parentId === folderId) {
+        total += resolve(child.id, visited)
+      }
+    }
+    counts.set(folderId, total)
+    return total
+  }
+  s.folders.forEach((f) => {
+    if (!counts.has(f.id)) resolve(f.id, new Set())
+  })
+  return counts
+}
 
 export const selectFileById = (id: string | null) => (s: FileStoreState) =>
   id ? s.files.get(id) : null
@@ -218,15 +303,4 @@ export const selectBreadcrumbPath = (s: FileStoreState) => {
     } else break
   }
   return path
-}
-
-/** Returns a map of folder ID to its direct child count (folders + files). */
-export const selectFolderCounts = (s: FileStoreState) => {
-  const counts: Record<string, number> = {}
-  s.folders.forEach((f) => {
-    counts[f.id] =
-      Array.from(s.folders.values()).filter((c) => c.parentId === f.id).length +
-      Array.from(s.files.values()).filter((c) => c.folderId === f.id).length
-  })
-  return counts
 }

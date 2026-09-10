@@ -6,7 +6,7 @@ import {
   useFileStore,
   selectCurrentFiles,
   selectCurrentFolders,
-  selectFolderCounts,
+  selectFolderItemCounts,
 } from '@stores/fileStore'
 import { QUERY_KEYS, ROUTES } from '@lib/constants'
 import { cn } from '@lib/utils'
@@ -91,7 +91,7 @@ export function VaultPage({ trashed = false }: { trashed?: boolean }) {
 
   const files = useFileStore(useShallow(selectCurrentFiles))
   const folders = useFileStore(useShallow(selectCurrentFolders))
-  const folderCounts = useFileStore(useShallow(selectFolderCounts))
+  const folderItemCounts = useFileStore(useShallow(selectFolderItemCounts))
 
   const shareTargetId = useFileStore((s) => s.shareTargetId)
   const versionFileId = useFileStore((s) => s.versionFileId)
@@ -390,8 +390,8 @@ export function VaultPage({ trashed = false }: { trashed?: boolean }) {
                 <div className="h-full overflow-auto">
                   <FileList
                     files={files}
-                    folders={folderCounts ? folders : folders}
-                    folderCounts={folderCounts}
+                    folders={folders}
+                    folderCounts={Object.fromEntries(folderItemCounts)}
                     onFolderClick={handleFolderClick}
                     onFileClick={(file) => openPreview(file.id)}
                     onFileSelect={toggleFileSelection}
@@ -399,7 +399,11 @@ export function VaultPage({ trashed = false }: { trashed?: boolean }) {
                   />
                 </div>
               ) : (
-                <FileGrid files={files} folders={folders} folderCounts={folderCounts} />
+                <FileGrid
+                  files={files}
+                  folders={folders}
+                  folderCounts={Object.fromEntries(folderItemCounts)}
+                />
               )}
             </div>
           </MoveDropZone>

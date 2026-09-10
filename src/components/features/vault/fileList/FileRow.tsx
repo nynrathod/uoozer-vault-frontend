@@ -19,6 +19,8 @@ import { toast } from 'sonner'
 import type { FileItem } from '@/types/files'
 import type { Folder } from '@/types/folders'
 import { Checkbox } from '@/components/ui'
+import { useShallow } from 'zustand/react/shallow'
+import { selectFolderSizes } from '@stores/fileStore'
 
 interface FileRowProps {
   item: FileItem | Folder
@@ -26,6 +28,7 @@ interface FileRowProps {
   onClick: () => void
   onSelect: () => void
   onShare: (item: FileItem | Folder, isFolder: boolean) => void
+  folderItemCount?: number
 }
 
 export const FileRow = memo(function FileRow({
@@ -63,6 +66,7 @@ export const FileRow = memo(function FileRow({
   const editingId = useFileStore((s) => s.editingId)
   const setEditingId = useFileStore((s) => s.setEditingId)
   const setDropHint = useFileStore((s) => s.setDropHint)
+  const folderSizes = useFileStore(useShallow(selectFolderSizes))
   const isMenuActive = activeMenuId === item.id
   const isOtherMenuActive = !!activeMenuId && activeMenuId !== item.id
   const isDragOver = dragOverId === item.id
@@ -306,7 +310,9 @@ export const FileRow = memo(function FileRow({
         <span>{formatRelativeDate(item.updatedAt)}</span>
       </div>
       <div className="text-muted-foreground/70 hidden items-center justify-start text-xs tabular-nums md:flex">
-        {isFolder ? `${0} items` : formatBytes((item as FileItem).totalSize)}
+        {isFolder
+          ? formatBytes(folderSizes.get(item.id) ?? 0)
+          : formatBytes((item as FileItem).totalSize)}
       </div>
     </div>
   )
