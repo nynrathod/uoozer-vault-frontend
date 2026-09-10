@@ -162,7 +162,7 @@ export const FileCard = memo(function FileCard({
       </div>
 
       <div className="absolute top-2 right-2 flex items-center gap-0.5">
-        {!item.deletedAt && (
+        {/* {!item.deletedAt && (
           <button
             onClick={(e) => {
               e.stopPropagation()
@@ -175,7 +175,7 @@ export const FileCard = memo(function FileCard({
           >
             <Share2 className="h-4 w-4" />
           </button>
-        )}
+        )} */}
 
         <FileActionsMenu
           item={item}

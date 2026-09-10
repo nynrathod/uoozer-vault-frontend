@@ -117,7 +117,7 @@ export function PreviewHeader() {
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-1">
-        {!isShareMode && (
+        {/* {!isShareMode && (
           <>
             <Button
               variant="ghost"
@@ -136,7 +136,7 @@ export function PreviewHeader() {
               <Share2 className="h-4 w-4" /> Share
             </Button>
           </>
-        )}
+        )} */}
         <Button
           variant="ghost"
           size="icon"

@@ -265,7 +265,7 @@ export const FileRow = memo(function FileRow({
                 )}
               </button>
             )}
-            {!isShareMode && (
+            {/* {!isShareMode && (
               <button
                 type="button"
                 onClick={() => onShare(item, isFolder)}
@@ -274,7 +274,7 @@ export const FileRow = memo(function FileRow({
               >
                 <Share2 className="h-4 w-4" />
               </button>
-            )}
+            )} */}
             <FileActionsMenu
               item={item}
               isFolder={isFolder}

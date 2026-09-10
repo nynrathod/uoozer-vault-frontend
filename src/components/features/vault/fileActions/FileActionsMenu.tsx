@@ -90,18 +90,18 @@ export const FileActionsMenu = memo(function FileActionsMenu({
             >
               {copied ? 'Copied!' : 'Copy link'}
             </DropdownItem>
-            {!isFolder && (
+            {/* {!isFolder && (
               <>
                 <DropdownSeparator />
                 <DropdownItem icon={<History className="h-4 w-4" />} onClick={onVersions}>
                   Version history
                 </DropdownItem>
               </>
-            )}
+            )} */}
             <DropdownSeparator />
-            <DropdownItem icon={<Share2 className="h-4 w-4" />} onClick={onShare}>
+            {/* <DropdownItem icon={<Share2 className="h-4 w-4" />} onClick={onShare}>
               Manage permissions
-            </DropdownItem>
+            </DropdownItem> */}
             <DropdownSeparator />
             <DropdownItem
               icon={<Trash2 className="h-4 w-4" />}
