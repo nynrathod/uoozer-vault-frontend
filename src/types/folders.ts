@@ -7,6 +7,7 @@ export interface BackendFolderResponse {
   created_at: string
   updated_at: string
   deleted_at?: string | null
+  total_size?: number
 }
 
 /** Folder metadata (encrypted client-side, never sent in plaintext). */
@@ -21,13 +22,13 @@ export interface Folder {
   id: string
   uid: string
   parentId: string | null
+  name: string
   encryptedMetadata: string
   metadataNonce: string
+  totalSize?: number
   createdAt: string
   updatedAt: string
   deletedAt?: string | null
-  // Decrypted client-side
-  name: string
 }
 
 export interface CreateFolderRequest {

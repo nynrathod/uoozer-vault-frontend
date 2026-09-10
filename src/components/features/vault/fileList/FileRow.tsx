@@ -311,7 +311,7 @@ export const FileRow = memo(function FileRow({
       </div>
       <div className="text-muted-foreground/70 hidden items-center justify-start text-xs tabular-nums md:flex">
         {isFolder
-          ? formatBytes(folderSizes.get(item.id) ?? 0)
+          ? formatBytes((item as Folder).totalSize ?? folderSizes.get(item.id) ?? 0)
           : formatBytes((item as FileItem).totalSize)}
       </div>
     </div>

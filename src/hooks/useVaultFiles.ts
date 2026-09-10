@@ -47,7 +47,6 @@ async function mapFileResponse(backend: BackendFileResponse, dek: Uint8Array): P
 /** Maps a backend folder response to a UI Folder by decrypting metadata. */
 async function mapFolderResponse(backend: BackendFolderResponse, dek: Uint8Array): Promise<Folder> {
   let name = 'Encrypted Folder'
-
   try {
     const metadata = await decryptMetadataObject<FolderMetadata>(
       backend.encrypted_metadata,
@@ -58,13 +57,13 @@ async function mapFolderResponse(backend: BackendFolderResponse, dek: Uint8Array
       name = metadata.name
     }
   } catch {}
-
   return {
     id: backend.folder_id,
     uid: backend.folder_id,
     parentId: backend.parent_folder_id,
     encryptedMetadata: backend.encrypted_metadata,
     metadataNonce: backend.metadata_nonce,
+    totalSize: backend.total_size ?? 0,
     createdAt: backend.created_at,
     updatedAt: backend.updated_at,
     deletedAt: backend.deleted_at,
