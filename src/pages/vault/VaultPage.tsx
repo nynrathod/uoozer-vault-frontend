@@ -29,6 +29,8 @@ import { VaultSkeleton } from '@/components/features/vault/fileList/VaultSkeleto
 import { useDelayedLoading } from '@/hooks/useDelayedLoading'
 import { toast } from 'sonner'
 import { ComingSoon } from '@/components/ui/feedback'
+import { useMoveToFolder, type MoveTarget } from '@hooks/useMoveToFolder'
+import { MoveDropZone } from '@/components/features/vault/MoveDropZone'
 
 // Helper to recursively read dropped folders (for drag-and-drop)
 function readAllEntries(dirReader: any): Promise<any[]> {
@@ -85,6 +87,7 @@ export function VaultPage({ trashed = false }: { trashed?: boolean }) {
     trashed
   )
   const { uploadFiles } = useFileUpload()
+  const { moveToFolder } = useMoveToFolder()
 
   const files = useFileStore(useShallow(selectCurrentFiles))
   const folders = useFileStore(useShallow(selectCurrentFolders))
@@ -174,6 +177,26 @@ export function VaultPage({ trashed = false }: { trashed?: boolean }) {
     const route = trashed ? ROUTES.VAULT_TRASH_FOLDER : ROUTES.VAULT_FOLDER
     navigate(generatePath(route, { folderId: id }))
   }
+
+  const handleBreadcrumbDropMove = useCallback(
+    (target: MoveTarget, destinationFolderId: string | null) => {
+      const state = useFileStore.getState()
+      const item = target.isFolder
+        ? state.folders.get(target.item.id)
+        : state.files.get(target.item.id)
+      if (!item) return
+      void moveToFolder({ item, isFolder: target.isFolder }, destinationFolderId).then((result) => {
+        if (result.ok) {
+          toast.success(
+            `Moved to ${destinationFolderId ? (state.folders.get(destinationFolderId)?.name ?? 'folder') : 'Vault'}`
+          )
+        } else if (result.message) {
+          toast.info(result.message)
+        }
+      })
+    },
+    [moveToFolder]
+  )
 
   const dragCounter = useRef(0)
 
@@ -332,6 +355,7 @@ export function VaultPage({ trashed = false }: { trashed?: boolean }) {
             path={breadcrumbPath}
             onNavigate={handleBreadcrumbClick}
             isLoading={isBreadcrumbLoading}
+            onDropMove={trashed ? undefined : handleBreadcrumbDropMove}
           />
           <VaultToolbar
             onUploadFiles={() => fileInputRef.current?.click()}
@@ -339,38 +363,46 @@ export function VaultPage({ trashed = false }: { trashed?: boolean }) {
             onNewFolder={handleNewFolder}
           />
 
-          <div className="relative flex-1 overflow-hidden">
-            {showSkeleton ? (
-              <VaultSkeleton viewMode={viewMode} />
-            ) : isLoading ? (
-              <div className="bg-background h-full w-full"></div>
-            ) : files.length === 0 && folders.length === 0 ? (
-              isTrash ? (
-                <EmptyState
-                  icon={Trash2}
-                  title="Trash is empty"
-                  description="Items moved to trash will appear here."
-                  hideAction
-                />
+          <MoveDropZone
+            currentFolderId={currentFolderId}
+            currentFolderName={
+              breadcrumbPath.length ? breadcrumbPath[breadcrumbPath.length - 1].name : 'Vault'
+            }
+            disabled={trashed}
+          >
+            <div className="relative flex-1 overflow-hidden">
+              {showSkeleton ? (
+                <VaultSkeleton viewMode={viewMode} />
+              ) : isLoading ? (
+                <div className="bg-background h-full w-full"></div>
+              ) : files.length === 0 && folders.length === 0 ? (
+                isTrash ? (
+                  <EmptyState
+                    icon={Trash2}
+                    title="Trash is empty"
+                    description="Items moved to trash will appear here."
+                    hideAction
+                  />
+                ) : (
+                  <EmptyState />
+                )
+              ) : viewMode === 'list' ? (
+                <div className="h-full overflow-auto">
+                  <FileList
+                    files={files}
+                    folders={folderCounts ? folders : folders}
+                    folderCounts={folderCounts}
+                    onFolderClick={handleFolderClick}
+                    onFileClick={(file) => openPreview(file.id)}
+                    onFileSelect={toggleFileSelection}
+                    onShare={(item) => setShareTarget(item.id)}
+                  />
+                </div>
               ) : (
-                <EmptyState />
-              )
-            ) : viewMode === 'list' ? (
-              <div className="h-full overflow-auto">
-                <FileList
-                  files={files}
-                  folders={folders}
-                  folderCounts={folderCounts}
-                  onFolderClick={handleFolderClick}
-                  onFileClick={(file) => openPreview(file.id)}
-                  onFileSelect={toggleFileSelection}
-                  onShare={(item) => setShareTarget(item.id)}
-                />
-              </div>
-            ) : (
-              <FileGrid files={files} folders={folders} folderCounts={folderCounts} />
-            )}
-          </div>
+                <FileGrid files={files} folders={folders} folderCounts={folderCounts} />
+              )}
+            </div>
+          </MoveDropZone>
         </div>
 
         {isPreviewOpen && (

@@ -6,24 +6,21 @@ import type { Folder } from '@/types/folders'
 interface FileStoreState {
   files: Map<string, FileItem>
   folders: Map<string, Folder>
-
   currentFolderId: string | null
-
   editingId: string | null
   removingIds: Set<string>
   shareTargetId: string | null
   activeMenuId: string | null
   versionFileId: string | null
-
   selectedFileIds: Set<string>
   sortField: 'name' | 'size' | 'modified' | 'created' | null
   sortOrder: 'asc' | 'desc' | null
   viewMode: 'list' | 'grid'
-
+  dropHint: { destinationId: string | null; destinationName: string } | null
+  setDropHint: (hint: { destinationId: string | null; destinationName: string } | null) => void
   setFiles: (files: FileItem[]) => void
   setFolders: (folders: Folder[]) => void
   setCurrentFolderId: (id: string | null) => void
-
   renameItem: (id: string, isFolder: boolean, newName: string) => void
   deleteItem: (id: string, isFolder: boolean) => void
   moveItem: (itemId: string, targetFolderId: string, isFolder: boolean) => void
@@ -31,14 +28,12 @@ interface FileStoreState {
     field: 'name' | 'size' | 'modified' | 'created' | null,
     order: 'asc' | 'desc' | null
   ) => void
-
   setEditingId: (id: string | null) => void
   addRemovingId: (id: string) => void
   clearRemovingId: (id: string) => void
   setShareTarget: (id: string | null) => void
   setActiveMenuId: (id: string | null) => void
   setVersionFileId: (id: string | null) => void
-
   toggleFileSelection: (id: string) => void
   clearSelection: () => void
   selectAll: (ids: string[]) => void
@@ -47,7 +42,6 @@ interface FileStoreState {
     order: 'asc' | 'desc' | null
   ) => void
   toggleViewMode: () => void
-
   isDragging: boolean
   setIsDragging: (val: boolean) => void
   dragOverId: string | null
@@ -72,11 +66,11 @@ export const useFileStore = create<FileStoreState>()(
       sortField: null,
       sortOrder: null,
       viewMode: 'list',
-
+      dropHint: null,
+      setDropHint: (hint) => set({ dropHint: hint }),
       setFiles: (files) => set({ files: new Map(files.map((f) => [f.id, f])) }),
       setFolders: (folders) => set({ folders: new Map(folders.map((f) => [f.id, f])) }),
       setCurrentFolderId: (id) => set({ currentFolderId: id }),
-
       renameItem: (id, isFolder, newName) =>
         set((state) => {
           if (isFolder) {
@@ -88,14 +82,12 @@ export const useFileStore = create<FileStoreState>()(
           }
           return { folders: new Map(state.folders), files: new Map(state.files) }
         }),
-
       deleteItem: (id, isFolder) =>
         set((state) => {
           if (isFolder) state.folders.delete(id)
           else state.files.delete(id)
           return { folders: new Map(state.folders), files: new Map(state.files) }
         }),
-
       moveItem: (itemId, targetFolderId, isFolder) =>
         set((state) => {
           if (isFolder) {
@@ -107,7 +99,6 @@ export const useFileStore = create<FileStoreState>()(
           }
           return { folders: new Map(state.folders), files: new Map(state.files) }
         }),
-
       sortItems: (field, order) =>
         set((state) => {
           const comparator = (a: FileItem | Folder, b: FileItem | Folder) => {
@@ -134,7 +125,6 @@ export const useFileStore = create<FileStoreState>()(
             ),
           }
         }),
-
       setEditingId: (id) => set({ editingId: id }),
       addRemovingId: (id) =>
         set((state) => {
@@ -151,7 +141,6 @@ export const useFileStore = create<FileStoreState>()(
       setShareTarget: (id) => set({ shareTargetId: id }),
       setActiveMenuId: (id) => set({ activeMenuId: id }),
       setVersionFileId: (id) => set({ versionFileId: id }),
-
       toggleFileSelection: (id) =>
         set((state) => {
           const next = new Set(state.selectedFileIds)
@@ -168,7 +157,6 @@ export const useFileStore = create<FileStoreState>()(
       setIsDragging: (val) => set({ isDragging: val }),
       dragOverId: null,
       setDragOverId: (id) => set({ dragOverId: id }),
-
       refreshFiles: () => {
         set({ _lastRefresh: Date.now() })
       },
@@ -186,7 +174,6 @@ export const selectCurrentFiles = (s: FileStoreState) =>
       const bIsTemp = b.id.startsWith('temp-')
       if (aIsTemp && !bIsTemp) return -1
       if (!aIsTemp && bIsTemp) return 1
-
       if (s.sortField && s.sortOrder) {
         const mult = s.sortOrder === 'asc' ? 1 : -1
         if (s.sortField === 'name') return mult * a.name.localeCompare(b.name)
@@ -205,20 +192,17 @@ export const selectCurrentFolders = (s: FileStoreState) =>
       const bIsTemp = b.id.startsWith('temp-')
       if (aIsTemp && !bIsTemp) return -1
       if (!aIsTemp && bIsTemp) return 1
-
       if (s.sortField && s.sortOrder) {
         const mult = s.sortOrder === 'asc' ? 1 : -1
         if (s.sortField === 'name') return mult * a.name.localeCompare(b.name)
         if (s.sortField === 'modified')
           return mult * (new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime())
       }
-
       return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
     })
 
 export const selectFileById = (id: string | null) => (s: FileStoreState) =>
   id ? s.files.get(id) : null
-
 export const selectFolderById = (id: string | null) => (s: FileStoreState) =>
   id ? s.folders.get(id) : null
 

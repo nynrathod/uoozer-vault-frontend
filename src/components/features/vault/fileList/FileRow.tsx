@@ -13,11 +13,8 @@ import { cn, formatBytes, formatRelativeDate } from '@lib/utils'
 import { FileIcon } from './FileIcon'
 import { FileActionsMenu } from '../fileActions/FileActionsMenu'
 import { useItemActions } from '@hooks/useItemActions'
+import { useMoveToFolder } from '@hooks/useMoveToFolder'
 import { useFileStore } from '@stores/fileStore'
-import { fileService } from '@services/files/fileService'
-import { folderService } from '@services/folders/folderService'
-import { useQueryClient } from '@tanstack/react-query'
-import { QUERY_KEYS } from '@lib/constants'
 import { toast } from 'sonner'
 import type { FileItem } from '@/types/files'
 import type { Folder } from '@/types/folders'
@@ -38,7 +35,6 @@ export const FileRow = memo(function FileRow({
   onSelect,
   onShare,
 }: FileRowProps) {
-  const queryClient = useQueryClient()
   const {
     isFolder,
     isShareMode,
@@ -55,23 +51,43 @@ export const FileRow = memo(function FileRow({
     handleSubmit,
     handleCancel,
   } = useItemActions(item, () => setEditingId(null))
-
+  const { moveToFolder } = useMoveToFolder()
   const dragOverId = useFileStore((s) => s.dragOverId)
   const setDragOverId = useFileStore((s) => s.setDragOverId)
   const isDragging = useFileStore((s) => s.isDragging)
   const setIsDragging = useFileStore((s) => s.setIsDragging)
-  const moveItem = useFileStore((s) => s.moveItem)
   const setShareTarget = useFileStore((s) => s.setShareTarget)
   const setVersionFileId = useFileStore((s) => s.setVersionFileId)
   const activeMenuId = useFileStore((s) => s.activeMenuId)
   const setActiveMenuId = useFileStore((s) => s.setActiveMenuId)
   const editingId = useFileStore((s) => s.editingId)
   const setEditingId = useFileStore((s) => s.setEditingId)
-
+  const setDropHint = useFileStore((s) => s.setDropHint)
   const isMenuActive = activeMenuId === item.id
   const isOtherMenuActive = !!activeMenuId && activeMenuId !== item.id
   const isDragOver = dragOverId === item.id
   const isNew = item.id.startsWith('temp-')
+
+  const handleRowDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragOverId(null)
+    setDropHint(null)
+    setIsDragging(false)
+    const draggedId = e.dataTransfer.getData('text/plain')
+    const draggedType = e.dataTransfer.getData('application/x-item-type') || 'file'
+    if (!draggedId || draggedId === item.id) return
+    const state = useFileStore.getState()
+    const dragged =
+      draggedType === 'folder' ? state.folders.get(draggedId) : state.files.get(draggedId)
+    if (!dragged) return
+    void moveToFolder({ item: dragged, isFolder: draggedType === 'folder' }, item.id).then(
+      (result) => {
+        if (result.ok) toast.success(`Moved to “${item.name}”`)
+        else if (result.message) toast.info(result.message)
+      }
+    )
+  }
 
   return (
     <div
@@ -105,6 +121,7 @@ export const FileRow = memo(function FileRow({
         if (isFolder && Array.from(e.dataTransfer.types).includes('text/plain')) {
           e.preventDefault()
           setDragOverId(item.id)
+          setDropHint({ destinationId: item.id, destinationName: item.name })
         }
       }}
       onDragOver={(e) => {
@@ -117,45 +134,16 @@ export const FileRow = memo(function FileRow({
       onDragLeave={(e) => {
         if (isShareMode || isTrash) return
         if (isFolder && Array.from(e.dataTransfer.types).includes('text/plain')) {
-          if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverId(null)
+          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+            setDragOverId(null)
+            setDropHint(null)
+          }
         }
       }}
-      onDrop={(e) => {
-        if (isShareMode || isTrash) return
-        if (isFolder && Array.from(e.dataTransfer.types).includes('text/plain')) {
-          e.preventDefault()
-          e.stopPropagation()
-          setDragOverId(null)
-          setIsDragging(false)
-
-          const draggedId = e.dataTransfer.getData('text/plain')
-          const draggedType = e.dataTransfer.getData('application/x-item-type') || 'file'
-
-          if (!draggedId || draggedId === item.id) return
-
-          const isFolderDrag = draggedType === 'folder'
-
-          moveItem(draggedId, item.id, isFolderDrag)
-
-          const movePromise = isFolderDrag
-            ? folderService.moveFolder(draggedId, item.id)
-            : fileService.moveFile(draggedId, item.id)
-
-          movePromise
-            .then(() => toast.success(`Moved to "${item.name}"`))
-            .catch((err: any) => {
-              console.error('[MOVE] failed:', err)
-              toast.error(err?.message ?? 'Failed to move item')
-            })
-            .finally(() => {
-              queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FILES.LIST] })
-              queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FOLDERS.LIST] })
-              queryClient.invalidateQueries({ queryKey: ['breadcrumb'] })
-            })
-        }
-      }}
+      onDrop={isFolder ? handleRowDrop : undefined}
       onDragEnd={() => {
         setDragOverId(null)
+        setDropHint(null)
         setIsDragging(false)
       }}
     >
@@ -171,7 +159,6 @@ export const FileRow = memo(function FileRow({
           className="data-[state=unchecked]:group-hover:border-muted-foreground/40"
         />
       </div>
-
       <div className="flex items-center justify-center">
         <FileIcon
           mimeType={isFolder ? undefined : (item as FileItem).mimeType}
@@ -179,7 +166,6 @@ export const FileRow = memo(function FileRow({
           size="sm"
         />
       </div>
-
       <div className="flex min-w-0 items-center justify-start">
         {editingId === item.id ? (
           <div className="flex min-w-0 flex-1 flex-col">
@@ -226,7 +212,6 @@ export const FileRow = memo(function FileRow({
           </div>
         )}
       </div>
-
       <div
         className={cn(
           'relative z-40 hidden items-center justify-start gap-0.5 md:flex',
@@ -290,7 +275,6 @@ export const FileRow = memo(function FileRow({
                 <Share2 className="h-4 w-4" />
               </button>
             )}
-
             <FileActionsMenu
               item={item}
               isFolder={isFolder}
@@ -321,7 +305,6 @@ export const FileRow = memo(function FileRow({
         <Clock className="mr-1.5 h-3.5 w-3.5" />
         <span>{formatRelativeDate(item.updatedAt)}</span>
       </div>
-
       <div className="text-muted-foreground/70 hidden items-center justify-start text-xs tabular-nums md:flex">
         {isFolder ? `${0} items` : formatBytes((item as FileItem).totalSize)}
       </div>
