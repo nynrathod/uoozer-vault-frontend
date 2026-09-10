@@ -160,11 +160,13 @@ export function useVaultActions() {
     },
     onSuccess: (_data, { isFolder }) => {
       toast.success(`${isFolder ? 'Folder' : 'File'} renamed successfully`)
+      queryClient.invalidateQueries({ queryKey: ['breadcrumb'] })
     },
     onError: (error: any, { isFolder }) => {
       toast.error(error.message ?? `Failed to rename ${isFolder ? 'folder' : 'file'}`)
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FILES.LIST] })
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.FOLDERS.LIST] })
+      queryClient.invalidateQueries({ queryKey: ['breadcrumb'] })
     },
   })
 

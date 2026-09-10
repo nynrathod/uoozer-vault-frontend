@@ -6,12 +6,14 @@ import type { Folder } from '@/types/folders'
 interface FileBreadcrumbProps {
   path: Folder[]
   onNavigate: (folderId: string | null) => void
+  isLoading?: boolean
 }
 
 /** Clickable breadcrumb navigation showing the current folder path. */
 export const FileBreadcrumb = memo(function FileBreadcrumb({
   path,
   onNavigate,
+  isLoading,
 }: FileBreadcrumbProps) {
   return (
     <nav className="no-scrollbar flex items-center gap-0.5 overflow-x-auto px-4 py-2.5 text-[13px]">
@@ -19,7 +21,7 @@ export const FileBreadcrumb = memo(function FileBreadcrumb({
         onClick={() => onNavigate(null)}
         className={cn(
           'flex items-center gap-1.5 rounded-md px-2 py-1 font-medium transition-colors duration-150',
-          path.length === 0
+          path.length === 0 && !isLoading
             ? 'text-foreground'
             : 'text-muted-foreground/70 hover:bg-accent/60 hover:text-foreground'
         )}
@@ -27,22 +29,34 @@ export const FileBreadcrumb = memo(function FileBreadcrumb({
         <Home className="h-3.5 w-3.5" strokeWidth={2} />
         <span>Vault</span>
       </button>
-      {path.map((folder, index) => (
-        <div key={folder.id} className="flex items-center gap-0.5">
+      {isLoading && path.length === 0 ? (
+        <div className="flex items-center gap-0.5">
           <ChevronRight className="text-muted-foreground/30 h-3.5 w-3.5 shrink-0" strokeWidth={2} />
-          <button
-            onClick={() => onNavigate(folder.id)}
-            className={cn(
-              'max-w-[160px] truncate rounded-md px-2 py-1 transition-colors duration-150',
-              index === path.length - 1
-                ? 'text-foreground font-medium'
-                : 'text-muted-foreground/70 hover:bg-accent/60 hover:text-foreground'
-            )}
-          >
-            {folder.name}
-          </button>
+          <div className="bg-muted h-3 w-24 animate-pulse rounded" />
+          <ChevronRight className="text-muted-foreground/30 h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+          <div className="bg-muted h-3 w-16 animate-pulse rounded" />
         </div>
-      ))}
+      ) : (
+        path.map((folder, index) => (
+          <div key={folder.id} className="flex items-center gap-0.5">
+            <ChevronRight
+              className="text-muted-foreground/30 h-3.5 w-3.5 shrink-0"
+              strokeWidth={2}
+            />
+            <button
+              onClick={() => onNavigate(folder.id)}
+              className={cn(
+                'max-w-[160px] truncate rounded-md px-2 py-1 transition-colors duration-150',
+                index === path.length - 1
+                  ? 'text-foreground font-medium'
+                  : 'text-muted-foreground/70 hover:bg-accent/60 hover:text-foreground'
+              )}
+            >
+              {folder.name}
+            </button>
+          </div>
+        ))
+      )}
     </nav>
   )
 })

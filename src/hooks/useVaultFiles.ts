@@ -87,17 +87,14 @@ async function fetchBreadcrumbPath(folderId: string, dek: Uint8Array): Promise<F
 export function useVaultFiles(folderId: string | null, trashed: boolean = false) {
   const queryClient = useQueryClient()
   const dek = useAuthStore((s) => s.cryptoState.dek)
-
   const setFiles = useFileStore((s) => s.setFiles)
   const setFolders = useFileStore((s) => s.setFolders)
   const setCurrentFolderId = useFileStore((s) => s.setCurrentFolderId)
 
   const filesQuery = useQuery({
-    // Add 'trashed' to the queryKey
     queryKey: [QUERY_KEYS.FILES.LIST, folderId, trashed],
     queryFn: async () => {
       if (!dek) throw new Error('Vault is locked')
-      // Pass 'trashed' to the service call (assuming limit=100, offset=0)
       const response = await fileService.list(folderId, 100, 0, trashed)
       const mapped = await Promise.all(response.files.map((f) => mapFileResponse(f, dek)))
       return { files: mapped, total: response.total }
@@ -107,11 +104,9 @@ export function useVaultFiles(folderId: string | null, trashed: boolean = false)
   })
 
   const foldersQuery = useQuery({
-    // Add 'trashed' to the queryKey
     queryKey: [QUERY_KEYS.FOLDERS.LIST, folderId, trashed],
     queryFn: async () => {
       if (!dek) throw new Error('Vault is locked')
-      // Pass 'trashed' to the service call
       const response = await folderService.list(folderId, trashed)
       return Promise.all(response.map((f) => mapFolderResponse(f, dek)))
     },
@@ -126,6 +121,7 @@ export function useVaultFiles(folderId: string | null, trashed: boolean = false)
       return fetchBreadcrumbPath(folderId, dek)
     },
     enabled: !!dek && !!folderId,
+    staleTime: Infinity,
   })
 
   useEffect(() => {
@@ -133,13 +129,11 @@ export function useVaultFiles(folderId: string | null, trashed: boolean = false)
       setFiles(filesQuery.data.files)
     }
   }, [filesQuery.data, setFiles])
-
   useEffect(() => {
     if (foldersQuery.data) {
       setFolders(foldersQuery.data)
     }
   }, [foldersQuery.data, setFolders])
-
   useEffect(() => {
     setCurrentFolderId(folderId)
   }, [folderId, setCurrentFolderId])
@@ -156,5 +150,6 @@ export function useVaultFiles(folderId: string | null, trashed: boolean = false)
     error: filesQuery.error || foldersQuery.error,
     refresh,
     breadcrumbPath: breadcrumbQuery.data ?? [],
+    isBreadcrumbLoading: !!folderId && breadcrumbQuery.isLoading,
   }
 }

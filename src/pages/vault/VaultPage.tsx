@@ -80,7 +80,7 @@ export function VaultPage({ trashed = false }: { trashed?: boolean }) {
   const openPreview = usePreviewStore((s) => s.open)
   const isPreviewOpen = usePreviewStore((s) => !!s.fileId)
   // const isTrashRoute = location.pathname === ROUTES.VAULT_TRASH
-  const { isLoading, isError, error, refresh, breadcrumbPath } = useVaultFiles(
+  const { isLoading, isError, error, refresh, breadcrumbPath, isBreadcrumbLoading } = useVaultFiles(
     currentFolderId,
     trashed
   )
@@ -158,17 +158,21 @@ export function VaultPage({ trashed = false }: { trashed?: boolean }) {
       toast.info('Restore this folder to your Vault to view its contents.')
       return
     }
-
+    queryClient.setQueryData(['breadcrumb', folder.id], [...breadcrumbPath, folder])
     navigate(generatePath(ROUTES.VAULT_FOLDER, { folderId: folder.id }))
   }
 
   const handleBreadcrumbClick = (id: string | null) => {
     if (!id) {
       navigate(trashed ? ROUTES.VAULT_TRASH : ROUTES.VAULT)
-    } else {
-      const route = trashed ? ROUTES.VAULT_TRASH_FOLDER : ROUTES.VAULT_FOLDER
-      navigate(generatePath(route, { folderId: id }))
+      return
     }
+    const index = breadcrumbPath.findIndex((f) => f.id === id)
+    if (index !== -1) {
+      queryClient.setQueryData(['breadcrumb', id], breadcrumbPath.slice(0, index + 1))
+    }
+    const route = trashed ? ROUTES.VAULT_TRASH_FOLDER : ROUTES.VAULT_FOLDER
+    navigate(generatePath(route, { folderId: id }))
   }
 
   const dragCounter = useRef(0)
@@ -324,7 +328,11 @@ export function VaultPage({ trashed = false }: { trashed?: boolean }) {
             previewFileId ? 'hidden md:flex md:w-1/2 md:border-r' : 'w-full'
           )}
         >
-          <FileBreadcrumb path={breadcrumbPath} onNavigate={handleBreadcrumbClick} />
+          <FileBreadcrumb
+            path={breadcrumbPath}
+            onNavigate={handleBreadcrumbClick}
+            isLoading={isBreadcrumbLoading}
+          />
           <VaultToolbar
             onUploadFiles={() => fileInputRef.current?.click()}
             onUploadFolder={() => folderInputRef.current?.click()}
