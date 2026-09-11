@@ -1,14 +1,5 @@
 import { memo } from 'react'
-import {
-  Check,
-  Clock,
-  MoreHorizontal,
-  Download,
-  Share2,
-  Link2,
-  Loader2,
-  RotateCcw,
-} from 'lucide-react'
+import { Check, Clock, MoreHorizontal, Download, Link2, Loader2, RotateCcw } from 'lucide-react'
 import { cn, formatBytes, formatRelativeDate } from '@lib/utils'
 import { FileIcon } from './FileIcon'
 import { FileActionsMenu } from '../fileActions/FileActionsMenu'
@@ -36,7 +27,6 @@ export const FileRow = memo(function FileRow({
   isSelected,
   onClick,
   onSelect,
-  onShare,
 }: FileRowProps) {
   const {
     isFolder,

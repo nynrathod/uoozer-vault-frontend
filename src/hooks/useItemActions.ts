@@ -162,11 +162,15 @@ export function useItemActions(
         } else {
           const node = shareCtx.treeData.find((n) => n.id === item.id)
           if (!node || !node.file_key) throw new Error('Missing file key for download')
-          await downloadSharedFileToDisk(item.name, 'totalSize' in item ? item.totalSize : 0, {
-            shareId: shareCtx.shareId,
-            fileId: item.id,
-            fileKeyB64: node.file_key,
-          })
+          await downloadSharedFileToDisk(
+            item.name,
+            'totalSize' in item ? (item.totalSize ?? 0) : 0,
+            {
+              shareId: shareCtx.shareId,
+              fileId: item.id,
+              fileKeyB64: node.file_key,
+            }
+          )
         }
       } else {
         const localDek = useAuthStore.getState().cryptoState.dek
@@ -174,7 +178,7 @@ export function useItemActions(
         if (isFolder) {
           await downloadFolderAsZip(item.id, item.name, localDek)
         } else {
-          await downloadFileToDisk(item.name, 'totalSize' in item ? item.totalSize : 0, {
+          await downloadFileToDisk(item.name, 'totalSize' in item ? (item.totalSize ?? 0) : 0, {
             dek: localDek,
             fileId: item.id,
           })
@@ -189,6 +193,7 @@ export function useItemActions(
       toast.error(error.message ?? 'Download failed', { id: `dl-${item.id}` })
     }
   }
+
   const inlineRename = useInlineRename(
     item?.name ?? '',
     handleRename,

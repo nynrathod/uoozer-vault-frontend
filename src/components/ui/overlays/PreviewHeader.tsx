@@ -4,7 +4,6 @@ import { FileActionsMenu } from '@/components/features/vault/fileActions/FileAct
 import {
   X,
   Download,
-  Share2,
   ChevronLeft,
   Loader2,
   Maximize2,

@@ -1,6 +1,6 @@
 import { memo, useState } from 'react'
 import { DropdownMenu, DropdownItem, DropdownSeparator } from '@ui/DropdownMenu'
-import { Download, Share2, Edit3, Copy, Trash2, History, Check, RotateCcw } from 'lucide-react'
+import { Download, Edit3, Copy, Trash2, Check, RotateCcw } from 'lucide-react'
 import type { FileItem } from '@/types/files'
 import type { Folder } from '@/types/folders'
 import { DeleteConfirmDialog } from '@/components/ui/overlays/DeleteConfirmDialog'
@@ -13,7 +13,7 @@ interface FileActionsMenuProps {
   onDelete: () => void | Promise<void>
   onRestore?: () => void | Promise<void>
   onDownload: () => void
-  onShare: () => void
+  onShare?: () => void
   trigger: React.ReactNode
   copied: boolean
   onCopyLink: () => void
@@ -29,13 +29,13 @@ export const FileActionsMenu = memo(function FileActionsMenu({
   onDelete,
   onRestore,
   onDownload,
-  onShare,
+  onShare: _onShare,
   trigger,
   copied,
   onCopyLink,
   open,
   onOpenChange,
-  onVersions,
+  onVersions: _onVersions,
 }: FileActionsMenuProps) {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const isTrash = !!item.deletedAt
