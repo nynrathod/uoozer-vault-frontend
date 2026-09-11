@@ -111,4 +111,11 @@ export const folderService = {
     const { data } = await apiClient.get(`/api/v1/folders/${folderId}/path`)
     return data
   },
+
+  async getFullVaultTree(): Promise<any[]> {
+    const { data } = await apiClient.get(
+      `/api/v1/folders/00000000-0000-0000-0000-000000000000/tree`
+    )
+    return data
+  },
 }
