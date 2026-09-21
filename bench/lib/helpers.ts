@@ -5,6 +5,13 @@ import { mkdir } from 'node:fs/promises'
 import type { Page, CDPSession } from '@playwright/test'
 import { BENCH } from '../bench.config'
 
+let progressLast = -1
+export function progress(stage: string, current: number, total: number, extra?: string) {
+  const pct = total > 0 ? Math.min(100, Math.round((current / total) * 100)) : 100
+  const suffix = extra ? ` — ${extra}` : ''
+  console.log(`  [${stage}] ${current}/${total} (${pct}%)${suffix}`)
+}
+
 export async function generateTestFile(sizeGB: number) {
   await mkdir(BENCH.tmpDir, { recursive: true })
   const path = `${BENCH.tmpDir}/bench-${sizeGB}gb-${Date.now()}.bin`
@@ -77,6 +84,7 @@ export async function awaitCompletion(page: Page, tracker: StorageTracker, expec
     if (r.method() === 'POST' && r.url().includes('complete')) finalizeSeen = true
   }
   page.on('request', onReq)
+  const toast = page.locator('[data-sonner-toast][data-type="error"]').first()
   const t0 = Date.now()
   let lastPuts = tracker.puts,
     lastProgress = Date.now(),
@@ -84,24 +92,67 @@ export async function awaitCompletion(page: Page, tracker: StorageTracker, expec
   try {
     while (!finalizeSeen) {
       if (Date.now() - t0 > BENCH.timeoutMs)
-        throw new Error(`completion timeout: puts=${tracker.puts}/${expectedPuts}`)
+        throw new Error(
+          `completion timeout: puts=${tracker.puts}/${expectedPuts}, finalize=${finalizeSeen}`
+        )
+
+      // fail fast with the app's own error message
+      if (await toast.count().catch(() => 0)) {
+        const text = ((await toast.textContent().catch(() => '')) ?? '').trim()
+        throw new Error(
+          `APP ERROR TOAST: "${text}" — upload rejected (check backend logs / quota / rate limit)`
+        )
+      }
+
       await new Promise((r) => setTimeout(r, 2000))
+
       if (tracker.puts > lastPuts) {
+        progress('resume', tracker.puts, expectedPuts)
         lastPuts = tracker.puts
         lastProgress = Date.now()
-      } else if (Date.now() - lastProgress > 45_000 && reloads < 3) {
-        await page.reload({ waitUntil: 'domcontentloaded' })
-        reloads++
-        lastProgress = Date.now()
+      } else if (Date.now() - lastProgress > 180_000) {
+        if (tracker.puts === 0) {
+          throw new Error(
+            'upload never started (0 PUTs, no error toast) — app accepted file but uploaded nothing; check backend logs'
+          )
+        }
+        if (reloads < 3) {
+          progress('resume', tracker.puts, expectedPuts, 'no progress 45s, reloading')
+          await page.reload({ waitUntil: 'domcontentloaded' })
+          reloads++
+          lastProgress = Date.now()
+        } else {
+          throw new Error(`stalled after ${reloads} reloads at ${tracker.puts}/${expectedPuts}`)
+        }
       }
     }
+    console.log('  [resume] finalize request seen — upload complete')
   } finally {
     page.off('request', onReq)
   }
 }
 
+/** Waits until `tracker.puts` reaches `fraction` of `total`, logging progress. */
+export async function waitForPutFraction(
+  tracker: StorageTracker,
+  total: number,
+  fraction: number,
+  label = 'upload'
+) {
+  const target = Math.ceil(total * fraction)
+  const t0 = Date.now()
+  while (tracker.puts < target) {
+    if (Date.now() - t0 > BENCH.timeoutMs)
+      throw new Error(
+        `never reached ${Math.round(fraction * 100)}% point (${tracker.puts}/${target})`
+      )
+    progress(label, tracker.puts, total)
+    await new Promise((r) => setTimeout(r, 1000))
+  }
+}
+
 /** Any HTTP response (even 401) = backend alive. Connection refused = dead. */
-async function backendAlive(): Promise<boolean> {
+export async function backendAlive(): Promise<boolean> {
   try {
     await fetch(`${BENCH.apiBase}/devices`, { signal: AbortSignal.timeout(3000) })
     return true
@@ -211,11 +262,14 @@ export async function login(page: Page, user = BENCH.users.a) {
 
 export async function captureAuthToken(page: Page): Promise<string> {
   return new Promise((resolve) => {
-    page.on('request', (r) => {
+    const onReq = (r: any) => {
       const h = r.headers()['authorization']
-      if (h) resolve(h)
-    })
-    page.reload()
+      if (h) {
+        page.off('request', onReq)
+        resolve(h)
+      }
+    }
+    page.on('request', onReq)
   })
 }
 
