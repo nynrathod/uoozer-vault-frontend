@@ -14,6 +14,7 @@ const SIZE_MB = 8
 const CHUNK = 4 * 1024 * 1024
 
 test('cross-tenant isolation: 100% rejection', async ({ browser }) => {
+  console.log('  [spec-05] user A uploading target file')
   const ctxA = await browser.newContext()
   const pageA = await ctxA.newPage()
   const cdpA = await ctxA.newCDPSession(pageA)
@@ -22,6 +23,7 @@ test('cross-tenant isolation: 100% rejection', async ({ browser }) => {
   const { path } = await generateTestFile(SIZE_MB / 1024)
   await pageA.setInputFiles('input[type="file"]', path)
   await awaitCompletion(pageA, tracker, Math.ceil((SIZE_MB * 1024 * 1024) / CHUNK))
+  console.log('  [spec-05] user A upload complete — switching to user B attack context')
   const k = parseR2Key(tracker.putLog[0].url)
   await ctxA.close()
 
@@ -29,6 +31,7 @@ test('cross-tenant isolation: 100% rejection', async ({ browser }) => {
   const pageB = await ctxB.newPage()
   await login(pageB, BENCH.users.b)
   const token = await captureAuthToken(pageB)
+  console.log('  [spec-05] user B authenticated — launching 5 attack vectors')
 
   const attempts = [
     {
@@ -91,9 +94,15 @@ test('cross-tenant isolation: 100% rejection', async ({ browser }) => {
   const results: Array<{ name: string; status: number; rejected: boolean }> = []
   for (const a of attempts) {
     const status = await a.run()
-    results.push({ name: a.name, status, rejected: [401, 403, 404].includes(status) })
+    const rejected = [401, 403, 404].includes(status)
+    results.push({ name: a.name, status, rejected })
+    console.log(
+      `  [attack] ${a.name.padEnd(18)} → ${status} ${rejected ? 'BLOCKED' : '!!! ALLOWED !!!'}`
+    )
   }
   const rejected = results.filter((r) => r.rejected).length
+  console.log(`  [result] ${rejected}/${results.length} rejected`)
+
   logResult({
     spec: '05-tenant-isolation',
     attempts: results.length,

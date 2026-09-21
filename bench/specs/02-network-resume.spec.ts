@@ -6,6 +6,7 @@ import {
   login,
   createStorageTracker,
   awaitCompletion,
+  waitForPutFraction,
   logResult,
 } from '../lib/helpers'
 
@@ -18,14 +19,12 @@ test('mid-upload network cut: bounded retransmission + completion', async ({ pag
 
   const { path } = await generateTestFile(BENCH.sizeGB)
   const expectedChunks = Math.ceil((BENCH.sizeGB * 1024 ** 3) / CHUNK)
+  console.log(`  [spec-02] uploading ${BENCH.sizeGB}GB (${expectedChunks} chunks)`)
+
   await page.setInputFiles('input[type="file"]', path)
+  await waitForPutFraction(tracker, expectedChunks, 0.3)
 
-  const t0 = Date.now()
-  while (tracker.puts < Math.ceil(expectedChunks * 0.3)) {
-    if (Date.now() - t0 > BENCH.timeoutMs) throw new Error('never reached 30% cut point')
-    await new Promise((r) => setTimeout(r, 1000))
-  }
-
+  console.log('  [chaos] cutting network NOW (6s offline)')
   await cdp.send('Network.emulateNetworkConditions', {
     offline: true,
     latency: 0,
@@ -33,6 +32,7 @@ test('mid-upload network cut: bounded retransmission + completion', async ({ pag
     uploadThroughput: 0,
   })
   await new Promise((r) => setTimeout(r, 6000))
+  console.log('  [chaos] network restored')
   await cdp.send('Network.emulateNetworkConditions', {
     offline: false,
     latency: 0,
@@ -45,6 +45,8 @@ test('mid-upload network cut: bounded retransmission + completion', async ({ pag
 
   const extraPuts = tracker.puts - expectedChunks
   const overheadPct = +((extraPuts / expectedChunks) * 100).toFixed(2)
+  console.log(`  [result] ${tracker.puts} PUTs total, ${extraPuts} extra (${overheadPct}%)`)
+
   logResult({
     spec: '02-network-resume',
     sizeGB: BENCH.sizeGB,

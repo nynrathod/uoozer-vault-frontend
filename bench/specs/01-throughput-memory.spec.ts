@@ -40,10 +40,24 @@ test('encrypted upload: throughput + memory bound + parallelism', async ({ page 
     })
     .then(() => 'finalize-request')
     .catch(() => null)
+
   const allPuts = waitForStoragePuts(tracker, expectedChunks, BENCH.timeoutMs).then(
     () => 'all-puts'
   )
-  const signal = await Promise.race([finalizeSeen, allPuts])
+
+  const ticker = setInterval(() => {
+    const pct = Math.min(100, Math.round((tracker.puts / expectedChunks) * 100))
+    const elapsedMin = ((Date.now() - t0) / 60000).toFixed(1)
+    console.log(`  [upload] ${tracker.puts}/${expectedChunks} chunks (${pct}%) in ${elapsedMin}m`)
+  }, 15000)
+
+  const uploadFailed = page
+    .waitForSelector('[data-sonner-toast][data-type="error"]', { timeout: BENCH.timeoutMs })
+    .then(() => {
+      throw new Error('app error toast — check quota (delete old files) / backend logs')
+    })
+
+  const signal = await Promise.race([finalizeSeen, allPuts, uploadFailed])
 
   await new Promise((r) => setTimeout(r, 5000)) // let finalize + toast settle
   const durationMs = Date.now() - t0

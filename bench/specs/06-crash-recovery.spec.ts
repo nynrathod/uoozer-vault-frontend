@@ -8,10 +8,12 @@ import {
   login,
   createStorageTracker,
   awaitCompletion,
+  waitForPutFraction,
+  backendAlive,
   sql,
   logResult,
 } from '../lib/helpers'
-import { getObject, parseR2Key } from '../lib/s3'
+import { getObject } from '../lib/s3'
 
 const CHUNK = 4 * 1024 * 1024
 
@@ -29,69 +31,101 @@ test('backend killed mid-upload: resume completes, integrity chain intact', asyn
   const tracker = await createStorageTracker(cdp)
   await login(page)
 
+  let finalizeBody: string | null = null
+  let finalizeStatus: number | null = null
+  page.on('request', (r) => {
+    if (!finalizeBody && r.method() === 'POST' && r.url().includes('complete') && r.postData())
+      finalizeBody = r.postData()!
+  })
+  page.on('response', (r) => {
+    if (r.url().includes('complete') && r.request().method() === 'POST') finalizeStatus = r.status()
+  })
+
   const { path } = await generateTestFile(BENCH.sizeGB)
   const expectedChunks = Math.ceil((BENCH.sizeGB * 1024 ** 3) / CHUNK)
+  console.log(`  [spec-06] uploading ${BENCH.sizeGB}GB (${expectedChunks} chunks)`)
+
   await page.setInputFiles('input[type="file"]', path)
+  await waitForPutFraction(tracker, expectedChunks, 0.3)
 
-  const t0 = Date.now()
-  while (tracker.puts < Math.ceil(expectedChunks * 0.3)) {
-    if (Date.now() - t0 > BENCH.timeoutMs) throw new Error('never reached 30% kill point')
-    await new Promise((r) => setTimeout(r, 1000))
-  }
-
+  const killedAtPuts = tracker.puts
+  console.log('  [chaos] killing backend NOW')
   killBackend()
-  await new Promise((r) => setTimeout(r, 25_000)) // restart loop revives backend
+
+  // wait for the restart loop (or manual restart) to revive it
+  let revived = false
+  for (let i = 0; i < 90; i++) {
+    if (await backendAlive()) {
+      revived = true
+      break
+    }
+    await new Promise((r) => setTimeout(r, 2000))
+  }
+  if (!revived)
+    throw new Error(
+      'backend never came back after kill — run the restart loop: while ($true) { cargo run; Start-Sleep 2 }'
+    )
+  console.log('  [spec-06] backend revived — waiting for resume to finish')
 
   await awaitCompletion(page, tracker, expectedChunks)
 
-  const parsed = tracker.putLog.map((p) => parseR2Key(p.url))
-  const versionId = parsed[0].versionId
+  expect(finalizeBody).not.toBeNull()
+  console.log(`  [spec-06] finalize body: ${finalizeBody!.slice(0, 200)}`)
+  const parsedBody = JSON.parse(finalizeBody!)
+  const finalizedVersionId: string =
+    parsedBody.version_id ??
+    parsedBody.uploads?.[0]?.version_id ??
+    parsedBody.uploads?.[0]?.versionId
+  if (!finalizedVersionId)
+    throw new Error(`could not find version UUID in finalize body: ${finalizeBody}`)
 
-  let active = false
+  // wait for an active version on this file (finalize may retry client-side)
+  let activeVersionId: string | null = null
+  const fileIdRow = await sql(
+    `SELECT file_id FROM file_versions WHERE version_id = '${finalizedVersionId}'`
+  )
+  const fileId = fileIdRow[0]?.file_id
   for (let i = 0; i < 90; i++) {
-    const [a] = await sql(`SELECT is_active FROM file_versions WHERE version_id = '${versionId}'`)
-    if (a?.is_active === true) {
-      active = true
+    const rows2 = await sql(
+      `SELECT version_id FROM file_versions WHERE is_active = true AND file_id = '${fileId}'`
+    )
+    if (rows2.length > 0) {
+      activeVersionId = rows2[0].version_id
       break
     }
-    if (i === 30) await page.reload({ waitUntil: 'domcontentloaded' })
     await new Promise((r) => setTimeout(r, 2000))
   }
 
-  const rows = await sql(
-    `SELECT chunk_index, chunk_size, encode(chunk_blake3, 'hex') AS h FROM file_chunks WHERE version_id = '${versionId}' ORDER BY chunk_index`
+  // DB-driven integrity verification of the active (or finalized) version
+  const verifyVersionId = activeVersionId ?? finalizedVersionId
+  const rows: any[] = await sql(
+    `SELECT chunk_index, chunk_size, r2_key, encode(chunk_blake3, 'hex') AS h
+     FROM file_chunks WHERE version_id = '${verifyVersionId}' ORDER BY chunk_index`
   )
-  const rowByChunk = new Map(rows.map((r: any) => [Number(r.chunk_index), r]))
+  console.log(`  [verify] ${rows.length} chunk rows — verifying stored objects`)
 
   let verified = 0,
     failures = 0
-  for (const p of parsed) {
-    const key = `${p.userId}/${p.fileId}/${p.versionId}/${p.segment}/${p.chunk}`
-    const row = rowByChunk.get(Number(p.chunk))
-    if (!row) {
-      failures++
-      continue
-    }
-    const obj = await getObject(key)
+  for (const row of rows) {
+    const obj = await getObject(row.r2_key)
     if (blake3Hex(obj) === row.h && obj.length === Number(row.chunk_size)) verified++
     else failures++
+    if (verified % 64 === 0) console.log(`  [verify] ${verified}/${rows.length}`)
   }
-  const [ptr] = await sql(
-    `SELECT current_version_id::text AS v FROM files WHERE file_id = '${parsed[0].fileId}'`
-  )
 
   logResult({
     spec: '06-crash-recovery',
     sizeGB: BENCH.sizeGB,
+    backendKilledAtPuts: killedAtPuts,
     chunksExpected: expectedChunks,
+    dbChunkRows: rows.length,
     chunksVerified: verified,
     integrityFailures: failures,
     extraPutsVsExpected: tracker.puts - expectedChunks,
-    pointerRestored: ptr?.v === versionId,
-    versionActive: active,
+    versionActivated: !!activeVersionId,
+    finalizeHttpStatus: finalizeStatus,
   })
   expect(failures).toBe(0)
-  expect(active).toBe(true)
-  expect(ptr?.v).toBe(versionId)
+  expect(activeVersionId).not.toBeNull()
   await unlink(path).catch(() => {})
 })

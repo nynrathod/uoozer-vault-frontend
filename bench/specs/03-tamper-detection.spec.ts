@@ -33,9 +33,13 @@ test('storage corruption: 100% detection via ciphertext hash + size chain', asyn
   await login(page)
 
   const { path } = await generateTestFile(SIZE_MB / 1024)
+  const expectedChunks = Math.ceil((SIZE_MB * 1024 * 1024) / CHUNK)
+  console.log(`  [spec-03] uploading ${SIZE_MB}MB (${expectedChunks} chunks)`)
+
   await page.setInputFiles('input[type="file"]', path)
-  await awaitCompletion(page, tracker, Math.ceil((SIZE_MB * 1024 * 1024) / CHUNK))
+  await awaitCompletion(page, tracker, expectedChunks)
   await new Promise((r) => setTimeout(r, 3000))
+  console.log('  [spec-03] upload complete — collecting chunk keys')
 
   const entries = tracker.putLog.map((p) => {
     const k = parseR2Key(p.url)
@@ -53,10 +57,14 @@ test('storage corruption: 100% detection via ciphertext hash + size chain', asyn
   const rowByChunk = new Map(rows.map((r: any) => [Number(r.chunk_index), r]))
   const originals = new Map<string, Buffer>()
   for (const e of entries) originals.set(e.key, await getObject(e.key))
+  console.log(
+    `  [spec-03] snapshot taken — starting ${VARIANTS.length * ITERATIONS} corruption rounds`
+  )
 
   const hashMode = entries.every(
     (e) => blake3Hex(originals.get(e.key)!) === rowByChunk.get(e.chunkIdx)!.h
   )
+  console.log(`  [spec-03] hash chain mode: ${hashMode ? 'ciphertext-blake3' : 'size-only'}`)
 
   let injected = 0,
     detected = 0,
@@ -109,7 +117,11 @@ test('storage corruption: 100% detection via ciphertext hash + size chain', asyn
       const stored = await getObject(e.key)
       const sizeOk = stored.length === Number(row.chunk_size)
       const hashOk = blake3Hex(stored) === row.h
-      if (hashMode ? !sizeOk || !hashOk : !sizeOk) detected++
+      const caught = hashMode ? !sizeOk || !hashOk : !sizeOk
+      if (caught) detected++
+      console.log(
+        `  [corrupt] iter ${iter + 1}/${ITERATIONS} ${v.padEnd(12)} → ${caught ? 'DETECTED' : 'MISSED!'}`
+      )
 
       await putObject(e.key, orig)
       controls++
