@@ -84,6 +84,43 @@ function lsDelete(key: string): void {
   }
 }
 
+const LS_LAST_ACTIVE = 'vault:last_active'
+const LOCK_AFTER_MS = 12 * 60 * 60 * 1000 // 12h inactivity → auto-lock
+
+function touchLastActive(): void {
+  try {
+    localStorage.setItem(LS_LAST_ACTIVE, String(Date.now()))
+  } catch {}
+}
+
+/** Inactivity auto-lock: wipes device_key + wrapped DEKs from IndexedDB
+ *  after 12h without activity, shrinking the at-rest exposure window.
+ *  The user re-authenticates with the password to unlock. */
+export const sessionLock = {
+  lock: async () => {
+    await idbDelete(DEVICE_KEY)
+    await idbDelete(DEVICE_WRAPPED_DEK_KEY)
+    await idbDelete(DEVICE_WRAPPED_DEK_NONCE_KEY)
+    await idbDelete(WRAPPED_DEK_KEY)
+    await idbDelete(WRAPPED_DEK_NONCE_KEY)
+  },
+  isLocked: async () => {
+    const k = await idbGet(DEVICE_KEY)
+    return k === null
+  },
+  /** Call once on app boot. Returns true if the TTL fired and wiped keys. */
+  enforceOnBoot: async (): Promise<boolean> => {
+    const last = Number(lsGet(LS_LAST_ACTIVE) ?? '0')
+    if (last > 0 && Date.now() - last > LOCK_AFTER_MS) {
+      await sessionLock.lock()
+      return true
+    }
+    touchLastActive()
+    return false
+  },
+  touch: () => touchLastActive(),
+}
+
 /**
  * Persists auth tokens and crypto material across storage backends.
  *

@@ -1,7 +1,11 @@
 import { useEffect } from 'react'
 
+/** Meta CSP is a DEV-ONLY fallback for the Vite dev server. In production
+ *  the Axum add_security_headers middleware is the single source of truth. */
 export function SecurityHeaders() {
   useEffect(() => {
+    if (import.meta.env.PROD) return
+
     const ensureMeta = (name: string, content: string) => {
       let meta = document.querySelector(`meta[http-equiv="${name}"]`)
       if (!meta) {

@@ -122,16 +122,11 @@ const RECENT_MAX = 6
 export function recordRecentItem(item: VaultSearchItem) {
   try {
     const raw = localStorage.getItem(RECENT_KEY)
-    const parsed: Array<Omit<VaultSearchItem, 'updatedAt'>> = raw ? JSON.parse(raw) : []
+    const parsed: Array<{ id: string; type: string; parentId?: string | null }> = raw
+      ? JSON.parse(raw)
+      : []
     const next = [
-      {
-        id: item.id,
-        name: item.name,
-        type: item.type,
-        size: item.size,
-        mimeType: item.mimeType,
-        parentId: item.parentId,
-      },
+      { id: item.id, type: item.type, parentId: item.parentId },
       ...parsed.filter((i) => i.id !== item.id),
     ].slice(0, RECENT_MAX)
     localStorage.setItem(RECENT_KEY, JSON.stringify(next))
@@ -142,12 +137,18 @@ export function getRecentItems(items: VaultSearchItem[]): VaultSearchItem[] {
   try {
     const raw = localStorage.getItem(RECENT_KEY)
     if (!raw) return []
-    const parsed: Array<Omit<VaultSearchItem, 'updatedAt'>> = JSON.parse(raw)
-    return parsed.map((r) => {
-      const live = items.find((i) => i.id === r.id)
-      return live ?? { ...r, updatedAt: '' }
-    })
+    const parsed: Array<{ id: string; type: string; parentId?: string | null }> = JSON.parse(raw)
+    return parsed
+      .map((r) => items.find((i) => i.id === r.id) ?? null)
+      .filter((x): x is VaultSearchItem => x !== null)
   } catch {
     return []
   }
+}
+
+/** One-time cleanup of legacy records containing plaintext names. */
+export function purgeLegacyRecentItems() {
+  try {
+    localStorage.removeItem(RECENT_KEY)
+  } catch {}
 }

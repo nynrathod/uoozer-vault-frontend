@@ -83,6 +83,7 @@ export function PublicSharePage() {
       try {
         const keyBytes = await base64ToBytes(keyBase64)
         setShareKey(keyBytes)
+        window.history.replaceState(null, '', window.location.pathname + window.location.search)
         const { data, status } = await apiClient.get(
           `/api/v1/shares/${shareId}`,
           skipAuthRefresh({ params: { _ts: Date.now() } })

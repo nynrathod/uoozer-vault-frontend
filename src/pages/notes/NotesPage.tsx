@@ -33,14 +33,14 @@ const mockNotes: Note[] = [
     title: 'Project Ideas',
     content: 'End-to-end encrypted notes for all your sensitive thoughts...',
     updatedAt: new Date().toISOString(),
-    encrypted: true,
+    encrypted: false,
   },
   {
     id: '2',
     title: 'Meeting Notes',
     content: 'Q3 planning session with the team...',
     updatedAt: new Date(Date.now() - 86400000).toISOString(),
-    encrypted: true,
+    encrypted: false,
   },
 ]
 
@@ -63,7 +63,7 @@ export function NotesPage() {
       title: 'Untitled Note',
       content: '',
       updatedAt: new Date().toISOString(),
-      encrypted: true,
+      encrypted: false,
     }
     setNotes([newNote, ...notes])
     setSelectedNoteId(newNote.id)

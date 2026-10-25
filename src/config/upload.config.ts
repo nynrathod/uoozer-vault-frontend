@@ -1,4 +1,5 @@
 import { PLAINTEXT_CHUNK_BYTES, SECRETSTREAM_MESSAGE_OVERHEAD } from '@lib/chunk-constants'
+import { CRYPTO_CONFIG } from '@config/app'
 
 export const UPLOAD_CONFIG = {
   CHUNK_SIZE: PLAINTEXT_CHUNK_BYTES, // 4 MiB
@@ -7,7 +8,7 @@ export const UPLOAD_CONFIG = {
   MAX_CONCURRENT_UPLOADS: 8, // Parallel chunk uploads to R2
   MAX_CONCURRENT_FILES: 3, // Parallel files in a bulk/folder upload
 
-  MAX_FILE_SIZE: 40 * 1024 * 1024 * 1024, // 40 GB frontend hard limit
+  MAX_FILE_SIZE: CRYPTO_CONFIG.maxFileSize, // 40 GB frontend hard limit
   MAX_CHUNKS_PER_FILE: 50_000,
   MAX_FOLDER_DEPTH: 32, // Prevent excessively deep nesting
 
