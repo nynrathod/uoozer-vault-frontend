@@ -153,6 +153,14 @@ const router = createBrowserRouter([
             ),
           },
           {
+            path: ROUTES.NOTES_STARRED,
+            element: (
+              <Suspense fallback={<SuspenseFallback />}>
+                <NotesPage />
+              </Suspense>
+            ),
+          },
+          {
             path: ROUTES.NOTES_PINNED,
             element: (
               <Suspense fallback={<SuspenseFallback />}>

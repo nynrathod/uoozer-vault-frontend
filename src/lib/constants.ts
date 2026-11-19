@@ -61,6 +61,7 @@ export const ROUTES = {
   VAULT_TRASH_FOLDER: '/vault/trash/folder/:folderId',
   VAULT_FOLDER: '/vault/folder/:folderId',
   NOTES: '/notes',
+  NOTES_STARRED: '/notes/starred',
   NOTES_PINNED: '/notes/pinned',
   NOTES_TRASH: '/notes/trash',
   PASSWORDS: '/passwords',

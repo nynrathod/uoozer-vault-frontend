@@ -22,6 +22,7 @@ import { ROUTES } from '@lib/constants'
 import { useUIStore } from '@stores/uiStore'
 import { useAuthStore } from '@stores/authStore'
 import { Button } from '@ui/Button'
+import { NotesSidebarNav } from '@/modules/notes/components/NotesSidebarNav'
 
 const systemNav = [
   { label: 'Devices', icon: HardDrive, path: ROUTES.DEVICES },
@@ -49,6 +50,7 @@ const apps = [
     basePath: ROUTES.NOTES,
     routes: [
       { label: 'All Notes', icon: StickyNote, path: ROUTES.NOTES },
+      { label: 'Starred', icon: Star, path: ROUTES.NOTES_STARRED },
       { label: 'Pinned', icon: Pin, path: ROUTES.NOTES_PINNED },
       { label: 'Trash', icon: Trash2, path: ROUTES.NOTES_TRASH },
     ],
@@ -202,7 +204,10 @@ export function Sidebar() {
             {currentApp.name}
           </p>
         )}
-        <nav className="mb-6 space-y-1">
+        {currentApp.id === 'notes' ? (
+          <NotesSidebarNav open={sidebarOpen} />
+        ) : (
+          <nav className="mb-6 space-y-1">
           {primaryNav.map((item) => (
             <NavLink
               key={item.path}
@@ -225,6 +230,7 @@ export function Sidebar() {
             </NavLink>
           ))}
         </nav>
+        )}
 
         {sidebarOpen && (
           <p className="text-sidebar-foreground/40 mb-2 px-3 text-[10px] font-bold tracking-wider uppercase">
