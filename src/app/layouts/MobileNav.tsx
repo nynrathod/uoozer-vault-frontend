@@ -1,48 +1,63 @@
 import { NavLink } from 'react-router-dom'
-import { FolderOpen, StickyNote, Settings, Plus } from 'lucide-react'
+import { FolderOpen, Search, Settings, StickyNote } from 'lucide-react'
 import { cn } from '@lib/utils'
 import { ROUTES } from '@lib/constants'
+import { useUIStore } from '@stores/uiStore'
 
-const navItems = [
-  { label: 'Vault', icon: FolderOpen, path: ROUTES.VAULT },
-  { label: 'Notes', icon: StickyNote, path: ROUTES.NOTES },
-  { label: 'Add', icon: Plus, path: '#', action: true },
-  { label: 'Settings', icon: Settings, path: ROUTES.SETTINGS },
-]
-
-/** Fixed bottom navigation bar for mobile viewports. */
+/**
+ * Fixed bottom navigation bar for mobile viewports.
+ * Every entry is a working action — Vault, Notes and Settings navigate,
+ * Search opens the real ⌘K search overlay. No dummy links.
+ */
 export function MobileNav() {
+  const setSearchOpen = useUIStore((s) => s.setSearchOpen)
+
+  const items = [
+    { label: 'Vault', icon: FolderOpen, to: ROUTES.VAULT, active: (p: string) => p.startsWith('/vault') },
+    { label: 'Notes', icon: StickyNote, to: ROUTES.NOTES, active: (p: string) => p.startsWith('/notes') },
+  ]
+
   return (
-    <nav className="border-border/60 bg-background/90 pb-safe fixed inset-x-0 bottom-0 z-50 border-t backdrop-blur-xl">
+    <nav className="bg-background/95 border-line fixed inset-x-0 bottom-0 z-50 border-t backdrop-blur-xl">
       <div className="flex h-16 items-center justify-around">
-        {navItems.map((item) => {
-          // The center "Add" button is a FAB-style action trigger, not a navigation link
-          if (item.action) {
-            return (
-              <button
-                key={item.label}
-                className="bg-foreground text-background flex h-12 w-12 -translate-y-1.5 items-center justify-center rounded-full shadow-lg transition-transform active:scale-95"
-              >
-                <item.icon className="h-5 w-5" strokeWidth={2} />
-              </button>
+        {items.map((item) => (
+          <NavLink
+            key={item.label}
+            to={item.to}
+            className={({ isActive }) =>
+              cn(
+                'flex flex-col items-center gap-1 px-3 py-2 text-[11px] font-medium transition-colors',
+                isActive ? 'text-primary' : 'text-muted-foreground'
+              )
+            }
+          >
+            <item.icon className="h-5 w-5" strokeWidth={1.6} />
+            <span>{item.label}</span>
+          </NavLink>
+        ))}
+
+        <button
+          type="button"
+          onClick={() => setSearchOpen(true)}
+          className="text-muted-foreground flex flex-col items-center gap-1 px-3 py-2 text-[11px] font-medium transition-colors"
+          aria-label="Search (⌘K)"
+        >
+          <Search className="h-5 w-5" strokeWidth={1.6} />
+          <span>Search</span>
+        </button>
+
+        <NavLink
+          to={ROUTES.SETTINGS}
+          className={({ isActive }) =>
+            cn(
+              'flex flex-col items-center gap-1 px-3 py-2 text-[11px] font-medium transition-colors',
+              isActive ? 'text-primary' : 'text-muted-foreground'
             )
           }
-          return (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              className={({ isActive }) =>
-                cn(
-                  'flex flex-col items-center gap-1 px-3 py-2 text-[11px] font-medium transition-colors',
-                  isActive ? 'text-primary' : 'text-muted-foreground/70'
-                )
-              }
-            >
-              <item.icon className="h-5 w-5" strokeWidth={1.75} />
-              <span>{item.label}</span>
-            </NavLink>
-          )
-        })}
+        >
+          <Settings className="h-5 w-5" strokeWidth={1.6} />
+          <span>Settings</span>
+        </NavLink>
       </div>
     </nav>
   )

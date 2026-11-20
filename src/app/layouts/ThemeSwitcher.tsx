@@ -1,24 +1,30 @@
 import { Sun, Moon } from 'lucide-react'
-import { Button } from '@ui/Button'
 import { useTheme } from '@hooks/useTheme'
+import { cn } from '@lib/utils'
 
-/** Toggle button that switches between light and dark themes. */
+/**
+ * Ghost icon toggle in the 48px top bar (Foundations: "Top bar — 48 high,
+ * ghost icons on the right"). Full appearance control stays in
+ * Settings → Appearance.
+ */
 export function ThemeSwitcher() {
   const { resolvedTheme, toggleTheme } = useTheme()
 
   return (
-    <Button
-      variant="ghost"
-      size="icon"
-      className="text-muted-foreground hover:bg-secondary hover:text-foreground h-9 w-9 rounded-lg"
+    <button
+      type="button"
       onClick={toggleTheme}
       aria-label="Toggle theme"
+      className={cn(
+        'text-ghost hover:bg-hover-surface hover:text-ink focus-visible:outline-ring',
+        'flex h-8 w-8 items-center justify-center rounded-lg outline outline-offset-2 outline-2 outline-transparent transition-colors duration-150'
+      )}
     >
       {resolvedTheme === 'dark' ? (
-        <Sun className="h-[18px] w-[18px]" />
+        <Sun className="h-[17px] w-[17px]" strokeWidth={1.6} />
       ) : (
-        <Moon className="h-[18px] w-[18px]" />
+        <Moon className="h-[17px] w-[17px]" strokeWidth={1.6} />
       )}
-    </Button>
+    </button>
   )
 }
