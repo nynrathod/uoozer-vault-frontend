@@ -6,6 +6,7 @@ interface UIState {
   searchOpen: boolean
   commandOpen: boolean
   uploadPanelOpen: boolean
+  shortcutsOpen: boolean
 
   toggleSidebar: () => void
   setSidebarOpen: (open: boolean) => void
@@ -13,15 +14,17 @@ interface UIState {
   setSearchOpen: (open: boolean) => void
   setCommandOpen: (open: boolean) => void
   setUploadPanelOpen: (open: boolean) => void
+  setShortcutsOpen: (open: boolean) => void
 }
 
-/** Controls global UI panel visibility (sidebar, search, command palette, upload panel). */
+/** Controls global UI panel visibility (sidebar, search, command palette, upload panel, shortcuts). */
 export const useUIStore = create<UIState>((set) => ({
   sidebarOpen: true,
   mobileMenuOpen: false,
   searchOpen: false,
   commandOpen: false,
   uploadPanelOpen: false,
+  shortcutsOpen: false,
 
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
@@ -29,4 +32,5 @@ export const useUIStore = create<UIState>((set) => ({
   setSearchOpen: (searchOpen) => set({ searchOpen }),
   setCommandOpen: (commandOpen) => set({ commandOpen }),
   setUploadPanelOpen: (uploadPanelOpen) => set({ uploadPanelOpen }),
+  setShortcutsOpen: (shortcutsOpen) => set({ shortcutsOpen }),
 }))

@@ -105,7 +105,23 @@ const router = createBrowserRouter([
             ),
           },
           {
+            path: ROUTES.VAULT_RECENT,
+            element: (
+              <Suspense fallback={<SuspenseFallback />}>
+                <VaultPage />
+              </Suspense>
+            ),
+          },
+          {
             path: ROUTES.VAULT_STARRED,
+            element: (
+              <Suspense fallback={<SuspenseFallback />}>
+                <VaultPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: ROUTES.VAULT_SHARED,
             element: (
               <Suspense fallback={<SuspenseFallback />}>
                 <VaultPage />

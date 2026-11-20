@@ -18,11 +18,25 @@ export const CRYPTO_CONFIG = {
   maxFileSize: 10 * 1024 * 1024 * 1024, // 10 GB
 } as const
 
-/** Layout dimensions and timing constants used throughout the UI. */
+/**
+ * Layout dimensions and timing constants used throughout the UI.
+ * Every number comes from the design system (`@config/design-tokens`) —
+ * the single source of truth. Do not hardcode sizes in components.
+ */
+import { TOKENS } from './design-tokens'
+
 export const UI_CONFIG = {
-  sidebarWidth: 260,
-  sidebarCollapsedWidth: 64,
-  headerHeight: 64,
+  /** Sidebar 240 wide, no divider, collapses to an icon rail. */
+  sidebarWidth: TOKENS.layout.sidebarWidth,
+  sidebarCollapsedWidth: TOKENS.layout.sidebarCollapsedWidth,
+  /** Top bar 48 high, ghost icons on the right. */
+  headerHeight: TOKENS.layout.topBarHeight,
+  /** Sidebar row 30 high · file row 44 high. */
+  sidebarRowHeight: TOKENS.layout.sidebarRowHeight,
+  fileRowHeight: TOKENS.layout.fileRowHeight,
+  /** Motion: 120ms hover · 180ms panels. */
+  motionHoverMs: TOKENS.motion.hover,
+  motionPanelMs: TOKENS.motion.panel,
   mobileBreakpoint: 768,
   toastDuration: 4000,
   debounceDelay: 300,
