@@ -208,6 +208,21 @@ body.theme-switching *::after {
     --shadow-tile: 0 1px 2px rgb(17 24 39 / 0.1);
     --shadow-card: 0 0 0 1px rgb(17 24 39 / 0.06);
 
+    /* -- Elevation for the FILE PREVIEW DRAWER (Files-Preview sheet) -----
+      Panel (.pn artboard) : 0 16px 48px rgba(17,24,39,.10) + 1px ring .06 (r14)
+      Actions menu (230 w) : 0 8px 24px rgba(17,24,39,.14) + 1px ring .06 (r12)
+      Zoom pill            : 0 8px 24px rgba(17,24,39,.12) + 1px ring .06 (r10)
+      PDF page tile        : 0 2px 10px rgba(17,24,39,.08)
+      Page pill            : 0 1px 6px rgba(17,24,39,.10)  (r8)                    */
+    --shadow-preview-panel: 0 16px 48px rgb(17 24 39 / 0.1), 0 0 0 1px rgb(17 24 39 / 0.06);
+    --shadow-preview-menu: 0 8px 24px rgb(17 24 39 / 0.14), 0 0 0 1px rgb(17 24 39 / 0.06);
+    --shadow-preview-pill: 0 8px 24px rgb(17 24 39 / 0.12), 0 0 0 1px rgb(17 24 39 / 0.06);
+    --shadow-preview-page: 0 2px 10px rgb(17 24 39 / 0.08);
+    --shadow-preview-pagenav: 0 1px 6px rgb(17 24 39 / 0.1);
+
+    /* -- File preview drawer metrics (Files-Preview sheet .pn) ---------- */
+    --preview-viewer-open-height: 250px;
+
     /* -- Radius (6 rows/buttons · 8 fields · 10 menus/cards · 12 tile) - */
     --radius-sm: 6px;
     --radius-md: 8px;
@@ -320,49 +335,44 @@ body.theme-switching *::after {
     --cta-active: 150 55% 25%;
   }
 
-  /* Replace ONLY the existing .dark { ... } block in the new CSS with this one.
-   Graphite surfaces/shadows are carried over from the old CSS.
-   New foundation tokens and theme-specific accents remain supported. */
+  /* ---- DARK MODE (Night #0D1220 / Raised #1A2236 counterpart) ----
+     All values below are exact triplets for the dark palette used by the
+     note surfaces (Night / Raised) — verified to round-trip 1:1.        */
   .dark {
-    /* Core surfaces — old graphite dark theme */
-    --background: 220 18% 7%;
-    --foreground: 210 20% 96%;
-    --card: 220 15% 10%;
-    --card-foreground: 210 20% 96%;
-    --popover: 220 15% 10%;
-    --popover-foreground: 210 20% 96%;
-    --page: 220 18% 7%;
+    --background: 224 42% 8.8%;
+    --foreground: 218 33% 93.5%;
+    --card: 223 35% 15.7%;
+    --card-foreground: 218 33% 93.5%;
+    --popover: 223 35% 15.7%;
+    --popover-foreground: 218 33% 93.5%;
 
-    /* Secondary surfaces and text */
-    --secondary: 220 12% 16%;
-    --secondary-foreground: 210 15% 90%;
-    --muted: 220 12% 16%;
-    --muted-foreground: 220 8% 60%;
-    --accent: 220 12% 16%;
-    --accent-foreground: 210 15% 90%;
+    --secondary: 223 36% 19.6%;
+    --secondary-foreground: 220 18% 76.7%;
+    --muted: 223 35% 15.7%;
+    --muted-foreground: 218 12% 59%;
+    --accent: 223 35% 15.7%;
+    --accent-foreground: 218 33% 93.5%;
 
-    /* New foundation surface tokens */
-    --hover-surface: 220 12% 16%;
-    --active-surface: 220 12% 19%;
+    --border: 222 26% 22.4%;
+    --border-hover: 222 26% 30%;
+    --input: 222 26% 22.4%;
+    --divider: 222 26% 20%;
+    --line: 222 26% 22.4%;
+
+    --hover-surface: 223 35% 15.7%;
+    --active-surface: 223 36% 19.6%;
     --tint: 224 46% 21%;
     --selection: 223 42% 28.2%;
-    --line: 220 12% 20%;
-    --body-text: 210 15% 90%;
-    --ink: 210 20% 96%;
+    --body-text: 220 18% 76.7%;
+    --ink: 218 33% 93.5%;
+    --blue-disabled: 221.4 83% 67.3%;
 
-    /* Structural boundaries — old graphite values */
-    --border: 220 12% 20%;
-    --border-hover: 220 12% 30%;
-    --input: 220 12% 20%;
-    --divider: 220 12% 18%;
-
-    /* Component neutrals */
+    /* Component-level neutrals, dark counterparts */
     --placeholder: 218 12% 59%;
     --gray-ui: 219 22% 82%;
     --gray-strong: 219 18% 71%;
-    --kbd-bg: 220 12% 16%;
+    --kbd-bg: 223 36% 19.6%;
 
-    /* Status colors — retain the new design system's dark-mode values */
     --destructive: 0 91% 70.8%;
     --destructive-foreground: 224 42% 8.8%;
     --success: 154 69% 58.4%;
@@ -381,37 +391,36 @@ body.theme-switching *::after {
     --danger: 0 91% 70.8%;
     --danger-tint: 0 31% 18.2%;
 
-    /* Sidebar — deeper than the main graphite background */
-    --sidebar: 220 18% 5%;
-    --sidebar-foreground: 210 20% 96%;
-    --sidebar-border: 220 12% 18%;
-    --sidebar-ring: var(--ring);
-    --sidebar-accent: 220 12% 16%;
-    --sidebar-accent-foreground: 210 15% 90%;
+    --sidebar: 224 42% 8.8%;
+    --sidebar-foreground: 218 33% 93.5%;
+    --sidebar-border: 224 42% 8.8%;
+    --sidebar-ring: 221.2 83% 53.3%;
+    --sidebar-accent: 223 36% 19.6%;
+    --sidebar-accent-foreground: 218 33% 93.5%;
 
-    /* Vault surfaces */
-    --vault: 220 18% 7%;
-    --vault-foreground: 210 20% 96%;
-    --vault-muted: 220 12% 16%;
-    --vault-border: 220 12% 20%;
+    --vault: 224 42% 8.8%;
+    --vault-foreground: 218 33% 93.5%;
+    --vault-muted: 223 36% 19.6%;
+    --vault-border: 222 26% 22.4%;
 
-    /* Notes: align the night/raised surfaces with the graphite theme */
-    --surface-night: 220 18% 7%;
-    --surface-raised: 220 15% 10%;
-
-    /* Dark shadows — original old-theme elevation */
-    --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.4);
-    --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.5), 0 1px 2px -1px rgb(0 0 0 / 0.5);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.4);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.5);
-    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.6), 0 8px 10px -6px rgb(0 0 0 / 0.5);
+    /* Dark elevations get heavier so panels still read as floating. */
+    --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3), 0 2px 8px -2px rgb(0 0 0 / 0.35);
+    --shadow-md: 0 1px 2px rgb(0 0 0 / 0.35), 0 8px 24px -6px rgb(0 0 0 / 0.45);
+    --shadow-lg: 0 2px 4px rgb(0 0 0 / 0.4), 0 16px 40px -8px rgb(0 0 0 / 0.55);
+    --shadow-xl: 0 4px 8px rgb(0 0 0 / 0.45), 0 24px 56px -12px rgb(0 0 0 / 0.6);
     --shadow-glow: 0 0 24px -4px hsl(var(--brand) / 0.4);
-
-    /* Keep the new foundation's named elevations */
     --shadow-menu: 0 8px 24px rgb(0 0 0 / 0.4), 0 0 0 1px rgb(255 255 255 / 0.08);
     --shadow-dialog: 0 16px 48px rgb(0 0 0 / 0.5), 0 0 0 1px rgb(255 255 255 / 0.08);
     --shadow-tile: 0 1px 2px rgb(0 0 0 / 0.4);
     --shadow-card: 0 0 0 1px rgb(255 255 255 / 0.08);
+
+    /* File preview drawer elevations — dark counterparts (Night/Raised). */
+    --shadow-preview-panel: 0 16px 48px rgb(0 0 0 / 0.5), 0 0 0 1px rgb(255 255 255 / 0.08);
+    --shadow-preview-menu: 0 8px 24px rgb(0 0 0 / 0.42), 0 0 0 1px rgb(255 255 255 / 0.08);
+    --shadow-preview-pill: 0 8px 24px rgb(0 0 0 / 0.38), 0 0 0 1px rgb(255 255 255 / 0.08);
+    --shadow-preview-page: 0 2px 10px rgb(0 0 0 / 0.35);
+    --shadow-preview-pagenav: 0 1px 6px rgb(0 0 0 / 0.4);
   }
 }
 
@@ -529,6 +538,14 @@ body.theme-switching *::after {
   --shadow-dialog: var(--shadow-dialog);
   --shadow-tile: var(--shadow-tile);
   --shadow-card: var(--shadow-card);
+
+  /* File preview drawer elevations (Files-Preview sheet) — utilities:
+     shadow-preview-panel / -menu / -pill / -page / -pagenav */
+  --shadow-preview-panel: var(--shadow-preview-panel);
+  --shadow-preview-menu: var(--shadow-preview-menu);
+  --shadow-preview-pill: var(--shadow-preview-pill);
+  --shadow-preview-page: var(--shadow-preview-page);
+  --shadow-preview-pagenav: var(--shadow-preview-pagenav);
 
   /* Border radius (6 rows/buttons · 8 fields/segmented · 10 menus/cards/code
      · 12 icon tile · 14 dialog/tray · 999 chips/pills) */
@@ -1089,6 +1106,287 @@ body.theme-switching *::after {
   .uv-divider {
     height: 1px;
     background: hsl(var(--divider));
+  }
+
+  /* =====================================================================
+     FILE PREVIEW DRAWER — pixel-exact from the Files-Preview sheet
+     (.pn 420 · header 14/14/0/18 · name 15/22·600 · meta 12.5/18 ·
+      ghost 28·r6 · actions 12/14/0·gap4 · action 32·r8·px10 · viewer
+      12/14/0·r10·Hover fill · zoom pill 34·r10 · page pill r8 · tabs
+      4/10·r6 · versions 48·r8·px6·gap10 · menu 230·r12·p6 · empty icon
+      56·r14 · contents rows 36·r6 · footer 10/18/14)
+     ===================================================================== */
+
+  /* Panel — white surface; the flat ring is the seam to the page
+     ("shadow replaces borders"). 420 wide on md+, full-width on mobile. */
+  .uv-preview-panel {
+    @apply bg-popover text-popover-foreground flex h-full min-h-0 w-full flex-col;
+    box-shadow: var(--shadow-card);
+  }
+  @media (min-width: 768px) {
+    .uv-preview-panel {
+      flex: none;
+    }
+  }
+  .uv-preview-panel-fullscreen {
+    @apply rounded-2xl;
+    box-shadow: var(--shadow-preview-panel);
+  }
+
+  /* Header — padding 14 14 0 18 · flex · gap 10 */
+  .uv-preview-header {
+    @apply flex shrink-0 items-center gap-2.5 pt-3.5 pr-3.5 pl-[18px];
+  }
+
+  /* Name 15/22 · 600 · ink — meta 12.5/18 · muted */
+  .uv-preview-name {
+    @apply text-ink truncate text-[15px] leading-[22px] font-semibold;
+  }
+  .uv-preview-meta {
+    @apply text-muted-foreground truncate text-[12.5px] leading-[18px];
+  }
+
+  /* Inline rename — field exact (white fill + 2px Blue ring) */
+  .uv-preview-rename {
+    @apply text-ink w-full rounded-sm px-1.5 py-0 text-[15px] leading-[22px] font-semibold outline-none;
+    background: hsl(var(--popover));
+    box-shadow: 0 0 0 2px hsl(var(--ring));
+  }
+
+  /* Ghost icon button — 28×28 · r6 · ghost icon 16 · More pressed = Active */
+  .uv-preview-ghost {
+    @apply text-ghost flex h-7 w-7 shrink-0 items-center justify-center rounded-sm transition-colors;
+    transition-duration: var(--transition-fast);
+  }
+  .uv-preview-ghost:hover {
+    background: hsl(var(--hover-surface));
+    color: hsl(var(--gray-ui));
+  }
+  .uv-preview-ghost-active {
+    background: hsl(var(--active-surface));
+    color: hsl(var(--gray-ui));
+  }
+
+  /* Actions row — padding 12 14 0 · gap 4 */
+  .uv-preview-actions {
+    @apply flex shrink-0 gap-1 px-3.5 pt-3;
+  }
+
+  /* Action button — 32 high · r8 · px 10 · 13.5/500 · gap 6 · icon 15 */
+  .uv-preview-action {
+    @apply text-gray-ui flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[13.5px] leading-5 font-medium transition-colors;
+    transition-duration: var(--transition-fast);
+  }
+  .uv-preview-action:hover {
+    background: hsl(var(--hover-surface));
+    color: hsl(var(--ink));
+  }
+  .uv-preview-action-primary {
+    background: hsl(var(--tint));
+    color: hsl(var(--blue-ink));
+  }
+  .uv-preview-action-primary:hover {
+    background: hsl(var(--selection));
+    color: hsl(var(--blue-ink));
+  }
+  .uv-preview-action-starred {
+    color: hsl(var(--blue-ink));
+  }
+  /* Large action (no-preview panel): 36 high */
+  .uv-preview-action-lg {
+    height: 36px;
+  }
+
+  /* Viewer — margin 12 14 0 · r10 · Hover fill · centers the file */
+  .uv-preview-viewer {
+    @apply relative mx-3.5 mt-3 flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-lg;
+    background: hsl(var(--hover-surface));
+  }
+  /* When the details tabs are open the viewer pins to 250 high (sheet) */
+  .uv-preview-viewer-open {
+    @apply flex-none;
+    height: var(--preview-viewer-open-height);
+  }
+  .uv-preview-img {
+    @apply max-h-full max-w-full rounded-md object-contain;
+  }
+
+  /* Zoom pill — 34 high · r10 · white · pill elevation · px 6 · gap 2 ·
+     12.5 · #374151 · buttons 26×26 r6 ghost · icons 15               */
+  .uv-preview-zoom {
+    @apply text-gray-ui absolute bottom-3.5 left-1/2 flex h-[34px] -translate-x-1/2 items-center gap-0.5 rounded-lg px-1.5 text-[12.5px];
+    background: hsl(var(--popover));
+    box-shadow: var(--shadow-preview-pill);
+  }
+  .uv-preview-zoom-btn {
+    @apply text-ghost flex h-[26px] w-[26px] items-center justify-center rounded-sm transition-colors;
+    transition-duration: var(--transition-fast);
+  }
+  .uv-preview-zoom-btn:hover {
+    background: hsl(var(--hover-surface));
+    color: hsl(var(--gray-ui));
+  }
+  .uv-preview-zoom-value {
+    @apply min-w-10 text-center tabular-nums;
+  }
+
+  /* Page pill — r8 · white · page-nav elevation · px 12/4 · 12.5 · gap 14 */
+  .uv-preview-pagenav {
+    @apply text-gray-ui absolute bottom-2.5 left-1/2 flex -translate-x-1/2 items-center gap-3.5 rounded-md px-3 py-1 text-[12.5px];
+    background: hsl(var(--popover));
+    box-shadow: var(--shadow-preview-pagenav);
+  }
+
+  /* PDF page tile — white, 3px top corners, page elevation */
+  .uv-preview-pdf-page {
+    background: hsl(var(--popover));
+    border-radius: 3px;
+    box-shadow: var(--shadow-preview-page);
+  }
+
+  /* Tabs — margin 14 18 0 · gap 4 · 13.5 · tab = 4/10 · r6 */
+  .uv-preview-tabs {
+    @apply mx-[18px] mt-3.5 flex shrink-0 gap-1 text-[13.5px] leading-5;
+  }
+  .uv-preview-tab {
+    @apply text-gray-strong rounded-sm px-2.5 py-1 transition-colors;
+    transition-duration: var(--transition-fast);
+  }
+  .uv-preview-tab:hover {
+    background: hsl(var(--hover-surface));
+    color: hsl(var(--ink));
+  }
+  .uv-preview-tab-active {
+    background: hsl(var(--active-surface));
+    color: hsl(var(--ink));
+    font-weight: var(--font-medium);
+  }
+
+  /* Scrollable panel area under the tabs — margin 6 12 0 */
+  .uv-preview-panelarea {
+    @apply mx-3 mt-1.5 min-h-0 flex-1 overflow-y-auto pb-3;
+  }
+
+  /* Version row — 48 high · r8 · px 6 · gap 10 · current = Hover fill */
+  .uv-preview-version {
+    @apply text-ink flex h-12 items-center gap-2.5 rounded-md px-1.5;
+  }
+  .uv-preview-version:hover {
+    background: hsl(var(--hover-surface));
+  }
+  .uv-preview-version-current,
+  .uv-preview-version-current:hover {
+    background: hsl(var(--hover-surface));
+  }
+  .uv-preview-version-label {
+    @apply text-ink w-7 shrink-0 text-[13px] leading-5 font-semibold tabular-nums;
+  }
+  .uv-preview-restore {
+    @apply text-blue-ink shrink-0 rounded-sm px-2.5 py-1 text-[13px] font-medium transition-colors;
+    transition-duration: var(--transition-fast);
+  }
+  .uv-preview-restore:hover {
+    background: hsl(var(--tint));
+  }
+  .uv-preview-restore:disabled {
+    opacity: var(--opacity-busy);
+    pointer-events: none;
+  }
+
+  /* Details rows — 36 high · r6 · label 12.5 muted / value 13.5 ink */
+  .uv-preview-detail-row {
+    @apply flex h-9 items-center justify-between gap-3 rounded-sm px-1.5;
+  }
+  .uv-preview-detail-row:hover {
+    background: hsl(var(--hover-surface));
+  }
+  .uv-preview-detail-label {
+    @apply text-muted-foreground text-[12.5px];
+  }
+  .uv-preview-detail-value {
+    @apply text-ink truncate text-[13.5px] leading-5 font-medium;
+  }
+
+  /* Footer — padding 10 18 14 · 12.5 muted · gap 6 */
+  .uv-preview-footer {
+    @apply text-muted-foreground flex shrink-0 items-center gap-1.5 pt-2.5 pr-[18px] pb-3.5 pl-[18px] text-[12.5px];
+  }
+  .uv-preview-footer-toggle {
+    @apply text-gray-ui ml-auto flex shrink-0 items-center gap-1 rounded-sm px-1.5 py-0.5 text-[12.5px] font-medium transition-colors;
+    transition-duration: var(--transition-fast);
+  }
+  .uv-preview-footer-toggle:hover {
+    background: hsl(var(--hover-surface));
+    color: hsl(var(--ink));
+  }
+
+  /* Actions menu — 230 wide · r12 · p 6 · preview-menu elevation · no
+     border · items 32 r6 px10 gap10 13.5 #374151 · kbd 12 muted · danger
+     #B91C1C                                                       */
+  .uv-preview-menu {
+    @apply flex w-[230px] flex-col rounded-xl p-1.5;
+    background: hsl(var(--popover));
+    box-shadow: var(--shadow-preview-menu);
+  }
+  .uv-preview-menu-item {
+    @apply text-gray-ui flex h-8 w-full items-center gap-2.5 rounded-sm px-2.5 text-left text-[13.5px] transition-colors;
+    transition-duration: var(--transition-fast);
+  }
+  .uv-preview-menu-item:hover {
+    background: hsl(var(--active-surface));
+    color: hsl(var(--ink));
+    font-weight: var(--font-medium);
+  }
+  .uv-preview-menu-item:disabled {
+    opacity: var(--opacity-busy);
+    pointer-events: none;
+  }
+  .uv-preview-menu-item-danger,
+  .uv-preview-menu-item-danger:hover {
+    color: hsl(var(--status-failed));
+  }
+  .uv-preview-menu-kbd {
+    @apply text-muted-foreground ml-auto shrink-0 text-[12px];
+  }
+  .uv-preview-menu-heading {
+    @apply text-muted-foreground px-2.5 pt-1 pb-1 text-[12px] font-medium;
+  }
+
+  /* No-preview block — icon tile 56×56 · r14 · Active fill · ghost icon
+     26 · title 16/600 ink · desc 13.5/21 #4B5563 · buttons mt 18 gap 8 */
+  .uv-preview-empty {
+    @apply px-8 pt-14 text-center;
+  }
+  .uv-preview-empty-icon {
+    @apply bg-active-surface text-ghost mx-auto flex h-14 w-14 items-center justify-center rounded-2xl;
+  }
+  .uv-preview-empty-title {
+    @apply text-ink mt-4 text-[16px] leading-6 font-semibold;
+  }
+  .uv-preview-empty-desc {
+    @apply text-gray-strong mt-1.5 text-[13.5px] leading-[21px];
+  }
+  .uv-preview-empty-actions {
+    @apply mt-[18px] flex items-center justify-center gap-2;
+  }
+
+  /* Archive contents — label margin 34 18 0 · 12/500 muted · rows 36
+     high · r6 · px 6 · gap 10 · 13.5 ink · size 12.5 muted · icon 15 */
+  .uv-preview-contents-label {
+    @apply text-muted-foreground mx-[18px] mt-[34px] shrink-0 text-[12px] font-medium;
+  }
+  .uv-preview-contents {
+    @apply mx-3 mt-1 min-h-0 flex-1 overflow-y-auto pb-3;
+  }
+  .uv-preview-content-row {
+    @apply text-ink flex h-9 w-full items-center gap-2.5 rounded-sm px-1.5 text-left text-[13.5px] transition-colors;
+    transition-duration: var(--transition-fast);
+  }
+  .uv-preview-content-row:hover {
+    background: hsl(var(--hover-surface));
+  }
+  .uv-preview-content-size {
+    @apply text-muted-foreground shrink-0 text-[12.5px] leading-[18px] tabular-nums;
   }
 
   /* Empty state */
@@ -3549,6 +3847,13 @@ body.note-table-select-lock {
 /* Note column — 700 wide, centred. */
 .note-page {
   max-width: 700px;
+}
+
+/* Files table — fluid, max 1040. */
+.vault-content-max {
+  max-width: 1040px;
+  margin-inline: auto;
+  width: 100%;
 }
 
 /* Motion stays short — and disappears entirely under reduced motion. */
