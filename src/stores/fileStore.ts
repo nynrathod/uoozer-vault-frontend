@@ -34,6 +34,9 @@ interface FileStoreState {
   setShareTarget: (id: string | null) => void
   setActiveMenuId: (id: string | null) => void
   setVersionFileId: (id: string | null) => void
+  /** Local-first star state (Files-Preview sheet "Star" action). */
+  starredFileIds: Set<string>
+  toggleFileStar: (id: string) => void
   toggleFileSelection: (id: string) => void
   clearSelection: () => void
   selectAll: (ids: string[]) => void
@@ -62,6 +65,7 @@ export const useFileStore = create<FileStoreState>()(
       shareTargetId: null,
       activeMenuId: null,
       versionFileId: null,
+      starredFileIds: new Set(),
       selectedFileIds: new Set(),
       sortField: null,
       sortOrder: null,
@@ -141,6 +145,13 @@ export const useFileStore = create<FileStoreState>()(
       setShareTarget: (id) => set({ shareTargetId: id }),
       setActiveMenuId: (id) => set({ activeMenuId: id }),
       setVersionFileId: (id) => set({ versionFileId: id }),
+      toggleFileStar: (id) =>
+        set((state) => {
+          const next = new Set(state.starredFileIds)
+          if (next.has(id)) next.delete(id)
+          else next.add(id)
+          return { starredFileIds: next }
+        }),
       toggleFileSelection: (id) =>
         set((state) => {
           const next = new Set(state.selectedFileIds)
@@ -288,6 +299,8 @@ export const selectFolderItemCounts = (s: FileStoreState) => {
 
 export const selectFileById = (id: string | null) => (s: FileStoreState) =>
   id ? s.files.get(id) : null
+export const selectIsStarred = (id: string | null) => (s: FileStoreState) =>
+  id ? s.starredFileIds.has(id) : false
 export const selectFolderById = (id: string | null) => (s: FileStoreState) =>
   id ? s.folders.get(id) : null
 
