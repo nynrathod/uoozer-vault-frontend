@@ -9,8 +9,17 @@ import {
   selectFolderItemCounts,
 } from '@stores/fileStore'
 import { QUERY_KEYS, ROUTES } from '@lib/constants'
-import { cn } from '@lib/utils'
-import { Lock, Star, Trash2, Upload } from 'lucide-react'
+import { cn, formatBytes } from '@lib/utils'
+import {
+  Clock,
+  File,
+  Folder as FolderIcon,
+  Link as LinkIcon,
+  Lock,
+  Star,
+  Trash2,
+  Upload,
+} from 'lucide-react'
 
 import { FileGrid } from '@/components/features/vault/fileList/FileGrid'
 import { FileList } from '@/components/features/vault/fileList/FileList'
@@ -21,6 +30,13 @@ import { ShareDialog } from '@/components/ui/overlays/ShareDialog'
 import { VersionHistoryDialog } from '@/components/ui/overlays/VersionHistoryDialog'
 import { VaultToolbar } from '@/components/features/vault/VaultToolbar'
 import { useVaultFiles } from '@hooks/useVaultFiles'
+import {
+  useVaultSearch,
+  seedStoreFromSearchItem,
+  getRecentItems,
+  purgeLegacyRecentItems,
+  type VaultSearchItem,
+} from '@hooks/useVaultSearch'
 import { useFileUpload } from '@hooks/useFileUpload'
 import { useQueryClient } from '@tanstack/react-query'
 import type { Folder } from '@/types/folders'
@@ -68,11 +84,89 @@ async function traverseFileTree(item: any, path: string): Promise<File[]> {
   return []
 }
 
+/**
+ * Recent — the Library's "Recent" section, backed by the same local recents
+ * the ⌘K search uses (every opened file/folder is recorded there). Rows are
+ * 44 high with an 8px radius per Foundations; clicking a file opens the real
+ * preview, clicking a folder navigates into it. "Clear" wipes the list.
+ */
+function VaultRecentView() {
+  const navigate = useNavigate()
+  const openPreview = usePreviewStore((s) => s.open)
+  const { items: allItems, isLoading } = useVaultSearch()
+  const recents = getRecentItems(allItems)
+
+  const open = (item: VaultSearchItem) => {
+    if (item.type === 'folder') {
+      seedStoreFromSearchItem(item)
+      navigate(generatePath(ROUTES.VAULT_FOLDER, { folderId: item.id }))
+    } else {
+      seedStoreFromSearchItem(item)
+      openPreview(item.id)
+    }
+  }
+
+  return (
+    <div className="bg-background flex h-full w-full flex-col">
+      <div className="border-line flex shrink-0 items-center justify-between border-b px-6 py-4">
+        <div className="flex items-center gap-2.5">
+          <Clock className="text-ghost h-[17px] w-[17px]" strokeWidth={1.6} />
+          <h1 className="text-ink text-[19px] leading-7 font-semibold">Recent</h1>
+        </div>
+        {recents.length > 0 && (
+          <button
+            type="button"
+            onClick={() => purgeLegacyRecentItems()}
+            className="text-muted-foreground hover:bg-hover-surface hover:text-body-text rounded-[6px] px-2.5 py-1.5 text-[13px] font-medium transition-colors duration-150"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+
+      <div className="vault-content-max flex-1 overflow-y-auto px-6 py-4">
+        {isLoading ? (
+          <VaultSkeleton viewMode="list" />
+        ) : recents.length === 0 ? (
+          <EmptyState
+            icon={Clock}
+            title="Nothing recent yet"
+            description="Files and folders you open will show up here."
+          />
+        ) : (
+          <div className="space-y-0.5">
+            {recents.map((item) => {
+              const Icon = item.type === 'folder' ? FolderIcon : File
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => open(item)}
+                  className="hover:bg-hover-surface focus-visible:outline-ring flex h-11 w-full items-center gap-3 rounded-md px-3 text-left outline outline-2 outline-offset-2 outline-transparent transition-colors duration-[120ms]"
+                >
+                  <Icon className="text-ghost h-4 w-4 shrink-0" strokeWidth={1.6} />
+                  <span className="text-ink min-w-0 flex-1 truncate text-[14px] font-medium">
+                    {item.name}
+                  </span>
+                  <span className="text-muted-foreground hidden shrink-0 text-[12px] tabular-nums sm:block">
+                    {item.type === 'folder' ? 'Folder' : formatBytes(item.size)}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export function VaultPage({ trashed = false }: { trashed?: boolean }) {
   const { folderId } = useParams<{ folderId?: string }>()
   const location = useLocation()
   const isTrash = location.pathname.startsWith('/vault/trash')
   const isStarred = location.pathname === ROUTES.VAULT_STARRED
+  const isShared = location.pathname === ROUTES.VAULT_SHARED
   const isPrivate = location.pathname === ROUTES.VAULT_PRIVATE
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -281,6 +375,11 @@ export function VaultPage({ trashed = false }: { trashed?: boolean }) {
     [uploadFiles, currentFolderId, isTrash]
   )
 
+  // Recent — a real, working view fed by the local recents of the search.
+  if (location.pathname === ROUTES.VAULT_RECENT) {
+    return <VaultRecentView />
+  }
+
   if (isStarred) {
     return (
       <div className="bg-background flex h-full w-full flex-col">
@@ -288,6 +387,18 @@ export function VaultPage({ trashed = false }: { trashed?: boolean }) {
           icon={Star}
           title="Starred Items"
           description="Quick access to your favorite and most important files is coming soon."
+        />
+      </div>
+    )
+  }
+
+  if (isShared) {
+    return (
+      <div className="bg-background flex h-full w-full flex-col">
+        <ComingSoon
+          icon={LinkIcon}
+          title="Shared Items"
+          description="Everything you have shared — with live expiry for each link — is coming soon."
         />
       </div>
     )
@@ -370,7 +481,8 @@ export function VaultPage({ trashed = false }: { trashed?: boolean }) {
             }
             disabled={trashed}
           >
-            <div className="relative flex-1 overflow-hidden">
+            {/* Files table — fluid, max 1040 (Foundations) */}
+            <div className="vault-content-max relative flex-1 overflow-hidden">
               {showSkeleton ? (
                 <VaultSkeleton viewMode={viewMode} />
               ) : isLoading ? (
@@ -443,7 +555,7 @@ export function VaultPage({ trashed = false }: { trashed?: boolean }) {
             </div>
           </div>
           <div className="text-center">
-            <p className="text-foreground text-lg font-semibold tracking-tight">Drop to upload</p>
+            <p className="text-ink text-lg font-semibold tracking-tight">Drop to upload</p>
             <p className="text-muted-foreground mt-1 max-w-xs text-sm">
               Files are encrypted locally before upload
             </p>
