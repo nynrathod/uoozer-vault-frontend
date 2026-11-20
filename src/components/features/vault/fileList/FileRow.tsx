@@ -86,20 +86,21 @@ export const FileRow = memo(function FileRow({
   return (
     <div
       className={cn(
-        'group relative grid h-[52px] grid-cols-[40px_40px_1fr] items-center gap-2 rounded-lg border border-transparent px-0 transition-colors duration-150 ease-out md:grid-cols-[40px_40px_1fr_160px_140px_80px]',
+        'group relative grid h-11 grid-cols-[40px_40px_minmax(0,1fr)] items-center gap-2 rounded-md border border-transparent px-0 transition-colors duration-[120ms] ease-out md:grid-cols-[40px_40px_minmax(0,1fr)_180px_100px_150px]',
+
         isDragOver
-          ? 'bg-primary/5 border-primary/20 z-20 shadow-[0_0_0_1px_hsl(var(--primary)/0.2),0_4px_12px_-2px_hsl(var(--primary)/0.15)]'
+          ? 'bg-secondary ring-primary/40 z-20 ring-2 ring-inset'
           : isSelected
-            ? 'bg-primary/[0.06] border-primary/20'
+            ? 'bg-active'
             : !isDragging
-              ? 'hover:bg-accent/60 hover:border-border/40'
+              ? 'hover:bg-accent'
               : '',
         isMenuActive && 'z-30',
         editingId === item.id && 'z-30',
         'cursor-grab active:cursor-grabbing',
         isNew &&
           editingId === item.id &&
-          'bg-primary/[0.04] border-l-primary animate-pulse border-l-2'
+          'bg-secondary/60 border-l-primary animate-pulse border-l-2'
       )}
       onClick={onClick}
       draggable={!isShareMode && !isTrash}
@@ -175,7 +176,7 @@ export const FileRow = memo(function FileRow({
                   if (e.key === 'Enter') handleSubmit()
                   if (e.key === 'Escape') setEditingId(null)
                 }}
-                className="bg-background border-primary w-full rounded-md border px-1.5 py-0.5 text-[13px] font-medium outline-none"
+                className="bg-card border-primary w-full rounded-sm border px-1.5 py-0.5 text-[13px] font-medium outline-none"
               />
               {isSaving ? (
                 <Loader2 className="text-primary h-4 w-4 shrink-0 animate-spin" />
@@ -183,14 +184,14 @@ export const FileRow = memo(function FileRow({
                 <button
                   type="button"
                   onClick={handleSubmit}
-                  className="shrink-0 cursor-pointer text-emerald-500 hover:text-emerald-600"
+                  className="text-success hover:text-success/80 shrink-0 cursor-pointer transition-colors duration-[120ms]"
                 >
                   <Check className="h-4 w-4" />
                 </button>
               )}
             </div>
             {error && (
-              <span className="text-destructive mt-1 px-1.5 text-[11px] font-medium">{error}</span>
+              <span className="text-destructive text-2xs mt-1 px-1.5 font-medium">{error}</span>
             )}
           </div>
         ) : (
@@ -202,17 +203,28 @@ export const FileRow = memo(function FileRow({
               onClick()
             }}
           >
-            <p className="text-foreground truncate text-[13px] font-medium">{item.name}</p>
+            <p className="text-foreground truncate text-[13px] leading-5 font-medium">
+              {item.name}
+            </p>
           </div>
         )}
       </div>
+      <div className="text-muted-foreground hidden min-w-0 items-center justify-start gap-1.5 text-xs leading-4 whitespace-nowrap md:flex">
+        <Clock className="text-ghost h-3.5 w-3.5 shrink-0" />
+        <span className="min-w-0 truncate">{formatRelativeDate(item.updatedAt)}</span>
+      </div>
+      <div className="text-muted-foreground hidden min-w-0 items-center justify-start text-xs leading-4 whitespace-nowrap tabular-nums md:flex">
+        {isFolder
+          ? formatBytes((item as Folder).totalSize ?? folderSizes.get(item.id) ?? 0)
+          : formatBytes((item as FileItem).totalSize)}
+      </div>
       <div
         className={cn(
-          'relative z-40 hidden items-center justify-start gap-0.5 md:flex',
-          'translate-x-2 opacity-0 transition-all duration-200 ease-out',
-          'group-hover:translate-x-0 group-hover:opacity-100',
-          isMenuActive ? 'translate-x-0 opacity-100' : '',
-          isOtherMenuActive ? 'opacity-0' : ''
+          'relative z-40 hidden h-full w-full min-w-0 items-center justify-end gap-1 pr-2 md:flex',
+          'pointer-events-none translate-x-1 opacity-0 transition-all duration-150',
+          'group-hover:pointer-events-auto group-hover:translate-x-0 group-hover:opacity-100',
+          'group-focus-within:pointer-events-auto group-focus-within:translate-x-0 group-focus-within:opacity-100',
+          isMenuActive && 'pointer-events-auto translate-x-0 opacity-100'
         )}
         onClick={(e) => e.stopPropagation()}
       >
@@ -221,7 +233,7 @@ export const FileRow = memo(function FileRow({
             <button
               type="button"
               onClick={handleRestore}
-              className="text-muted-foreground hover:bg-accent hover:text-foreground flex h-8 w-8 cursor-pointer items-center justify-center rounded-md"
+              className="text-ghost hover:bg-active hover:text-label flex h-7 w-7 cursor-pointer items-center justify-center rounded-sm transition-colors duration-[120ms]"
               title="Restore"
             >
               <RotateCcw className="h-4 w-4" />
@@ -229,7 +241,7 @@ export const FileRow = memo(function FileRow({
             <button
               type="button"
               onClick={handleDownload}
-              className="text-muted-foreground hover:bg-accent hover:text-foreground flex h-8 w-8 cursor-pointer items-center justify-center rounded-md"
+              className="text-ghost hover:bg-active hover:text-label flex h-7 w-7 cursor-pointer items-center justify-center rounded-sm transition-colors duration-[120ms]"
               title="Download"
             >
               <Download className="h-4 w-4" />
@@ -240,7 +252,7 @@ export const FileRow = memo(function FileRow({
             <button
               type="button"
               onClick={handleDownload}
-              className="text-muted-foreground hover:bg-accent hover:text-foreground flex h-8 w-8 cursor-pointer items-center justify-center rounded-md"
+              className="text-ghost hover:bg-active hover:text-label flex h-7 w-7 cursor-pointer items-center justify-center rounded-sm transition-colors duration-[120ms]"
               title="Download"
             >
               <Download className="h-4 w-4" />
@@ -249,11 +261,11 @@ export const FileRow = memo(function FileRow({
               <button
                 type="button"
                 onClick={() => handleCopyLink()}
-                className="text-muted-foreground hover:bg-accent hover:text-foreground flex h-8 w-8 cursor-pointer items-center justify-center rounded-md"
+                className="text-ghost hover:bg-active hover:text-label flex h-7 w-7 cursor-pointer items-center justify-center rounded-sm transition-colors duration-[120ms]"
                 title="Copy Link"
               >
                 {copied ? (
-                  <Check className="h-4 w-4 text-emerald-500" />
+                  <Check className="text-success h-4 w-4" />
                 ) : (
                   <Link2 className="h-4 w-4" />
                 )}
@@ -263,7 +275,7 @@ export const FileRow = memo(function FileRow({
               <button
                 type="button"
                 onClick={() => onShare(item, isFolder)}
-                className="text-muted-foreground hover:bg-accent hover:text-foreground flex h-8 w-8 cursor-pointer items-center justify-center rounded-md"
+                className="text-ghost hover:bg-active hover:text-label flex h-7 w-7 cursor-pointer items-center justify-center rounded-sm transition-colors duration-[120ms]"
                 title="Share"
               >
                 <Share2 className="h-4 w-4" />
@@ -285,7 +297,7 @@ export const FileRow = memo(function FileRow({
               trigger={
                 <button
                   type="button"
-                  className="text-muted-foreground hover:bg-accent hover:text-foreground flex h-8 w-8 cursor-pointer items-center justify-center rounded-md"
+                  className="text-ghost hover:bg-active hover:text-label flex h-7 w-7 cursor-pointer items-center justify-center rounded-sm transition-colors duration-[120ms]"
                   title="More"
                 >
                   <MoreHorizontal className="h-4 w-4" />
@@ -294,15 +306,6 @@ export const FileRow = memo(function FileRow({
             />
           </>
         )}
-      </div>
-      <div className="text-muted-foreground/70 hidden items-center justify-start text-xs md:flex">
-        <Clock className="mr-1.5 h-3.5 w-3.5" />
-        <span>{formatRelativeDate(item.updatedAt)}</span>
-      </div>
-      <div className="text-muted-foreground/70 hidden items-center justify-start text-xs tabular-nums md:flex">
-        {isFolder
-          ? formatBytes((item as Folder).totalSize ?? folderSizes.get(item.id) ?? 0)
-          : formatBytes((item as FileItem).totalSize)}
       </div>
     </div>
   )

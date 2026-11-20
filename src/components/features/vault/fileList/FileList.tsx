@@ -18,7 +18,9 @@ interface FileListProps {
   onShare: (item: FileItem | Folder, isFolder: boolean) => void
 }
 
-/** Virtualized list view for files and folders with sortable columns. */
+const HEADER_GRID =
+  'grid grid-cols-[40px_minmax(0,1fr)] md:grid-cols-[40px_minmax(0,1fr)_180px_100px_150px]'
+
 export function FileList({
   files,
   folders,
@@ -28,13 +30,13 @@ export function FileList({
   onShare,
 }: FileListProps) {
   const parentRef = useRef<HTMLDivElement>(null)
-  // Folders always appear before files
+
   const allItems = [...folders, ...files]
 
   const rowVirtualizer = useVirtualizer({
     count: allItems.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 56, // 52px row height + 4px visual gap
+    estimateSize: () => 48,
     overscan: 5,
   })
 
@@ -50,28 +52,37 @@ export function FileList({
     allItems.length > 0 && allItems.every((item) => selectedFileIds.has(item.id))
 
   const handleSelectAll = () => {
-    if (isAllSelected) clearSelection()
-    else selectAll(allItems.map((i) => i.id))
+    if (isAllSelected) {
+      clearSelection()
+    } else {
+      selectAll(allItems.map((item) => item.id))
+    }
   }
 
-  // Cycles through ascending → descending → unsorted on repeated clicks
   const handleColumnSort = (field: 'name' | 'size' | 'modified') => {
     let newField: 'name' | 'size' | 'modified' | null = field
     let newOrder: 'asc' | 'desc' | null = 'asc'
+
     if (sortField === field) {
-      if (sortOrder === 'asc') newOrder = 'desc'
-      else if (sortOrder === 'desc') {
+      if (sortOrder === 'asc') {
+        newOrder = 'desc'
+      } else if (sortOrder === 'desc') {
         newField = null
         newOrder = null
       }
     }
+
     setSort(newField, newOrder)
     sortItems(newField, newOrder)
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="border-border/40 text-muted-foreground/50 bg-background sticky top-0 z-10 grid grid-cols-[40px_40px_1fr] items-center gap-2 border-b px-4 py-2.5 text-[11px] font-semibold tracking-wider uppercase sm:px-4 md:grid-cols-[40px_40px_1fr_160px_140px_80px]">
+    <div className="flex h-full min-w-0 flex-col">
+      {/* Table Header */}
+      <div
+        className={`${HEADER_GRID} border-border/40 text-muted-foreground bg-background sticky top-0 z-10 items-center gap-2 border-b px-4 py-2.5 text-[11px] font-semibold tracking-wider`}
+      >
+        {/* Checkbox */}
         <div className="flex items-center justify-center">
           <Checkbox
             checked={isAllSelected}
@@ -80,33 +91,32 @@ export function FileList({
           />
         </div>
 
-        <div></div>
-
+        {/* Name */}
         <button
-          className="hover:text-foreground flex cursor-pointer items-center gap-1 truncate transition-colors"
+          className="hover:text-foreground flex min-w-0 cursor-pointer items-center gap-1 text-left transition-colors"
           onClick={() => handleColumnSort('name')}
         >
-          Name{' '}
+          <span>Name</span>
           {sortField === 'name' ? (
             sortOrder === 'asc' ? (
-              <ChevronUp className="h-3 w-3" />
+              <ChevronUp className="h-3 w-3 shrink-0" />
             ) : (
-              <ChevronDown className="h-3 w-3" />
+              <ChevronDown className="h-3 w-3 shrink-0" />
             )
           ) : (
-            <ChevronsUpDown className="h-3 w-3 opacity-40" />
+            <ChevronsUpDown className="h-3 w-3 shrink-0 opacity-40" />
           )}
         </button>
 
-        <div className="hidden md:block"></div>
+        {/* Modified */}
+        <div className="hidden text-left whitespace-nowrap md:block">Modified</div>
 
-        <span className="hidden md:block">Modified</span>
-
+        {/* Size */}
         <button
-          className="hover:text-foreground hidden cursor-pointer items-center gap-1 transition-colors md:flex"
+          className="hover:text-foreground hidden cursor-pointer items-center gap-1 text-left transition-colors md:flex"
           onClick={() => handleColumnSort('size')}
         >
-          Size{' '}
+          Size
           {sortField === 'size' ? (
             sortOrder === 'asc' ? (
               <ChevronUp className="h-3 w-3" />
@@ -117,16 +127,23 @@ export function FileList({
             <ChevronsUpDown className="h-3 w-3 opacity-40" />
           )}
         </button>
+
+        {/* Actions column placeholder */}
+        <div className="hidden md:block" />
       </div>
 
-      <div ref={parentRef} className="flex-1 overflow-auto px-4 sm:px-4">
+      {/* File Rows */}
+      <div ref={parentRef} className="min-w-0 flex-1 overflow-auto px-4">
         <div
           className="relative w-full py-2"
-          style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
+          style={{
+            height: `${rowVirtualizer.getTotalSize()}px`,
+          }}
         >
           {rowVirtualizer.getVirtualItems().map((virtualRow) => {
             const item = allItems[virtualRow.index]
             const folderCheck = isFolder(item)
+
             return (
               <div
                 key={item.uid}
@@ -141,8 +158,12 @@ export function FileList({
                   isSelected={selectedFileIds.has(item.id)}
                   onClick={() => {
                     if (item.deletedAt) return
-                    if (folderCheck) onFolderClick(item)
-                    else onFileClick(item)
+
+                    if (folderCheck) {
+                      onFolderClick(item)
+                    } else {
+                      onFileClick(item)
+                    }
                   }}
                   onSelect={() => onFileSelect(item.id)}
                   onShare={(item) => onShare(item, folderCheck)}

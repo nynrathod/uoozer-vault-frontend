@@ -264,9 +264,9 @@ export function UploadQueue() {
   const currentProcessingIndex = completed.length + active.length
 
   return (
-    <div className="border-border/60 bg-card fixed right-5 bottom-5 z-50 w-[380px] max-w-[calc(100vw-40px)] overflow-hidden rounded-2xl border shadow-2xl shadow-black/10 transition-all duration-300 ease-out dark:shadow-black/40">
+    <div className="border-border/60 bg-card shadow-dialog fixed right-5 bottom-5 z-50 w-[380px] max-w-[calc(100vw-40px)] overflow-hidden rounded-2xl border transition-all duration-300 ease-out dark:shadow-black/40">
       <div
-        className="border-border/60 flex cursor-pointer items-center justify-between border-b px-4 py-3"
+        className="border-border flex cursor-pointer items-center justify-between border-b px-4 py-2"
         onClick={() => setIsMinimized(!isMinimized)}
       >
         <div className="flex items-center gap-2.5">
@@ -323,7 +323,7 @@ export function UploadQueue() {
             onValueChange={(v) => setActiveTab(v as TabId)}
             className="w-full"
           >
-            <TabsList className="border-border/60 flex h-auto w-full justify-start gap-1 border-b bg-transparent p-0 px-2 py-1.5">
+            <TabsList className="border-border flex h-auto w-full justify-start gap-1 border-b bg-transparent p-0 px-2 py-1.5">
               {tabs.map((tab) => (
                 <TabsTrigger
                   key={tab.id}
