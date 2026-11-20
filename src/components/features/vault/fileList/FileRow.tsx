@@ -58,7 +58,7 @@ export const FileRow = memo(function FileRow({
   const setDropHint = useFileStore((s) => s.setDropHint)
   const folderSizes = useFileStore(useShallow(selectFolderSizes))
   const isMenuActive = activeMenuId === item.id
-  const isOtherMenuActive = !!activeMenuId && activeMenuId !== item.id
+  // const isOtherMenuActive = !!activeMenuId && activeMenuId !== item.id
   const isDragOver = dragOverId === item.id
   const isNew = item.id.startsWith('temp-')
 
@@ -86,7 +86,7 @@ export const FileRow = memo(function FileRow({
   return (
     <div
       className={cn(
-        'group relative grid h-11 grid-cols-[40px_40px_minmax(0,1fr)] items-center gap-2 rounded-md border border-transparent px-0 transition-colors duration-[120ms] ease-out md:grid-cols-[40px_40px_minmax(0,1fr)_180px_100px_150px]',
+        'group relative grid h-11 grid-cols-[40px_40px_minmax(0,1fr)] items-center gap-2 rounded-md border border-transparent px-0 transition-colors duration-120 ease-out md:grid-cols-[40px_40px_minmax(0,1fr)_180px_100px_150px]',
 
         isDragOver
           ? 'bg-secondary ring-primary/40 z-20 ring-2 ring-inset'
@@ -184,7 +184,7 @@ export const FileRow = memo(function FileRow({
                 <button
                   type="button"
                   onClick={handleSubmit}
-                  className="text-success hover:text-success/80 shrink-0 cursor-pointer transition-colors duration-[120ms]"
+                  className="text-success hover:text-success/80 shrink-0 cursor-pointer transition-colors duration-120"
                 >
                   <Check className="h-4 w-4" />
                 </button>
@@ -233,7 +233,7 @@ export const FileRow = memo(function FileRow({
             <button
               type="button"
               onClick={handleRestore}
-              className="text-ghost hover:bg-active hover:text-label flex h-7 w-7 cursor-pointer items-center justify-center rounded-sm transition-colors duration-[120ms]"
+              className="text-ghost hover:bg-active hover:text-label flex h-7 w-7 cursor-pointer items-center justify-center rounded-sm transition-colors duration-120"
               title="Restore"
             >
               <RotateCcw className="h-4 w-4" />
@@ -241,7 +241,7 @@ export const FileRow = memo(function FileRow({
             <button
               type="button"
               onClick={handleDownload}
-              className="text-ghost hover:bg-active hover:text-label flex h-7 w-7 cursor-pointer items-center justify-center rounded-sm transition-colors duration-[120ms]"
+              className="text-ghost hover:bg-active hover:text-label flex h-7 w-7 cursor-pointer items-center justify-center rounded-sm transition-colors duration-120"
               title="Download"
             >
               <Download className="h-4 w-4" />
@@ -252,7 +252,7 @@ export const FileRow = memo(function FileRow({
             <button
               type="button"
               onClick={handleDownload}
-              className="text-ghost hover:bg-active hover:text-label flex h-7 w-7 cursor-pointer items-center justify-center rounded-sm transition-colors duration-[120ms]"
+              className="text-ghost hover:bg-active hover:text-label flex h-7 w-7 cursor-pointer items-center justify-center rounded-sm transition-colors duration-120"
               title="Download"
             >
               <Download className="h-4 w-4" />
@@ -261,7 +261,7 @@ export const FileRow = memo(function FileRow({
               <button
                 type="button"
                 onClick={() => handleCopyLink()}
-                className="text-ghost hover:bg-active hover:text-label flex h-7 w-7 cursor-pointer items-center justify-center rounded-sm transition-colors duration-[120ms]"
+                className="text-ghost hover:bg-active hover:text-label flex h-7 w-7 cursor-pointer items-center justify-center rounded-sm transition-colors duration-120"
                 title="Copy Link"
               >
                 {copied ? (
@@ -297,7 +297,7 @@ export const FileRow = memo(function FileRow({
               trigger={
                 <button
                   type="button"
-                  className="text-ghost hover:bg-active hover:text-label flex h-7 w-7 cursor-pointer items-center justify-center rounded-sm transition-colors duration-[120ms]"
+                  className="text-ghost hover:bg-active hover:text-label flex h-7 w-7 cursor-pointer items-center justify-center rounded-sm transition-colors duration-120"
                   title="More"
                 >
                   <MoreHorizontal className="h-4 w-4" />

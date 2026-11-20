@@ -304,7 +304,7 @@ export function PreviewContent({
             <div className="flex flex-col items-center justify-center gap-3 px-8 text-center">
               <AlertCircle className="text-failed h-7 w-7" strokeWidth={1.6} aria-hidden="true" />
               <div>
-                <p className="text-[14px] leading-5 font-semibold text-ink">Preview failed</p>
+                <p className="text-ink text-[14px] leading-5 font-semibold">Preview failed</p>
                 <p className="text-muted-foreground mt-1 text-[12.5px] leading-[18px]">{error}</p>
               </div>
             </div>
@@ -314,7 +314,7 @@ export function PreviewContent({
           <div className="flex flex-1 flex-col items-center justify-center gap-3 px-8 py-14 text-center">
             <AlertCircle className="text-failed h-7 w-7" strokeWidth={1.6} aria-hidden="true" />
             <div>
-              <p className="text-[14px] leading-5 font-semibold text-ink">Preview failed</p>
+              <p className="text-ink text-[14px] leading-5 font-semibold">Preview failed</p>
               <p className="text-muted-foreground mt-1 text-[12.5px] leading-[18px]">{error}</p>
             </div>
           </div>
@@ -349,7 +349,9 @@ export function PreviewContent({
             data={pdfData}
             fileName={file.name}
             onDownload={handleDownload}
-            onPageCount={(count) => onDetailLoaded(`${count} ${count === 1 ? 'page' : 'pages'}`)}
+            onPageCount={(count: number) =>
+              onDetailLoaded(`${count} ${count === 1 ? 'page' : 'pages'}`)
+            }
           />
         ) : (
           <FilePreviewer

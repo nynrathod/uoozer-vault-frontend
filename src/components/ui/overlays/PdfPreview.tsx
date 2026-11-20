@@ -2,33 +2,24 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Document, Page, pdfjs } from 'react-pdf'
 import { FileText, Loader2, ShieldCheck, Minus, Plus, RotateCw } from 'lucide-react'
 
-
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
   import.meta.url
 ).toString()
-
-interface PdfPreviewProps {
-  data: ArrayBuffer
-  fileName: string
-  onDownload?: () => void
-}
 
 const MAX_PAGE_WIDTH = 896
 const MIN_ZOOM = 0.5
 const MAX_ZOOM = 2.5
 const ZOOM_STEP = 0.1
 
-/**
- * Continuous, Google Drive-style PDF preview.
- *
- * - Uses the existing react-pdf dependency; no additional package is required.
- * - Renders every page in one vertically scrolling document.
- * - Keeps the file header and security footer outside the scroll container.
- * - Fits pages to the available width up to MAX_PAGE_WIDTH at 100% zoom.
- * - Allows zooming from 50% to 250%; zoomed pages can scroll horizontally.
- */
-export function PdfPreview({ data, fileName, onDownload }: PdfPreviewProps) {
+interface PdfPreviewProps {
+  data: ArrayBuffer
+  fileName: string
+  onDownload?: () => void
+  onPageCount?: (count: number) => void // ADD
+}
+
+export function PdfPreview({ data, fileName }: PdfPreviewProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [numPages, setNumPages] = useState(0)
   const [zoom, setZoom] = useState(1)
@@ -77,23 +68,6 @@ export function PdfPreview({ data, fileName, onDownload }: PdfPreviewProps) {
 
   const handleZoomIn = () => {
     setZoom((current) => Math.min(MAX_ZOOM, Math.round((current + ZOOM_STEP) * 100) / 100))
-  }
-
-  const handleDownload = () => {
-    if (onDownload) {
-      onDownload()
-      return
-    }
-
-    const blob = new Blob([data], { type: 'application/pdf' })
-    const url = URL.createObjectURL(blob)
-    const anchor = document.createElement('a')
-    anchor.href = url
-    anchor.download = fileName
-    document.body.appendChild(anchor)
-    anchor.click()
-    document.body.removeChild(anchor)
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
 
   return (
@@ -183,7 +157,7 @@ export function PdfPreview({ data, fileName, onDownload }: PdfPreviewProps) {
             disabled={zoom <= MIN_ZOOM}
             onClick={handleZoomOut}
           >
-            <Minus className="h-[15px] w-[15px]" strokeWidth={1.6} aria-hidden="true" />
+            <Minus className="h-3.75 w-3.75" strokeWidth={1.6} aria-hidden="true" />
           </button>
 
           <span className="uv-preview-zoom-value" aria-live="polite">
@@ -198,7 +172,7 @@ export function PdfPreview({ data, fileName, onDownload }: PdfPreviewProps) {
             disabled={zoom >= MAX_ZOOM}
             onClick={handleZoomIn}
           >
-            <Plus className="h-[15px] w-[15px]" strokeWidth={1.6} aria-hidden="true" />
+            <Plus className="h-3.75 w-3.75" strokeWidth={1.6} aria-hidden="true" />
           </button>
 
           <button
@@ -209,7 +183,7 @@ export function PdfPreview({ data, fileName, onDownload }: PdfPreviewProps) {
             disabled={zoom === 1}
             onClick={() => setZoom(1)}
           >
-            <RotateCw className="h-[15px] w-[15px]" strokeWidth={1.6} aria-hidden="true" />
+            <RotateCw className="h-3.75 w-3.75" strokeWidth={1.6} aria-hidden="true" />
           </button>
         </div>
 

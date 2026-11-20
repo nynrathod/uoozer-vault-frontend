@@ -70,9 +70,6 @@ const ADD_MAX = 30
 const MIN_COL_W = 64
 /** Row resize bounds. */
 const MIN_ROW_H = 33
-/** Ghost cell sizes while drag-adding. */
-const GHOST_COL_W = 88
-const GHOST_ROW_H = 30
 
 /* ---- types ---------------------------------------------------------------- */
 

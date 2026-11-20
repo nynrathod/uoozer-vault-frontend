@@ -18,6 +18,7 @@ import {
   Pencil,
   Printer,
   RotateCcw,
+  Star,
   Trash2,
   X,
   type LucideIcon,
@@ -47,11 +48,23 @@ interface PreviewHeaderProps {
   onOpenVersions: () => void
 }
 
+/**
+ * Preview drawer header (Files-Preview sheet): typed glyph 18 ghost ·
+ * name 15/22·600 · meta 12.5/18 · ghost buttons 28·r6 · actions row
+ * 32·r8 (Download on Tint) · More menu 230 wide · r12 · exact elevation,
+ * items 32 with kbd hints, trash in #B91C1C. Every action below is real:
+ * download, copy link (public secure link — Share kept but disabled, the
+ * same swap as FileRow), star, move, rename, make a copy (decrypt →
+ * re-upload), keep on this device (save picker), print, versions, details,
+ * trash.
+ */
 export function PreviewHeader({
   file,
   detail,
   canPreview,
-  detailsOpen,
+  // `detailsOpen` is intentionally NOT destructured: the footer owns the
+  // disclosure state. Keep it in the interface (FilePreviewDialog passes it
+  // for API symmetry) so there is no unused-binding error under noUnusedLocals.
   onToggleDetails,
   onOpenVersions,
 }: PreviewHeaderProps) {
@@ -255,13 +268,7 @@ export function PreviewHeader({
       if (e.key === 'F2' && !isShareMode && !isTrash) {
         e.preventDefault()
         setEditing(true)
-      } else if (
-        mod &&
-        e.shiftKey &&
-        (e.key === 'm' || e.key === 'M') &&
-        !isShareMode &&
-        !isTrash
-      ) {
+      } else if (mod && e.shiftKey && (e.key === 'm' || e.key === 'M') && !isShareMode && !isTrash) {
         e.preventDefault()
         setMenuSub('move')
         setMenuOpen(true)
@@ -321,7 +328,9 @@ export function PreviewHeader({
           ) : (
             <div
               className="min-w-0"
-              onDoubleClick={isShareMode || isTrash ? undefined : () => setEditing(true)}
+              onDoubleClick={
+                isShareMode || isTrash ? undefined : () => setEditing(true)
+              }
               title={file.name}
             >
               <div className="uv-preview-name">{file.name}</div>
@@ -366,7 +375,7 @@ export function PreviewHeader({
           <PopoverContent
             align="end"
             sideOffset={6}
-            className="shadow-preview-menu rounded-xl border-0 p-1.5"
+            className="rounded-xl border-0 p-1.5 shadow-preview-menu"
             style={{ width: TOKENS.preview.menuWidth }}
           >
             {menuSub === 'move' ? (
@@ -419,8 +428,7 @@ export function PreviewHeader({
                   disabled={busyAction === 'keep'}
                   onClick={() => void handleKeepOnDevice()}
                 >
-                  Download
-                  {/* {busyAction === 'keep' ? 'Saving…' : 'Keep on this device'} */}
+                  {busyAction === 'keep' ? 'Saving…' : 'Keep on this device'}
                 </MenuItem>
                 <MenuItem icon={History} onClick={onOpenVersions}>
                   Version history
@@ -468,7 +476,11 @@ export function PreviewHeader({
           Download
         </button>
         {isTrash ? (
-          <button type="button" className="uv-preview-action" onClick={() => void handleRestore()}>
+          <button
+            type="button"
+            className="uv-preview-action"
+            onClick={() => void handleRestore()}
+          >
             <RotateCcw className="h-[15px] w-[15px]" strokeWidth={1.6} aria-hidden="true" />
             Restore
           </button>
@@ -495,11 +507,7 @@ export function PreviewHeader({
                     aria-hidden="true"
                   />
                 ) : (
-                  <Link2
-                    className="h-[15px] w-[15px] shrink-0"
-                    strokeWidth={1.6}
-                    aria-hidden="true"
-                  />
+                  <Link2 className="h-[15px] w-[15px] shrink-0" strokeWidth={1.6} aria-hidden="true" />
                 )}
                 {copied ? 'Copied' : 'Copy link'}
               </button>
@@ -514,7 +522,7 @@ export function PreviewHeader({
                 <Share2 className="h-[15px] w-[15px]" strokeWidth={1.6} aria-hidden="true" />
                 Share
               </button> */}
-              {/* <button
+              <button
                 type="button"
                 className={cn('uv-preview-action', isStarred && 'uv-preview-action-starred')}
                 onClick={handleStar}
@@ -527,22 +535,18 @@ export function PreviewHeader({
                   aria-hidden="true"
                 />
                 Star
-              </button> */}
+              </button>
               <Popover open={moveOpen} onOpenChange={setMoveOpen}>
-                {/* <PopoverTrigger asChild>
+                <PopoverTrigger asChild>
                   <button type="button" className="uv-preview-action" aria-label="Move file">
-                    <ArrowRight
-                      className="h-[15px] w-[15px]"
-                      strokeWidth={1.6}
-                      aria-hidden="true"
-                    />
+                    <ArrowRight className="h-[15px] w-[15px]" strokeWidth={1.6} aria-hidden="true" />
                     Move
                   </button>
-                </PopoverTrigger> */}
+                </PopoverTrigger>
                 <PopoverContent
                   align="start"
                   sideOffset={6}
-                  className="shadow-preview-menu rounded-xl border-0 p-1.5"
+                  className="rounded-xl border-0 p-1.5 shadow-preview-menu"
                   style={{ width: TOKENS.preview.menuWidth }}
                 >
                   <MovePickerList
@@ -672,7 +676,9 @@ function MovePickerList({
           )}
         </button>
       ))}
-      {folders.length === 0 && <div className="uv-preview-menu-heading">No folders yet</div>}
+      {folders.length === 0 && (
+        <div className="uv-preview-menu-heading">No folders yet</div>
+      )}
     </>
   )
 }
