@@ -14,8 +14,8 @@ import {
   deleteRow,
   deleteTable,
 } from '@tiptap/pm/tables'
-import { Fragment, Node as PMNode } from '@tiptap/pm/model'
-import type { Schema } from '@tiptap/pm/model'
+import { Fragment } from '@tiptap/pm/model'
+import type { Schema , Node as PMNode } from '@tiptap/pm/model'
 import type { ViewMutationRecord } from '@tiptap/pm/view'
 
 export interface TableOptionsAttrs {

@@ -25,9 +25,40 @@ export const TOKENS = {
     menuMinWidth: 200,
   },
 
+  /** File preview drawer (Files-Preview sheet · .pn artboard metrics). */
+  preview: {
+    drawerWidth: 420,
+    viewerOpenHeight: 250,
+    menuWidth: 230,
+    menuPadding: 6,
+    headerIcon: 18,
+    headerIconSmall: 16,
+    ghostButton: 28,
+    actionHeight: 32,
+    actionLargeHeight: 36,
+    zoomPillHeight: 34,
+    zoomButton: 26,
+    versionRowHeight: 48,
+    versionLabelWidth: 28,
+    detailRowHeight: 36,
+    contentsRowHeight: 36,
+    emptyIconTile: 56,
+    menuRowHeight: 32,
+  },
+
   /** Radius scale (Components sheet markup: 6 rows · 8 buttons/segmented ·
    *  10 fields/menus/cards/code · 12 icon tile · 14 dialog · 999 pills). */
-  radius: { row: 6, button: 8, segmented: 8, field: 10, menu: 10, card: 10, tile: 12, dialog: 14, pill: 999 },
+  radius: {
+    row: 6,
+    button: 8,
+    segmented: 8,
+    field: 10,
+    menu: 10,
+    card: 10,
+    tile: 12,
+    dialog: 14,
+    pill: 999,
+  },
 
   /** Spacing (4-pt base). */
   space: { '1': 4, '2': 8, '3': 12, '4': 16, '6': 24, '8': 32, '12': 48 },

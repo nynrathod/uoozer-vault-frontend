@@ -19,7 +19,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@lib/utils'
 import { useNoteEditor } from '../editor/NoteEditorProvider'
-import { NOTE_SHADES, shadeLabel } from '../editor/colors'
+import { NOTE_SHADES } from '../editor/colors'
 import {
   addColumnsAtEnd,
   addRowsAtEnd,
