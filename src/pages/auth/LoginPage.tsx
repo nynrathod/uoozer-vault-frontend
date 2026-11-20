@@ -122,7 +122,7 @@ export function LoginPage() {
               to={ROUTES.RECOVERY}
               className="text-blue-ink shrink-0 font-medium hover:underline"
             >
-              Use recovery key
+              Forgot password?
             </Link>
           </div>
 

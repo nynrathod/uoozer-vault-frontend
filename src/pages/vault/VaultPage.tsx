@@ -455,11 +455,11 @@ export function VaultPage({ trashed = false }: { trashed?: boolean }) {
         onChange={handleFolderSelect}
       />
 
-      <div className="bg-background relative flex h-full w-full overflow-hidden">
+      <div className="bg-background relative flex h-full min-h-0 w-full min-w-0 overflow-hidden">
         <div
           className={cn(
-            'flex h-full flex-col overflow-hidden',
-            previewFileId ? 'hidden md:flex md:w-1/2 md:border-r' : 'w-full'
+            'flex h-full min-h-0 min-w-0 flex-col overflow-hidden',
+            previewFileId ? 'hidden md:flex md:flex-1 md:border-r' : 'w-full'
           )}
         >
           <FileBreadcrumb
@@ -482,7 +482,7 @@ export function VaultPage({ trashed = false }: { trashed?: boolean }) {
             disabled={trashed}
           >
             {/* Files table — fluid, max 1040 (Foundations) */}
-            <div className="vault-content-max relative flex-1 overflow-hidden">
+            <div className="relative flex-1 overflow-hidden">
               {showSkeleton ? (
                 <VaultSkeleton viewMode={viewMode} />
               ) : isLoading ? (
@@ -522,8 +522,10 @@ export function VaultPage({ trashed = false }: { trashed?: boolean }) {
         </div>
 
         {isPreviewOpen && (
-          <div className="bg-muted/30 flex h-full w-full flex-col overflow-hidden md:w-1/2">
-            <FilePreviewDialog />
+          <div className="bg-active-surface flex min-h-0 min-w-0 flex-1 p-3">
+            <div className="bg-card shadow-preview-panel flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl">
+              <FilePreviewDialog />
+            </div>
           </div>
         )}
 

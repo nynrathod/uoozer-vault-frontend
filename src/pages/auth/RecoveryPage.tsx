@@ -2,7 +2,16 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Eye, EyeOff, ArrowRight, AlertCircle, Check, Key, Loader2, ArrowLeft } from 'lucide-react'
+import {
+  AlertCircle,
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Eye,
+  EyeOff,
+  Loader2,
+  Shield,
+} from 'lucide-react'
 import { z } from 'zod'
 
 import { useAuth } from '@hooks/useAuth'
@@ -10,7 +19,6 @@ import { Button } from '@ui/Button'
 import { Input } from '@ui/Input'
 import { Label } from '@ui/Label'
 import { ROUTES } from '@lib/constants'
-import { cn } from '@lib/utils'
 import { mapErrorToAlert, type ApiErrorAlert } from '@/lib/errors'
 
 const step1Schema = z.object({
@@ -32,43 +40,46 @@ const step2Schema = z
     path: ['confirmPassword'],
   })
 
-/** Two-step account recovery page: verify recovery key, then set a new password. */
+type Step1Input = z.infer<typeof step1Schema>
+type Step2Input = z.infer<typeof step2Schema>
+
+/** Two-step account recovery page styled with the shared Uoozer design system. */
 export function RecoveryPage() {
   const navigate = useNavigate()
   const [step, setStep] = useState<1 | 2>(1)
   const [apiError, setApiError] = useState<ApiErrorAlert | null>(null)
   const [email, setEmail] = useState('')
-
   const [showPassword, setShowPassword] = useState(false)
 
   const { verifyRecoveryKey, completeRecovery, isSigningUp } = useAuth()
 
-  const step1Form = useForm({
+  const step1Form = useForm<Step1Input>({
     resolver: zodResolver(step1Schema),
     defaultValues: { email: '', recoveryKey: '' },
   })
 
-  const step2Form = useForm({
+  const step2Form = useForm<Step2Input>({
     resolver: zodResolver(step2Schema),
     defaultValues: { password: '', confirmPassword: '' },
   })
 
-  const onStepOneSubmit = async (data: z.infer<typeof step1Schema>) => {
+  const onStepOneSubmit = async (data: Step1Input) => {
     setApiError(null)
+
     try {
       await verifyRecoveryKey(data.email, data.recoveryKey)
       setEmail(data.email)
-
       setStep(2)
     } catch (error) {
       setApiError(mapErrorToAlert(error))
     }
   }
 
-  const onStepTwoSubmit = async (data: z.infer<typeof step2Schema>) => {
+  const onStepTwoSubmit = async (data: Step2Input) => {
     setApiError(null)
+
     try {
-      // Recovery key was verified in step 1; DEK is already in the auth store.
+      // The recovery key was verified in step 1; the DEK is already in the auth store.
       await completeRecovery(email, data.password)
       navigate(ROUTES.VAULT, { replace: true })
     } catch (error) {
@@ -77,148 +88,200 @@ export function RecoveryPage() {
     }
   }
 
+  const handleBack = () => {
+    setApiError(null)
+    setStep(1)
+  }
+
+  const step1Errors = step1Form.formState.errors
+  const step2Errors = step2Form.formState.errors
+
   return (
     <div className="animate-fade-in w-full">
-      <div className="mb-8 text-center">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-500">
-          <Key className="h-7 w-7" strokeWidth={1.75} />
+      <main className="text-ink mx-auto w-full max-w-sm">
+        <div className="flex items-center gap-2">
+          <Shield className="text-primary h-5 w-5" strokeWidth={2} />
+          <span className="text-base leading-6 font-semibold">Uoozer</span>
         </div>
-        <h1 className="text-2xl font-semibold tracking-tight">Recover your vault</h1>
-        <p className="text-muted-foreground mt-1.5 text-sm">
-          {step === 1 ? 'Enter your email and recovery key' : 'Set a new password for your account'}
-        </p>
-      </div>
 
-      {apiError && (
-        <div className="border-destructive/20 bg-destructive/5 text-destructive animate-fade-in mb-4 flex items-start gap-2.5 rounded-lg border p-3">
-          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-          <div className="text-[13px] leading-relaxed">
-            <p className="font-medium">{apiError.title}</p>
-            <p className="text-destructive/80">{apiError.message}</p>
-          </div>
-        </div>
-      )}
+        <header className="mt-8">
+          <h1 className="text-h1 font-semibold tracking-tight">Recover your vault</h1>
+          <p className="text-meta text-muted-foreground mt-1">
+            {step === 1
+              ? 'Enter your email and recovery key.'
+              : 'Choose a new password for your account.'}
+          </p>
+        </header>
 
-      {step === 1 ? (
-        <form onSubmit={step1Form.handleSubmit(onStepOneSubmit)} className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="you@example.com"
-              autoComplete="email"
-              {...step1Form.register('email')}
-              className={cn(step1Form.formState.errors.email && 'border-destructive')}
-            />
-            {step1Form.formState.errors.email && (
-              <p className="text-destructive text-xs">{step1Form.formState.errors.email.message}</p>
-            )}
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="recoveryKey">Recovery Key</Label>
-            <Input
-              id="recoveryKey"
-              type="text"
-              placeholder="12345678-90abcdef-..."
-              className="font-mono tracking-wider"
-              {...step1Form.register('recoveryKey')}
-            />
-          </div>
-
-          <Button type="submit" className="h-10 w-full rounded-lg" disabled={isSigningUp}>
-            {isSigningUp ? (
-              <span className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Verifying...
-              </span>
-            ) : (
-              <span className="flex items-center gap-2">
-                Continue
-                <ArrowRight className="h-4 w-4" />
-              </span>
-            )}
-          </Button>
-        </form>
-      ) : (
-        <form onSubmit={step2Form.handleSubmit(onStepTwoSubmit)} className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="password">New Password</Label>
-            <div className="relative">
-              <Input
-                id="password"
-                type={showPassword ? 'text' : 'password'}
-                placeholder="Enter a new strong password"
-                autoComplete="new-password"
-                {...step2Form.register('password')}
-                className={cn('pr-10', step2Form.formState.errors.password && 'border-destructive')}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2"
-              >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
+        {apiError && (
+          <div
+            role="alert"
+            className="bg-danger-tint text-failed mt-6 flex items-start gap-2.5 rounded-lg p-3"
+          >
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <div className="text-meta min-w-0 leading-relaxed">
+              <p className="font-medium">{apiError.title}</p>
+              <p className="text-failed/80">{apiError.message}</p>
             </div>
-            {step2Form.formState.errors.password && (
-              <p className="text-destructive text-xs">
-                {step2Form.formState.errors.password.message}
-              </p>
-            )}
           </div>
+        )}
 
-          <div className="space-y-1.5">
-            <Label htmlFor="confirmPassword">Confirm New Password</Label>
-            <Input
-              id="confirmPassword"
-              type={showPassword ? 'text' : 'password'}
-              placeholder="Confirm your new password"
-              autoComplete="new-password"
-              {...step2Form.register('confirmPassword')}
-              className={cn(step2Form.formState.errors.confirmPassword && 'border-destructive')}
-            />
-            {step2Form.formState.errors.confirmPassword && (
-              <p className="text-destructive text-xs">
-                {step2Form.formState.errors.confirmPassword.message}
-              </p>
-            )}
-          </div>
+        {step === 1 ? (
+          <form
+            onSubmit={step1Form.handleSubmit(onStepOneSubmit)}
+            className="mt-8 flex flex-col gap-5"
+            noValidate
+          >
+            <div className="space-y-1.5">
+              <Label htmlFor="email" className="text-meta text-gray-ui font-medium">
+                Email
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="you@example.com"
+                autoComplete="email"
+                autoFocus
+                aria-invalid={Boolean(step1Errors.email)}
+                {...step1Form.register('email')}
+                className="uv-input"
+              />
+              {step1Errors.email && (
+                <p className="text-meta text-failed mt-1">{step1Errors.email.message}</p>
+              )}
+            </div>
 
-          <div className="flex gap-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="recoveryKey" className="text-meta text-gray-ui font-medium">
+                Recovery key
+              </Label>
+              <Input
+                id="recoveryKey"
+                type="text"
+                placeholder="Paste your recovery key"
+                autoComplete="off"
+                spellCheck={false}
+                aria-invalid={Boolean(step1Errors.recoveryKey)}
+                {...step1Form.register('recoveryKey')}
+                className="uv-input font-mono"
+              />
+              {step1Errors.recoveryKey && (
+                <p className="text-meta text-failed mt-1">{step1Errors.recoveryKey.message}</p>
+              )}
+            </div>
+
             <Button
-              type="button"
-              variant="ghost"
-              className="h-10 rounded-lg"
-              onClick={() => setStep(1)}
+              type="submit"
+              disabled={isSigningUp}
+              className="uv-btn uv-btn-primary uv-btn-lg w-full"
             >
-              <ArrowLeft className="h-4 w-4" />
-              Back
-            </Button>
-            <Button type="submit" className="h-10 flex-1 rounded-lg" disabled={isSigningUp}>
               {isSigningUp ? (
                 <span className="flex items-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Recovering...
+                  Verifying...
                 </span>
               ) : (
                 <span className="flex items-center gap-2">
-                  Reset & Unlock
-                  <Check className="h-4 w-4" />
+                  Verify recovery key
+                  <ArrowRight className="h-4 w-4" />
                 </span>
               )}
             </Button>
-          </div>
-        </form>
-      )}
+          </form>
+        ) : (
+          <form
+            onSubmit={step2Form.handleSubmit(onStepTwoSubmit)}
+            className="mt-8 flex flex-col gap-5"
+            noValidate
+          >
+            <div className="space-y-1.5">
+              <Label htmlFor="password" className="text-meta text-gray-ui font-medium">
+                New password
+              </Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Create a strong password"
+                  autoComplete="new-password"
+                  aria-invalid={Boolean(step2Errors.password)}
+                  {...step2Form.register('password')}
+                  className="uv-input pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((visible) => !visible)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-pressed={showPassword}
+                  className="uv-btn-icon text-ghost hover:bg-hover-surface hover:text-foreground absolute top-1/2 right-2 -translate-y-1/2"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              {step2Errors.password && (
+                <p className="text-meta text-failed mt-1">{step2Errors.password.message}</p>
+              )}
+            </div>
 
-      <p className="text-muted-foreground mt-6 text-center text-sm">
-        Remembered your password?{' '}
-        <Link to={ROUTES.LOGIN} className="text-primary font-medium hover:underline">
-          Sign in
-        </Link>
-      </p>
+            <div className="space-y-1.5">
+              <Label htmlFor="confirmPassword" className="text-meta text-gray-ui font-medium">
+                Confirm new password
+              </Label>
+              <Input
+                id="confirmPassword"
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Confirm your new password"
+                autoComplete="new-password"
+                aria-invalid={Boolean(step2Errors.confirmPassword)}
+                {...step2Form.register('confirmPassword')}
+                className="uv-input"
+              />
+              {step2Errors.confirmPassword && (
+                <p className="text-meta text-failed mt-1">{step2Errors.confirmPassword.message}</p>
+              )}
+            </div>
+
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={handleBack}
+                className="uv-btn uv-btn-ghost"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSigningUp}
+                className="uv-btn uv-btn-primary uv-btn-lg flex-1"
+              >
+                {isSigningUp ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Recovering...
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-2">
+                    Reset and unlock
+                    <Check className="h-4 w-4" />
+                  </span>
+                )}
+              </Button>
+            </div>
+          </form>
+        )}
+
+        <p className="text-meta text-muted-foreground mt-6 text-center">
+          Remembered your password?{' '}
+          <Link
+            to={ROUTES.LOGIN}
+            className="text-blue-ink font-medium hover:underline focus-visible:rounded-sm"
+          >
+            Sign in
+          </Link>
+        </p>
+      </main>
     </div>
   )
 }
