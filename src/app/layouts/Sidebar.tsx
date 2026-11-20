@@ -1,26 +1,19 @@
-import { useMemo, type CSSProperties } from 'react'
+import { type CSSProperties } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import {
-  Clock,
   FolderOpen,
-  Link as LinkIcon,
-  Lock,
-  Menu,
   MessageSquare,
   PanelLeftClose,
   PanelLeftOpen,
   Search,
-  Star,
   StickyNote,
   Trash2,
   X,
 } from 'lucide-react'
-import { cn, formatBytes } from '@lib/utils'
+import { cn } from '@lib/utils'
 import { ROUTES } from '@lib/constants'
 import { UI_CONFIG } from '@config/app'
-import { FREE_PLAN_QUOTA_BYTES } from '@config/design-tokens'
 import { useUIStore } from '@stores/uiStore'
-import { useFileStore } from '@stores/fileStore'
 import { Button } from '@ui/Button'
 import { WorkspaceMenu } from './WorkspaceMenu'
 import { AccountMenu } from './AccountMenu'
@@ -35,10 +28,10 @@ const SOON_ROWS = [{ label: 'Chat', icon: MessageSquare }] as const
 
 const LIBRARY = [
   { label: 'All files', icon: FolderOpen, path: ROUTES.VAULT, end: true },
-  { label: 'Recent', icon: Clock, path: ROUTES.VAULT_RECENT },
-  { label: 'Starred', icon: Star, path: ROUTES.VAULT_STARRED },
-  { label: 'Shared', icon: LinkIcon, path: ROUTES.VAULT_SHARED },
-  { label: 'Private', icon: Lock, path: ROUTES.VAULT_PRIVATE },
+  // { label: 'Recent', icon: Clock, path: ROUTES.VAULT_RECENT },
+  // { label: 'Starred', icon: Star, path: ROUTES.VAULT_STARRED },
+  // { label: 'Shared', icon: LinkIcon, path: ROUTES.VAULT_SHARED },
+  // { label: 'Private', icon: Lock, path: ROUTES.VAULT_PRIVATE },
   { label: 'Trash', icon: Trash2, path: ROUTES.VAULT_TRASH },
 ] as const
 
@@ -58,20 +51,20 @@ export function Sidebar() {
   const isExpanded = sidebarOpen || mobileMenuOpen
 
   // Live storage usage.
-  const usedBytes = useFileStore((s) => {
-    let total = 0
+  // const usedBytes = useFileStore((s) => {
+  //   let total = 0
 
-    s.files.forEach((file) => {
-      if (!file.deletedAt) total += file.totalSize
-    })
+  //   s.files.forEach((file) => {
+  //     if (!file.deletedAt) total += file.totalSize
+  //   })
 
-    return total
-  })
+  //   return total
+  // })
 
-  const usedLabel = useMemo(() => formatBytes(usedBytes), [usedBytes])
-  const quotaLabel = formatBytes(FREE_PLAN_QUOTA_BYTES)
+  // const usedLabel = useMemo(() => formatBytes(usedBytes), [usedBytes])
+  // const quotaLabel = formatBytes(FREE_PLAN_QUOTA_BYTES)
 
-  const usedPercent = Math.min(100, Math.round((usedBytes / FREE_PLAN_QUOTA_BYTES) * 100))
+  // const usedPercent = Math.min(100, Math.round((usedBytes / FREE_PLAN_QUOTA_BYTES) * 100))
 
   const rowClass = (isActive: boolean) =>
     cn(
@@ -105,7 +98,7 @@ export function Sidebar() {
           'bg-sidebar shadow-card - duration - [180ms] ease - out fixed inset-y-0 left-0 z-50 flex h-dvh w-[min(85vw,var(--sidebar-expanded-width))] shrink-0 transform flex-col overflow-hidden px-2.5 pt-3.5 pb-3 transition duration-250 lg:transition-[width,transform] lg:duration-250 lg:ease-out',
           'lg:relative lg:inset-auto lg:z-40 lg:h-full lg:translate-x-0 lg:transition-[width]',
           mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
-          'lg:w-[var(--sidebar-current-width)]'
+          'lg:w-(--sidebar-current-width)'
         )}
         style={
           {
@@ -192,7 +185,7 @@ export function Sidebar() {
                 disabled
                 title={`${row.label} - coming soon`}
                 className={cn(
-                  'text-ghost flex h-[30px] w-full cursor-default items-center gap-2.5 rounded-sm text-[13.5px] leading-[30px] font-normal',
+                  'text-ghost flex h-7.5 w-full cursor-default items-center gap-2.5 rounded-sm text-[13.5px] leading-7.5 font-normal',
                   isExpanded ? 'px-2' : 'justify-center px-0'
                 )}
               >
@@ -217,7 +210,7 @@ export function Sidebar() {
             }}
             title="Search (⌘K)"
             className={cn(
-              'text-gray-strong hover:bg-hover-surface mt-3 flex h-[30px] w-full items-center gap-2.5 rounded-sm text-[13.5px] leading-[30px] transition-colors duration-[120ms]',
+              'text-gray-strong hover:bg-hover-surface mt-3 flex h-7.5 w-full items-center gap-2.5 rounded-sm text-[13.5px] leading-7.5 transition-colors duration-120',
               isExpanded ? 'px-2' : 'justify-center px-0'
             )}
           >
@@ -262,7 +255,7 @@ export function Sidebar() {
         </div>
 
         {/* Storage usage */}
-        {isExpanded && (
+        {/* {isExpanded && (
           <div className="px-2 pt-1 pb-2.5">
             <div className="text-muted-foreground flex items-baseline justify-between text-[12px] leading-4">
               <span className="tabular-nums">
@@ -280,7 +273,7 @@ export function Sidebar() {
               />
             </div>
           </div>
-        )}
+        )} */}
 
         {/* Account */}
         <div className="shrink-0">

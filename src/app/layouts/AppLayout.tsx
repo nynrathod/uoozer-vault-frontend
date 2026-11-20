@@ -2,8 +2,6 @@ import { useEffect } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
-import { MobileNav } from './MobileNav'
-import { useIsMobile } from '@/hooks/useMediaQuery'
 import { usePreviewStore } from '@stores/previewStore'
 import { useFileStore } from '@stores/fileStore'
 import { useGlobalShortcuts } from '@hooks/useGlobalShortcuts'
@@ -11,7 +9,6 @@ import { ShortcutsDialog } from '@/components/ui/overlays/ShortcutsDialog'
 
 /** Root layout shell with sidebar, header, and routed content. */
 export function AppLayout() {
-  const isMobile = useIsMobile()
   const location = useLocation()
   const closePreview = usePreviewStore((s) => s.close)
 

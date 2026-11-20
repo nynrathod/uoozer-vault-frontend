@@ -1,23 +1,11 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Popover, PopoverContent, PopoverTrigger } from '@ui/Popover'
-import { Check, ChevronsUpDown, FolderOpen, StickyNote } from 'lucide-react'
+import { ChevronsUpDown, FolderOpen, StickyNote } from 'lucide-react'
 import { cn } from '@lib/utils'
 import { ROUTES } from '@lib/constants'
 import { useAuthStore } from '@stores/authStore'
+import { useState } from 'react'
 
-/**
- * Workspace switcher that lives at the top of the sidebar.
- *
- * Shell spec ("Workspace · dropdown" — rendered markup is ground truth):
- *   trigger   38 high · radius 6 · Active fill (always tinted) · 22×22 Blue
- *             tile · name 14/600 ink · plan 12.5 muted · chevron 14 ghost
- *   dropdown  288 wide · radius 12 · padding 6 · menu elevation · opens
- *             DOWNWARD (bottom) per product decision · label 12/500 ·
- *             items 44 high (r6, 10px padding, 22 tile, 13.5/500 name,
- *             12 sub, lh 18) · secondary items 34 high
- *   apps      Vault and Notes stay reachable from the same dropdown, each
- *             with a real route — no dummy entries.
- */
 const APPS = [
   {
     id: 'vault',
@@ -36,6 +24,8 @@ const APPS = [
 ] as const
 
 export function WorkspaceMenu({ sidebarOpen }: { sidebarOpen: boolean }) {
+  const [open, setOpen] = useState(false)
+
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const user = useAuthStore((s) => s.user)
@@ -48,32 +38,32 @@ export function WorkspaceMenu({ sidebarOpen }: { sidebarOpen: boolean }) {
   }
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
         className={cn(
-          'focus-visible:outline-ring bg-active-surface hover:bg-hover-surface w-full rounded-sm outline outline-2 outline-offset-2 outline-transparent transition-colors duration-[120ms]',
+          'focus-visible:outline-ring bg-active-surface hover:bg-hover-surface w-full rounded-sm outline-2 outline-offset-2 outline-transparent transition-colors duration-120',
           sidebarOpen
-            ? 'flex h-[38px] items-center gap-2 px-2'
-            : 'mx-auto flex h-[38px] w-[38px] items-center justify-center'
+            ? 'flex h-9.5 items-center gap-2 px-2'
+            : 'mx-auto flex h-9.5 w-9.5 items-center justify-center'
         )}
         aria-label="Switch workspace"
       >
         {sidebarOpen ? (
           <>
             {/* Avatar tile — Blue square, radius 6, white initial (22×22) */}
-            <span className="bg-primary text-primary-foreground flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-sm text-[12px] font-semibold">
+            <span className="bg-primary text-primary-foreground flex h-5.5 w-5.5 shrink-0 items-center justify-center rounded-sm text-[12px] font-semibold">
               {initial}
             </span>
-            <span className="text-ink truncate text-[14px] leading-[20px] font-semibold">
+            <span className="text-ink text-code-inline truncate leading-[20px] font-semibold">
               Uoozer
             </span>
             <span className="text-muted-foreground truncate text-[12.5px] leading-[20px]">
-              Personal
+              {currentApp.name}
             </span>
             <ChevronsUpDown className="text-ghost ml-auto h-3.5 w-3.5 shrink-0" strokeWidth={1.6} />
           </>
         ) : (
-          <span className="bg-primary text-primary-foreground flex h-[22px] w-[22px] items-center justify-center rounded-sm text-[12px] font-semibold">
+          <span className="bg-primary text-primary-foreground flex h-5.5 w-5.5 items-center justify-center rounded-sm text-[12px] font-semibold">
             {initial}
           </span>
         )}
@@ -84,7 +74,8 @@ export function WorkspaceMenu({ sidebarOpen }: { sidebarOpen: boolean }) {
         side="bottom"
         align="start"
         sideOffset={6}
-        className="bg-popover text-popover-foreground animate-scale-in shadow-menu w-[240px] rounded-xl p-1.5 outline-none"
+
+        className="bg-popover text-popover-foreground animate-scale-in shadow-menu w-60 rounded-xl p-1.5 outline-none"
       >
         {/* Section label — 12/16 · 500 */}
         {/* <p className="text-muted-foreground px-2.5 pt-2 pb-1 text-[12px] leading-4 font-medium">
@@ -113,9 +104,13 @@ export function WorkspaceMenu({ sidebarOpen }: { sidebarOpen: boolean }) {
             <button
               key={app.id}
               type="button"
-              onClick={() => go(app.basePath)}
+              onClick={() => {
+                setOpen(false)
+                go(app.basePath)
+              }}
+
               className={cn(
-                'focus-visible:outline-ring flex h-11 w-full items-center gap-2.5 rounded-sm px-2.5 text-left outline outline-2 outline-offset-2 outline-transparent transition-colors duration-[120ms]',
+                'focus-visible:outline-ring flex h-11 w-full items-center gap-2.5 rounded-sm px-2.5 text-left outline-2 outline-offset-2 outline-transparent transition-colors duration-120',
                 active ? 'bg-active-surface' : 'hover:bg-active-surface'
               )}
             >
@@ -123,7 +118,7 @@ export function WorkspaceMenu({ sidebarOpen }: { sidebarOpen: boolean }) {
                 className={cn('h-4 w-4 shrink-0', active ? 'text-primary' : 'text-ghost')}
                 strokeWidth={1.6}
               />
-              <span className="flex min-w-0 flex-1 flex-col leading-[18px]">
+              <span className="flex min-w-0 flex-1 flex-col leading-4.5">
                 <span
                   className={cn(
                     'truncate text-[13.5px]',

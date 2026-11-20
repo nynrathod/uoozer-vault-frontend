@@ -50,11 +50,11 @@ export function ProfileDropdown() {
               </div>
             </div>
             <div className="border-border/50 bg-muted/30 mt-4 rounded-xl border p-3">
-              <div className="mb-1.5 flex items-center justify-between text-[11px]">
+              {/* <div className="mb-1.5 flex items-center justify-between text-[11px]">
                 <span className="text-muted-foreground font-medium">
                   Free Plan · 5.18 MB / 2 GB
                 </span>
-              </div>
+              </div> */}
               <div className="bg-border h-1.5 w-full overflow-hidden rounded-full">
                 <div className="bg-primary h-full w-[1%] rounded-full"></div>
               </div>
