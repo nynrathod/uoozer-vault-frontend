@@ -269,29 +269,24 @@ export function VaultToolbar({ onUploadFiles, onUploadFolder, onNewFolder }: Vau
             <div className="flex items-center gap-1">
               {!isTrash && (
                 <>
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className="bg-foreground text-background hover:bg-foreground/90 h-8 gap-1.5 rounded-lg px-3 text-[13px] font-medium"
-                    onClick={onNewFolder}
-                  >
-                    <FolderPlus className="h-4 w-4" strokeWidth={2.5} /> New Folder
+                  <Button type="button" variant="default" size="default" onClick={onNewFolder}>
+                    <FolderPlus className="h-4 w-4" strokeWidth={2} />
+                    New Folder
                   </Button>
 
                   <DropdownMenu
                     trigger={
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="border-border hover:bg-secondary h-8 gap-1.5 rounded-lg px-3 text-[13px] font-medium"
-                      >
-                        <Upload className="h-4 w-4" /> Upload <ChevronDown className="h-3 w-3" />
+                      <Button type="button" variant="soft" size="default">
+                        <Upload className="h-4 w-4" />
+                        Upload
+                        <ChevronDown className="h-3.5 w-3.5" />
                       </Button>
                     }
                   >
                     <DropdownItem icon={<FileUp className="h-4 w-4" />} onClick={onUploadFiles}>
                       Upload Files
                     </DropdownItem>
+
                     <DropdownItem icon={<FolderUp className="h-4 w-4" />} onClick={onUploadFolder}>
                       Upload Folder
                     </DropdownItem>
@@ -300,6 +295,7 @@ export function VaultToolbar({ onUploadFiles, onUploadFolder, onNewFolder }: Vau
               )}
 
               <div className="bg-border/70 mx-1 hidden h-5 w-px sm:block" />
+
               <Button
                 variant={viewMode === 'list' ? 'secondary' : 'ghost'}
                 size="icon-sm"
@@ -308,6 +304,7 @@ export function VaultToolbar({ onUploadFiles, onUploadFolder, onNewFolder }: Vau
               >
                 <List className="h-4 w-4" />
               </Button>
+
               <Button
                 variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
                 size="icon-sm"
