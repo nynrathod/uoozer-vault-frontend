@@ -1,7 +1,7 @@
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls, useGLTF } from '@react-three/drei'
 import { Suspense, useEffect } from 'react'
-import * as THREE from 'three'
+import type * as THREE from 'three'
 
 function Model({ url }: { url: string }) {
   const gltf = useGLTF(url)

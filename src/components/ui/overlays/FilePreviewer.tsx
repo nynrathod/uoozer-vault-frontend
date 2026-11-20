@@ -1,6 +1,7 @@
-import { lazy, Suspense, Component, type ReactNode, useEffect, useState } from 'react'
-import { Music, AlertCircle, Download, File as FileIcon, Loader2 } from 'lucide-react'
-import { Button } from '@ui/Button'
+import { lazy, Suspense, Component, useEffect, useState, type ReactNode } from 'react'
+import { AlertCircle, File as FileIcon, Minus, Music, Plus, RotateCw } from 'lucide-react'
+import { PreviewEmpty } from './PreviewEmpty'
+import { VaultLoader } from '@/components/ui/feedback/VaultLoader'
 
 const ModelViewer = lazy(() => import('./ModelViewer'))
 const LazyPdfPreview = lazy(() => import('./PdfPreview').then((m) => ({ default: m.PdfPreview })))
@@ -43,117 +44,16 @@ const LazyCodeBlock = lazy(async () => {
   }
 })
 
-type FileCategory =
-  'image' | 'pdf' | 'video' | 'audio' | 'markdown' | 'code' | 'text' | 'epub' | '3d' | 'other'
-const IMAGE_EXTS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'avif', 'ico']
-const VIDEO_EXTS = ['mp4', 'webm', 'mov', 'ogv']
-const AUDIO_EXTS = ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac']
-const MARKDOWN_EXTS = ['md', 'markdown']
-const PLAIN_TEXT_EXTS = ['txt', 'log', 'csv', 'tsv']
-const EPUB_EXTS = ['epub']
-const MODEL_EXTS = ['gltf', 'glb']
-const CODE_EXTS = new Set([
-  'js',
-  'ts',
-  'tsx',
-  'jsx',
-  'rs',
-  'py',
-  'go',
-  'java',
-  'c',
-  'cpp',
-  'cs',
-  'rb',
-  'php',
-  'swift',
-  'kt',
-  'scala',
-  'sh',
-  'bash',
-  'zsh',
-  'ps1',
-  'bat',
-  'cmd',
-  'sql',
-  'json',
-  'xml',
-  'html',
-  'css',
-  'scss',
-  'less',
-  'yaml',
-  'yml',
-  'toml',
-  'ini',
-  'conf',
-  'config',
-  'env',
-  'dockerfile',
-  'vue',
-  'svelte',
-  'graphql',
-  'gql',
-])
-function getCategory(fileName: string): FileCategory {
-  const ext = fileName.split('.').pop()?.toLowerCase() || ''
-  if (IMAGE_EXTS.includes(ext)) return 'image'
-  if (ext === 'pdf') return 'pdf'
-  if (VIDEO_EXTS.includes(ext)) return 'video'
-  if (AUDIO_EXTS.includes(ext)) return 'audio'
-  if (MARKDOWN_EXTS.includes(ext)) return 'markdown'
-  if (PLAIN_TEXT_EXTS.includes(ext)) return 'text'
-  if (CODE_EXTS.has(ext)) return 'code'
-  if (EPUB_EXTS.includes(ext)) return 'epub'
-  if (MODEL_EXTS.includes(ext)) return '3d'
-  return 'other'
+interface FilePreviewerProps {
+  fileName: string
+  fileUrl: string | null
+  fileText: string | null
+  onDownload: () => void
+  onOpenWith?: () => void
+  /** Reports natural dimensions back to the drawer header meta. */
+  onImageMeta?: (width: number, height: number) => void
 }
-const EXT_TO_PRISM: Record<string, string> = {
-  js: 'javascript',
-  ts: 'typescript',
-  tsx: 'tsx',
-  jsx: 'jsx',
-  rs: 'rust',
-  py: 'python',
-  go: 'go',
-  java: 'java',
-  c: 'c',
-  cpp: 'cpp',
-  cs: 'csharp',
-  rb: 'ruby',
-  php: 'php',
-  swift: 'swift',
-  kt: 'kotlin',
-  scala: 'scala',
-  sh: 'bash',
-  bash: 'bash',
-  zsh: 'bash',
-  ps1: 'powershell',
-  bat: 'batch',
-  cmd: 'batch',
-  sql: 'sql',
-  json: 'json',
-  xml: 'xml',
-  html: 'markup',
-  css: 'css',
-  scss: 'scss',
-  less: 'less',
-  yaml: 'yaml',
-  yml: 'yaml',
-  toml: 'toml',
-  ini: 'ini',
-  conf: 'ini',
-  config: 'ini',
-  env: 'bash',
-  dockerfile: 'docker',
-  vue: 'markup',
-  svelte: 'markup',
-  graphql: 'graphql',
-  gql: 'graphql',
-}
-function getPrismLanguage(ext: string): string {
-  return EXT_TO_PRISM[ext] || 'text'
-}
+
 interface ErrorBoundaryProps {
   children: ReactNode
   fallback: ReactNode
@@ -174,32 +74,37 @@ class PreviewErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     return this.props.children
   }
 }
-const MAX_TEXT_PREVIEW_SIZE = 5 * 1024 * 1024
-const spinner = (
-  <div className="flex h-full w-full items-center justify-center">
-    <Loader2 className="text-primary h-8 w-8 animate-spin" />
-  </div>
-)
 
-interface FilePreviewerProps {
-  fileName: string
-  fileUrl: string | null
-  fileText: string | null
-  onDownload: () => void
-}
-export function FilePreviewer({ fileName, fileUrl, fileText, onDownload }: FilePreviewerProps) {
-  const category = getCategory(fileName)
+const MAX_TEXT_PREVIEW_SIZE = 5 * 1024 * 1024
+const MIN_ZOOM = 0.25
+const MAX_ZOOM = 3
+const ZOOM_STEP = 0.25
+
+/**
+ * In-viewer renderers (Files-Preview sheet): the image sits centered with
+ * the exact zoom pill (− 100% + ⟳ · 34 high · r10 · white · pill
+ * elevation) at 14 from the bottom; PDFs are paged with the page pill;
+ * video/audio/text/code/markdown/EPUB/3D keep their renderers on the
+ * sheet's viewer surface; anything that cannot render gets the sheet's
+ * no-preview block.
+ */
+export function FilePreviewer({
+  fileName,
+  fileUrl,
+  fileText,
+  onDownload,
+  onOpenWith,
+  onImageMeta,
+}: FilePreviewerProps) {
   const [autoText, setAutoText] = useState<string | null>(fileText)
   const [textError, setTextError] = useState<string | null>(null)
   const [pdfData, setPdfData] = useState<ArrayBuffer | null>(null)
   const [pdfFailed, setPdfFailed] = useState(false)
+  const [zoom, setZoom] = useState(1)
+
+  useEffect(() => setZoom(1), [fileUrl])
 
   useEffect(() => {
-    if (category !== 'code' && category !== 'markdown' && category !== 'text') {
-      setAutoText(null)
-      setTextError(null)
-      return
-    }
     if (fileText !== null) {
       setAutoText(fileText)
       setTextError(null)
@@ -224,12 +129,12 @@ export function FilePreviewer({ fileName, fileUrl, fileText, onDownload }: FileP
         if (text) setAutoText(text)
       })
       .catch(() => setTextError('Failed to load text content.'))
-  }, [category, fileText, fileUrl])
+  }, [fileText, fileUrl])
 
   useEffect(() => {
     setPdfData(null)
     setPdfFailed(false)
-    if (category !== 'pdf' || !fileUrl) return
+    if (!isPdfName(fileName) || !fileUrl) return
     let cancelled = false
     fetch(fileUrl)
       .then((res) => {
@@ -245,103 +150,133 @@ export function FilePreviewer({ fileName, fileUrl, fileText, onDownload }: FileP
     return () => {
       cancelled = true
     }
-  }, [category, fileUrl])
+  }, [fileName, fileUrl])
 
   const displayText = fileText !== null ? fileText : autoText
-  if (
-    (category === 'code' || category === 'markdown' || category === 'text') &&
-    displayText === null &&
-    !textError
-  ) {
-    return spinner
-  }
+
   if (textError) {
     return (
-      <div className="flex flex-col items-center justify-center gap-4 text-center">
-        <div className="bg-muted/20 flex h-16 w-16 items-center justify-center rounded-full">
-          <AlertCircle className="text-muted-foreground h-8 w-8" />
-        </div>
-        <div>
-          <p className="text-foreground font-medium">Preview not available</p>
-          <p className="text-muted-foreground mt-1 text-sm">{textError}</p>
-        </div>
-        <Button onClick={onDownload} className="gap-2">
-          <Download className="h-4 w-4" /> Download File
-        </Button>
-      </div>
+      <PreviewEmpty
+        icon={AlertCircle}
+        title="Preview not available"
+        description={textError}
+        onDownload={onDownload}
+        onOpenWith={onOpenWith}
+      />
     )
   }
-  if (category === 'pdf') {
+
+  if (isPdfName(fileName)) {
     if (pdfData) {
       return (
         <div className="h-full w-full overflow-hidden">
-          <Suspense fallback={spinner}>
+          <Suspense fallback={<VaultLoader size={32} />}>
             <LazyPdfPreview data={pdfData} fileName={fileName} onDownload={onDownload} />
           </Suspense>
         </div>
       )
     }
-    if (fileUrl && !pdfFailed) return spinner
+    if (fileUrl && !pdfFailed) return <VaultLoader size={32} />
     return (
-      <div className="flex flex-col items-center justify-center gap-4 text-center">
-        <div className="bg-muted/20 flex h-16 w-16 items-center justify-center rounded-full">
-          <FileIcon className="text-muted-foreground h-8 w-8" />
+      <PreviewEmpty
+        icon={FileIcon}
+        title="PDF preview"
+        description="Download to view this PDF."
+        onDownload={onDownload}
+        onOpenWith={onOpenWith}
+      />
+    )
+  }
+
+  if (isImageName(fileName)) {
+    if (!fileUrl) return <VaultLoader size={32} />
+    return (
+      <>
+        <div className="h-full w-full overflow-auto">
+          <div
+            className="flex min-h-full min-w-full items-center justify-center"
+            style={{ width: `${zoom * 100}%`, height: `${zoom * 100}%` }}
+          >
+            <img
+              src={fileUrl}
+              alt={fileName}
+              className="uv-preview-img max-h-full max-w-full"
+              draggable={false}
+              onLoad={(e) => onImageMeta?.(e.currentTarget.naturalWidth, e.currentTarget.naturalHeight)}
+            />
+          </div>
         </div>
-        <div>
-          <p className="text-foreground font-medium">PDF Preview</p>
-          <p className="text-muted-foreground mt-1 text-sm">Download to view this PDF.</p>
+        {/* Zoom pill — sheet exact: − 100% + ⟳ */}
+        <div className="uv-preview-zoom">
+          <button
+            type="button"
+            className="uv-preview-zoom-btn"
+            aria-label="Zoom out"
+            title="Zoom out"
+            disabled={zoom <= MIN_ZOOM}
+            onClick={() => setZoom((z) => Math.max(MIN_ZOOM, z - ZOOM_STEP))}
+          >
+            <Minus className="h-[15px] w-[15px]" strokeWidth={1.6} aria-hidden="true" />
+          </button>
+          <span className="uv-preview-zoom-value">{Math.round(zoom * 100)}%</span>
+          <button
+            type="button"
+            className="uv-preview-zoom-btn"
+            aria-label="Zoom in"
+            title="Zoom in"
+            disabled={zoom >= MAX_ZOOM}
+            onClick={() => setZoom((z) => Math.min(MAX_ZOOM, z + ZOOM_STEP))}
+          >
+            <Plus className="h-[15px] w-[15px]" strokeWidth={1.6} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="uv-preview-zoom-btn"
+            aria-label="Reset zoom"
+            title="Reset zoom"
+            disabled={zoom === 1}
+            onClick={() => setZoom(1)}
+          >
+            <RotateCw className="h-[15px] w-[15px]" strokeWidth={1.6} aria-hidden="true" />
+          </button>
         </div>
-        <Button onClick={onDownload} className="gap-2">
-          <Download className="h-4 w-4" /> Download PDF
-        </Button>
+      </>
+    )
+  }
+
+  if (isVideoName(fileName) && fileUrl) {
+    return (
+      <video src={fileUrl} controls className="uv-preview-img h-full w-auto" />
+    )
+  }
+
+  if (isAudioName(fileName) && fileUrl) {
+    return (
+      <div className="flex h-full w-full flex-col items-center justify-center gap-4 px-6">
+        <div className="uv-preview-empty-icon">
+          <Music className="h-[26px] w-[26px]" strokeWidth={1.6} aria-hidden="true" />
+        </div>
+        <audio src={fileUrl} controls className="w-full max-w-[280px]" />
       </div>
     )
   }
-  if (!fileUrl && displayText === null) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-4 text-center">
-        <div className="bg-muted/20 flex h-16 w-16 items-center justify-center rounded-full">
-          <FileIcon className="text-muted-foreground h-8 w-8" />
-        </div>
-        <div>
-          <p className="text-foreground font-medium">Preparing preview...</p>
-          <p className="text-muted-foreground mt-1 text-sm">Decrypting your file securely.</p>
-        </div>
-      </div>
-    )
-  }
-  if (category === 'image' && fileUrl) {
-    return <img src={fileUrl} alt={fileName} className="h-full w-full object-contain" />
-  }
-  if (category === 'video' && fileUrl) {
-    return <video src={fileUrl} controls className="h-full w-full object-contain" />
-  }
-  if (category === 'audio' && fileUrl) {
-    return (
-      <div className="flex h-full w-full flex-col items-center justify-center gap-4">
-        <div className="bg-muted/20 flex h-16 w-16 items-center justify-center rounded-full">
-          <Music className="text-muted-foreground h-8 w-8" />
-        </div>
-        <audio src={fileUrl} controls />
-      </div>
-    )
-  }
-  if (category === 'markdown' && displayText !== null) {
+
+  if (isMarkdownName(fileName) && displayText !== null) {
     return (
       <PreviewErrorBoundary
         fallback={
-          <div className="flex flex-col items-center justify-center gap-4 text-center">
-            <AlertCircle className="text-muted-foreground h-8 w-8" />
-            <p className="text-muted-foreground text-sm">Failed to render markdown.</p>
-            <Button onClick={onDownload} className="gap-2">
-              <Download className="h-4 w-4" /> Download File
-            </Button>
-          </div>
+          <PreviewEmpty
+            icon={AlertCircle}
+            title="Preview not available"
+            description="Failed to render markdown."
+            onDownload={onDownload}
+            onOpenWith={onOpenWith}
+          />
         }
       >
-        <div className="markdown-body h-full w-full overflow-auto px-8 py-6">
-          <div className="mx-auto max-w-3xl">
-            <Suspense fallback={spinner}>
+        <div className="markdown-body h-full w-full overflow-auto px-6 py-5">
+          <div className="mx-auto max-w-[560px]">
+            <Suspense fallback={<VaultLoader size={32} />}>
               <LazyMarkdown>{displayText}</LazyMarkdown>
             </Suspense>
           </div>
@@ -349,102 +284,131 @@ export function FilePreviewer({ fileName, fileUrl, fileText, onDownload }: FileP
       </PreviewErrorBoundary>
     )
   }
-  if (category === 'code' && displayText !== null) {
+
+  if (isCodeName(fileName) && displayText !== null) {
     const ext = fileName.split('.').pop()?.toLowerCase() || 'text'
-    const lang = getPrismLanguage(ext)
     return (
       <PreviewErrorBoundary
         fallback={
-          <div className="flex flex-col items-center justify-center gap-4 text-center">
-            <AlertCircle className="text-muted-foreground h-8 w-8" />
-            <p className="text-muted-foreground text-sm">Failed to render code.</p>
-            <Button onClick={onDownload} className="gap-2">
-              <Download className="h-4 w-4" /> Download File
-            </Button>
-          </div>
+          <PreviewEmpty
+            icon={AlertCircle}
+            title="Preview not available"
+            description="Failed to render code."
+            onDownload={onDownload}
+            onOpenWith={onOpenWith}
+          />
         }
       >
-        <div className="h-full w-full overflow-auto rounded-lg bg-[#1e1e1e]">
-          <Suspense fallback={spinner}>
-            <LazyCodeBlock language={lang}>{displayText}</LazyCodeBlock>
+        <div className="h-full w-full overflow-auto rounded-md bg-[#1e1e1e]">
+          <Suspense fallback={<VaultLoader size={32} />}>
+            <LazyCodeBlock language={EXT_TO_PRISM[ext] ?? 'text'}>{displayText}</LazyCodeBlock>
           </Suspense>
         </div>
       </PreviewErrorBoundary>
     )
   }
-  if (category === 'text' && displayText !== null) {
+
+  if (isPlainName(fileName) && displayText !== null) {
     return (
-      <div className="h-full w-full overflow-auto rounded-lg bg-[#1e1e1e] p-4">
-        <pre className="text-sm break-words whitespace-pre-wrap text-gray-300">{displayText}</pre>
+      <div className="h-full w-full overflow-auto px-6 py-5">
+        <pre className="font-mono text-body-text break-words whitespace-pre-wrap text-[13px] leading-[22px]">
+          {displayText}
+        </pre>
       </div>
     )
   }
-  if (category === '3d' && fileUrl) {
+
+  if (isModelName(fileName) && fileUrl) {
     return (
       <PreviewErrorBoundary
         fallback={
-          <div className="flex flex-col items-center justify-center gap-4 text-center">
-            <div className="bg-muted/20 flex h-16 w-16 items-center justify-center rounded-full">
-              <AlertCircle className="text-muted-foreground h-8 w-8" />
-            </div>
-            <div>
-              <p className="text-foreground font-medium">Preview not available</p>
-              <p className="text-muted-foreground mt-1 text-sm">
-                The 3D file is invalid or corrupted.
-              </p>
-            </div>
-            <Button onClick={onDownload} className="gap-2">
-              <Download className="h-4 w-4" /> Download File
-            </Button>
-          </div>
+          <PreviewEmpty
+            icon={AlertCircle}
+            title="Preview not available"
+            description="The 3D file is invalid or corrupted."
+            onDownload={onDownload}
+            onOpenWith={onOpenWith}
+          />
         }
       >
-        <Suspense fallback={spinner}>
+        <Suspense fallback={<VaultLoader size={32} />}>
           <ModelViewer url={fileUrl} />
         </Suspense>
       </PreviewErrorBoundary>
     )
   }
-  if (category === 'epub' && fileUrl) {
+
+  if (isEpubName(fileName) && fileUrl) {
     return (
       <PreviewErrorBoundary
         fallback={
-          <div className="flex flex-col items-center justify-center gap-4 text-center">
-            <div className="bg-muted/20 flex h-16 w-16 items-center justify-center rounded-full">
-              <AlertCircle className="text-muted-foreground h-8 w-8" />
-            </div>
-            <div>
-              <p className="text-foreground font-medium">Preview not available</p>
-              <p className="text-muted-foreground mt-1 text-sm">
-                The EPUB file is invalid or corrupted.
-              </p>
-            </div>
-            <Button onClick={onDownload} className="gap-2">
-              <Download className="h-4 w-4" /> Download File
-            </Button>
-          </div>
+          <PreviewEmpty
+            icon={AlertCircle}
+            title="Preview not available"
+            description="The EPUB file is invalid or corrupted."
+            onDownload={onDownload}
+            onOpenWith={onOpenWith}
+          />
         }
       >
-        <Suspense fallback={spinner}>
-          <div className="h-full w-full bg-white">
+        <Suspense fallback={<VaultLoader size={32} />}>
+          <div className="h-full w-full bg-popover">
             <EpubViewer url={fileUrl} />
           </div>
         </Suspense>
       </PreviewErrorBoundary>
     )
   }
+
+  /* Still decrypting, or nothing renderable. */
+  if (!fileUrl && displayText === null) {
+    return <VaultLoader size={32} />
+  }
+
   return (
-    <div className="flex flex-col items-center justify-center gap-4 text-center">
-      <div className="bg-muted/20 flex h-16 w-16 items-center justify-center rounded-full">
-        <AlertCircle className="text-muted-foreground h-8 w-8" />
-      </div>
-      <div>
-        <p className="text-foreground font-medium">Preview not available</p>
-        <p className="text-muted-foreground mt-1 text-sm">Please download the file to view it.</p>
-      </div>
-      <Button onClick={onDownload} className="gap-2">
-        <Download className="h-4 w-4" /> Download File
-      </Button>
-    </div>
+    <PreviewEmpty
+      icon={FileIcon}
+      title="Preview not available"
+      description="Download the file to view it on this device."
+      onDownload={onDownload}
+      onOpenWith={onOpenWith}
+    />
   )
+}
+
+/* ---- extension helpers (single place, used by this viewer only) ---- */
+const IMAGE_EXTS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'avif', 'ico']
+const VIDEO_EXTS = ['mp4', 'webm', 'mov', 'ogv']
+const AUDIO_EXTS = ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac']
+const MARKDOWN_EXTS = ['md', 'markdown']
+const PLAIN_EXTS = ['txt', 'log', 'csv', 'tsv']
+const EPUB_EXTS = ['epub']
+const MODEL_EXTS = ['gltf', 'glb']
+const CODE_EXTS = new Set([
+  'js', 'ts', 'tsx', 'jsx', 'rs', 'py', 'go', 'java', 'c', 'cpp', 'cs', 'rb', 'php',
+  'swift', 'kt', 'scala', 'sh', 'bash', 'zsh', 'ps1', 'bat', 'cmd', 'sql', 'json',
+  'xml', 'html', 'css', 'scss', 'less', 'yaml', 'yml', 'toml', 'ini', 'conf', 'config',
+  'env', 'dockerfile', 'vue', 'svelte', 'graphql', 'gql',
+])
+const EXT_TO_PRISM: Record<string, string> = {
+  js: 'javascript', ts: 'typescript', tsx: 'tsx', jsx: 'jsx', rs: 'rust', py: 'python',
+  go: 'go', java: 'java', c: 'c', cpp: 'cpp', cs: 'csharp', rb: 'ruby', php: 'php',
+  swift: 'swift', kt: 'kotlin', scala: 'scala', sh: 'bash', bash: 'bash', zsh: 'bash',
+  ps1: 'powershell', bat: 'batch', cmd: 'batch', sql: 'sql', json: 'json', xml: 'xml',
+  html: 'markup', css: 'css', scss: 'scss', less: 'less', yaml: 'yaml', yml: 'yaml',
+  toml: 'toml', ini: 'ini', conf: 'ini', config: 'ini', env: 'bash', dockerfile: 'docker',
+  vue: 'markup', svelte: 'markup', graphql: 'graphql', gql: 'graphql',
+}
+
+const extOf = (fileName: string) => fileName.split('.').pop()?.toLowerCase() || ''
+const isImageName = (n: string) => IMAGE_EXTS.includes(extOf(n))
+const isVideoName = (n: string) => VIDEO_EXTS.includes(extOf(n))
+const isAudioName = (n: string) => AUDIO_EXTS.includes(extOf(n))
+const isMarkdownName = (n: string) => MARKDOWN_EXTS.includes(extOf(n))
+const isPlainName = (n: string) => PLAIN_EXTS.includes(extOf(n))
+const isEpubName = (n: string) => EPUB_EXTS.includes(extOf(n))
+const isModelName = (n: string) => MODEL_EXTS.includes(extOf(n))
+const isCodeName = (n: string) => CODE_EXTS.has(extOf(n))
+function isPdfName(n: string) {
+  return extOf(n) === 'pdf'
 }

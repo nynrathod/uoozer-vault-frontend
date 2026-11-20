@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Document, Page, pdfjs } from 'react-pdf'
+import { FileText, Loader2, ShieldCheck, Minus, Plus, RotateCw } from 'lucide-react'
+
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -12,90 +14,115 @@ interface PdfPreviewProps {
   onDownload?: () => void
 }
 
+const MAX_PAGE_WIDTH = 896
+const MIN_ZOOM = 0.5
+const MAX_ZOOM = 2.5
+const ZOOM_STEP = 0.1
+
+/**
+ * Continuous, Google Drive-style PDF preview.
+ *
+ * - Uses the existing react-pdf dependency; no additional package is required.
+ * - Renders every page in one vertically scrolling document.
+ * - Keeps the file header and security footer outside the scroll container.
+ * - Fits pages to the available width up to MAX_PAGE_WIDTH at 100% zoom.
+ * - Allows zooming from 50% to 250%; zoomed pages can scroll horizontally.
+ */
 export function PdfPreview({ data, fileName, onDownload }: PdfPreviewProps) {
+  const scrollRef = useRef<HTMLDivElement>(null)
   const [numPages, setNumPages] = useState(0)
-  const [scale, setScale] = useState(1.0)
+  const [zoom, setZoom] = useState(1)
+  const [containerWidth, setContainerWidth] = useState(MAX_PAGE_WIDTH)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [, setIsLoading] = useState(true)
 
   const pdfFile = useMemo(
     () => new File([data], fileName, { type: 'application/pdf' }),
     [data, fileName]
   )
 
-  const onDocumentLoadSuccess = useCallback(({ numPages }: { numPages: number }) => {
-    setNumPages(numPages)
-    setIsLoading(false)
+  // Observe the actual document viewport so the PDF fits without filling
+  // excessively wide monitors. The 896px cap keeps a comfortable page width.
+  useEffect(() => {
+    const element = scrollRef.current
+    if (!element) return
+
+    const observer = new ResizeObserver(([entry]) => {
+      setContainerWidth(Math.max(1, entry.contentRect.width))
+    })
+
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    setZoom(1)
+    setNumPages(0)
+    setLoadError(null)
+  }, [data])
+
+  const pageWidth = Math.max(1, Math.min(containerWidth, MAX_PAGE_WIDTH))
+
+  const onDocumentLoadSuccess = useCallback(({ numPages: totalPages }: { numPages: number }) => {
+    setNumPages(totalPages)
     setLoadError(null)
   }, [])
 
   const onDocumentLoadError = useCallback((error: Error) => {
-    setIsLoading(false)
-    setLoadError(error.message)
+    setLoadError(error.message || 'Unable to load this PDF.')
   }, [])
 
-  useEffect(() => {
-    setScale(1.0)
-    setNumPages(0)
-    setIsLoading(true)
-    setLoadError(null)
-  }, [data])
+  const handleZoomOut = () => {
+    setZoom((current) => Math.max(MIN_ZOOM, Math.round((current - ZOOM_STEP) * 100) / 100))
+  }
+
+  const handleZoomIn = () => {
+    setZoom((current) => Math.min(MAX_ZOOM, Math.round((current + ZOOM_STEP) * 100) / 100))
+  }
 
   const handleDownload = () => {
     if (onDownload) {
       onDownload()
       return
     }
+
     const blob = new Blob([data], { type: 'application/pdf' })
     const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = fileName
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    setTimeout(() => URL.revokeObjectURL(url), 1000)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = fileName
+    document.body.appendChild(anchor)
+    anchor.click()
+    document.body.removeChild(anchor)
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
 
   return (
-    <div className="relative flex h-full flex-col bg-neutral-100">
-      <div className="z-10 flex items-center gap-2 border-b border-neutral-200 bg-white px-4 py-2.5 text-sm">
-        <span className="max-w-[240px] truncate font-medium text-neutral-800">{fileName}</span>
+    <div className="bg-background flex h-full min-h-0 w-full flex-col overflow-hidden">
+      {/* File status stays fixed while the document scrolls */}
+      <div className="bg-background text-meta text-muted-foreground flex min-h-10 shrink-0 flex-wrap items-center gap-x-2 gap-y-1 py-2">
+        <ShieldCheck className="text-sealed h-3.5 w-3.5 shrink-0" strokeWidth={1.8} />
+        <span>Decrypted in your browser</span>
         {numPages > 0 && (
-          <span className="text-neutral-400">
-            {numPages} {numPages === 1 ? 'page' : 'pages'}
-          </span>
+          <>
+            <span aria-hidden="true">·</span>
+            <span>
+              {numPages} {numPages === 1 ? 'page' : 'pages'}
+            </span>
+          </>
         )}
-
-        <div className="ml-auto flex items-center gap-2">
-          <button
-            onClick={handleDownload}
-            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-neutral-600 transition-colors hover:bg-neutral-100"
-          >
-            <svg
-              width="15"
-              height="15"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
-            Download
-          </button>
-        </div>
       </div>
 
-      <div className="flex-1 overflow-auto">
+      {/* Only this region scrolls. Pages are centered and capped at 896px. */}
+      <main
+        ref={scrollRef}
+        className="bg-active-surface relative min-h-0 flex-1 overflow-auto overscroll-contain px-3 py-5 sm:px-6"
+        aria-label="PDF document"
+      >
         {loadError ? (
-          <div className="flex h-full items-center justify-center text-red-500">
-            <div className="text-center">
-              <p className="text-lg font-medium">Failed to load PDF</p>
-              <p className="mt-1 text-sm text-red-400">{loadError}</p>
-            </div>
+          <div className="flex min-h-96 flex-col items-center justify-center gap-2 text-center">
+            <FileText className="text-failed h-8 w-8" />
+            <p className="text-foreground text-sm font-medium">Failed to load PDF</p>
+            <p className="text-failed text-meta">{loadError}</p>
           </div>
         ) : (
           <Document
@@ -103,62 +130,91 @@ export function PdfPreview({ data, fileName, onDownload }: PdfPreviewProps) {
             onLoadSuccess={onDocumentLoadSuccess}
             onLoadError={onDocumentLoadError}
             loading={
-              <div className="flex h-full items-center justify-center text-neutral-400">
-                <div className="text-center">
-                  <div className="mx-auto mb-2 h-8 w-8 animate-spin rounded-full border-2 border-neutral-300 border-t-blue-500" />
-                  <p className="text-sm">Loading PDF…</p>
-                </div>
+              <div className="flex min-h-96 flex-col items-center justify-center gap-3">
+                <Loader2 className="text-primary h-7 w-7 animate-spin" />
+                <p className="text-muted-foreground text-sm">Loading PDF...</p>
               </div>
             }
             error={
-              <div className="flex h-full items-center justify-center text-red-500">
-                <p>Failed to load PDF</p>
+              <div className="flex min-h-96 items-center justify-center">
+                <p className="text-failed text-sm">Failed to load PDF.</p>
               </div>
             }
-            className="pt-6"
+            className="mx-auto flex w-max min-w-full flex-col items-center gap-5"
           >
-            {Array.from({ length: numPages }, (_, i) => (
-              <Page
-                key={`page_${i}`}
-                pageNumber={i + 1}
-                scale={scale}
-                renderTextLayer={false}
-                renderAnnotationLayer={false}
-                className="mx-auto mb-4 w-fit bg-white shadow-md"
-                loading={
-                  <div className="flex h-[400px] w-[600px] items-center justify-center">
-                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-neutral-300 border-t-blue-500" />
-                  </div>
-                }
-              />
+            {Array.from({ length: numPages }, (_, index) => (
+              <div
+                key={`${fileName}-page-${index + 1}`}
+                className="bg-card ring-line mx-auto w-fit shrink-0 overflow-hidden rounded-sm shadow-md ring-1"
+              >
+                <Page
+                  pageNumber={index + 1}
+                  width={pageWidth}
+                  scale={zoom}
+                  renderTextLayer={false}
+                  renderAnnotationLayer={false}
+                  loading={
+                    <div className="flex min-h-96 w-full items-center justify-center">
+                      <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
+                    </div>
+                  }
+                />
+              </div>
             ))}
           </Document>
         )}
-      </div>
+      </main>
 
-      <div className="absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1 rounded-full border border-neutral-200 bg-white px-2 py-1 shadow-lg">
-        <button
-          onClick={() => setScale((s) => Math.max(0.25, s - 0.25))}
-          className="flex h-7 w-7 items-center justify-center rounded-full text-neutral-600 transition-colors hover:bg-neutral-100"
-          title="Zoom out"
-        >
-          −
-        </button>
-        <button
-          onClick={() => setScale(1.0)}
-          className="min-w-[48px] rounded-full py-0.5 text-center text-sm text-neutral-700 transition-colors hover:bg-neutral-100"
-          title="Reset zoom"
-        >
-          {Math.round(scale * 100)}%
-        </button>
-        <button
-          onClick={() => setScale((s) => Math.min(3.0, s + 0.25))}
-          className="flex h-7 w-7 items-center justify-center rounded-full text-neutral-600 transition-colors hover:bg-neutral-100"
-          title="Zoom in"
-        >
-          +
-        </button>
-      </div>
+      {/* Fixed footer: zoom controls stay visible and never scroll with the PDF. */}
+      <footer className="bg-background border-border/60 grid min-h-12 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 border-t">
+        <div className="text-muted-foreground text-meta hidden min-w-0 items-center gap-2 sm:flex">
+          <ShieldCheck className="text-sealed h-3.5 w-3.5 shrink-0" strokeWidth={1.8} />
+          <span className="truncate">
+            Uoozer can't see this file. Only people with the link can.
+          </span>
+        </div>
+
+        <div className="uv-preview-zoom col-start-2" role="group" aria-label="PDF zoom controls">
+          <button
+            type="button"
+            className="uv-preview-zoom-btn"
+            aria-label="Zoom out"
+            title="Zoom out"
+            disabled={zoom <= MIN_ZOOM}
+            onClick={handleZoomOut}
+          >
+            <Minus className="h-[15px] w-[15px]" strokeWidth={1.6} aria-hidden="true" />
+          </button>
+
+          <span className="uv-preview-zoom-value" aria-live="polite">
+            {Math.round(zoom * 100)}%
+          </span>
+
+          <button
+            type="button"
+            className="uv-preview-zoom-btn"
+            aria-label="Zoom in"
+            title="Zoom in"
+            disabled={zoom >= MAX_ZOOM}
+            onClick={handleZoomIn}
+          >
+            <Plus className="h-[15px] w-[15px]" strokeWidth={1.6} aria-hidden="true" />
+          </button>
+
+          <button
+            type="button"
+            className="uv-preview-zoom-btn"
+            aria-label="Reset zoom"
+            title="Reset zoom"
+            disabled={zoom === 1}
+            onClick={() => setZoom(1)}
+          >
+            <RotateCw className="h-[15px] w-[15px]" strokeWidth={1.6} aria-hidden="true" />
+          </button>
+        </div>
+
+        <span aria-hidden="true" />
+      </footer>
     </div>
   )
 }

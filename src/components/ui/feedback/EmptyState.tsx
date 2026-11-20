@@ -24,9 +24,7 @@ export function EmptyState({
         <Icon className="h-8 w-8" strokeWidth={1.75} />
       </div>
       <h3 className="text-foreground text-[15px] font-semibold">{title}</h3>
-      <p className="text-muted-foreground/70 mt-1.5 max-w-xs text-[13px] leading-relaxed">
-        {description}
-      </p>
+      <p className="text-gray-strong mt-1.5 max-w-xs text-[13px] leading-relaxed">{description}</p>
       {!hideAction && (
         <Button onClick={() => setUploadPanelOpen(true)} className="mt-6 gap-2 rounded-lg px-4">
           <Upload className="h-4 w-4" />

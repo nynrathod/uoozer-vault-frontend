@@ -1,8 +1,12 @@
-import { useState, useEffect, useRef } from 'react'
-import { FilePreviewer } from './FilePreviewer'
+import { useEffect, useRef, useState } from 'react'
+import { AlertCircle, Archive } from 'lucide-react'
+import { toast } from 'sonner'
 import { PdfPreview } from './PdfPreview'
+import { FilePreviewer } from './FilePreviewer'
+import { ZipPreview } from './ZipPreview'
+import { PreviewEmpty } from './PreviewEmpty'
+import { PreviewDetailsPanel, type PreviewTab } from './PreviewDetailsPanel'
 import { usePreviewStore } from '@stores/previewStore'
-import { useFileStore, selectFileById } from '@stores/fileStore'
 import { useAuthStore } from '@stores/authStore'
 import { useShareContext } from '@/contexts/ShareContext'
 import { apiClient, skipAuthRefresh } from '@services/api/client'
@@ -15,11 +19,72 @@ import {
   cleanupFileStream,
 } from '@lib/crypto'
 import { VaultLoader } from '@/components/ui/feedback/VaultLoader'
-import { AlertCircle } from 'lucide-react'
+import { getCategory, getPreviewIcon } from './previewCategories'
+import { cn } from '@lib/utils'
+import type { FileItem } from '@/types/files'
 
-export function PreviewContent() {
+interface PreviewContentProps {
+  file: FileItem
+  canPreview: boolean
+  detailsOpen: boolean
+  activeTab: PreviewTab
+  onTabChange: (tab: PreviewTab) => void
+  /** Viewer → header meta channel ("1920×1280" / "2 pages"). */
+  onDetailLoaded: (detail: string | null) => void
+}
+
+const TEXT_EXTS = new Set([
+  'md',
+  'markdown',
+  'txt',
+  'log',
+  'csv',
+  'tsv',
+  'json',
+  'js',
+  'ts',
+  'tsx',
+  'jsx',
+  'rs',
+  'py',
+  'go',
+  'java',
+  'c',
+  'cpp',
+  'css',
+  'html',
+  'xml',
+  'yml',
+  'yaml',
+  'toml',
+  'sql',
+  'sh',
+  'env',
+  'ini',
+  'conf',
+  'config',
+  'vue',
+  'svelte',
+  'graphql',
+  'gql',
+])
+
+/**
+ * Preview drawer body (Files-Preview sheet). The decryption pipeline is
+ * unchanged (chunk stream → local Blob); the chrome is now the sheet:
+ * viewer r10 on Hover fill, zoom/page pills inside, details tabs below,
+ * and the exact no-preview + archive contents layout for .zip / unknown
+ * types.
+ */
+export function PreviewContent({
+  file,
+  canPreview,
+  detailsOpen,
+  activeTab,
+  onTabChange,
+  onDetailLoaded,
+}: PreviewContentProps) {
   const fileId = usePreviewStore((s) => s.fileId)
-  const file = useFileStore(selectFileById(fileId))
   const dek = useAuthStore((s) => s.cryptoState.dek)
   const shareCtx = useShareContext()
   const isShareMode = !!shareCtx
@@ -27,6 +92,7 @@ export function PreviewContent() {
   const treeData = shareCtx?.treeData ?? null
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [previewBlob, setPreviewBlob] = useState<Blob | null>(null)
   const [previewText, setPreviewText] = useState<string | null>(null)
   const [pdfData, setPdfData] = useState<ArrayBuffer | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -35,11 +101,10 @@ export function PreviewContent() {
   const objectUrlRef = useRef<string | null>(null)
 
   const handleDownload = () => {
-    if (!file) return
     if (isShareMode && shareId && treeData) {
       const node = treeData.find((n: any) => n.id === file.id)
       if (node?.file_key) {
-        downloadSharedFileToDisk(file.name, file.totalSize, {
+        void downloadSharedFileToDisk(file.name, file.totalSize, {
           shareId,
           fileId: file.id,
           fileKeyB64: node.file_key,
@@ -48,8 +113,25 @@ export function PreviewContent() {
       return
     }
     if (dek) {
-      downloadFileToDisk(file.name, file.totalSize, { dek, fileId: file.id })
+      void downloadFileToDisk(file.name, file.totalSize, { dek, fileId: file.id })
     }
+  }
+
+  /** "Open with" — hands the decrypted blob to the browser/OS (sheet copy). */
+  const handleOpenWith = () => {
+    const blob = previewBlob ?? (pdfData ? new Blob([pdfData], { type: 'application/pdf' }) : null)
+    if (!blob) {
+      toast.info('Still decrypting — try again in a moment.')
+      return
+    }
+    const url = URL.createObjectURL(blob)
+    const win = window.open(url, '_blank')
+    if (!win) {
+      toast.error('Allow pop-ups to open this file in another app.')
+      URL.revokeObjectURL(url)
+      return
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 60000)
   }
 
   useEffect(() => {
@@ -80,8 +162,10 @@ export function PreviewContent() {
       setIsLoading(true)
       setError(null)
       setPreviewUrl(null)
+      setPreviewBlob(null)
       setPreviewText(null)
       setPdfData(null)
+      onDetailLoaded(null)
       if (objectUrlRef.current) {
         URL.revokeObjectURL(objectUrlRef.current)
         objectUrlRef.current = null
@@ -152,56 +236,23 @@ export function PreviewContent() {
 
         const ext = file.name.split('.').pop()?.toLowerCase() || ''
         const isPdf = ext === 'pdf' || file.mimeType === 'application/pdf'
-        const isText =
-          !isPdf &&
-          [
-            'md',
-            'markdown',
-            'txt',
-            'log',
-            'csv',
-            'tsv',
-            'json',
-            'js',
-            'ts',
-            'tsx',
-            'jsx',
-            'rs',
-            'py',
-            'go',
-            'java',
-            'c',
-            'cpp',
-            'css',
-            'html',
-            'xml',
-            'yml',
-            'yaml',
-            'toml',
-            'sql',
-            'sh',
-            'env',
-            'ini',
-            'conf',
-            'config',
-            'vue',
-            'svelte',
-            'graphql',
-            'gql',
-          ].includes(ext)
+        const isText = !isPdf && TEXT_EXTS.has(ext)
 
         const blob = new Blob(decryptedParts as BlobPart[], {
           type: isPdf ? 'application/pdf' : file.mimeType || 'application/octet-stream',
         })
         if (isPdf) {
+          setPreviewBlob(blob)
           const pdfArrayBuffer = await blob.arrayBuffer()
           if (!controller.signal.aborted) setPdfData(pdfArrayBuffer)
         } else if (isText) {
+          setPreviewBlob(blob)
           const text = await blob.text()
           if (!controller.signal.aborted) setPreviewText(text)
         } else {
           const url = URL.createObjectURL(blob)
           objectUrlRef.current = url
+          setPreviewBlob(blob)
           if (!controller.signal.aborted) setPreviewUrl(url)
         }
       } catch (err: any) {
@@ -221,45 +272,101 @@ export function PreviewContent() {
         objectUrlRef.current = null
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fileId, dek, file?.id, file?.name, file?.mimeType, isShareMode, shareId, treeData])
+
+  const category = getCategory(file.name)
 
   if (isLoading) {
     return (
-      <div className="flex h-full w-full items-center justify-center">
-        <VaultLoader size={32} />
+      <div className="flex min-h-0 flex-1 flex-col">
+        {canPreview && (
+          <div className="uv-preview-viewer">
+            <div className="flex h-full w-full items-center justify-center">
+              <VaultLoader size={32} />
+            </div>
+          </div>
+        )}
+        {!canPreview && (
+          <div className="flex flex-1 items-center justify-center py-14">
+            <VaultLoader size={32} />
+          </div>
+        )}
       </div>
     )
   }
+
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center gap-4 p-4 text-center">
-        <AlertCircle className="text-destructive h-8 w-8" />
-        <div>
-          <p className="font-medium">Preview Error</p>
-          <p className="text-muted-foreground text-sm">{error}</p>
-        </div>
+      <div className="flex min-h-0 flex-1 flex-col">
+        {canPreview && (
+          <div className="uv-preview-viewer">
+            <div className="flex flex-col items-center justify-center gap-3 px-8 text-center">
+              <AlertCircle className="text-failed h-7 w-7" strokeWidth={1.6} aria-hidden="true" />
+              <div>
+                <p className="text-[14px] leading-5 font-semibold text-ink">Preview failed</p>
+                <p className="text-muted-foreground mt-1 text-[12.5px] leading-[18px]">{error}</p>
+              </div>
+            </div>
+          </div>
+        )}
+        {!canPreview && (
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 px-8 py-14 text-center">
+            <AlertCircle className="text-failed h-7 w-7" strokeWidth={1.6} aria-hidden="true" />
+            <div>
+              <p className="text-[14px] leading-5 font-semibold text-ink">Preview failed</p>
+              <p className="text-muted-foreground mt-1 text-[12.5px] leading-[18px]">{error}</p>
+            </div>
+          </div>
+        )}
       </div>
     )
   }
-  if (pdfData) {
+
+  /* ---- No-preview layout (sheet panel 3): empty block + contents ---- */
+  if (!canPreview) {
+    const ext = `.${file.name.split('.').pop()?.toLowerCase() || 'file'}`
+    const EmptyIcon = category === 'zip' ? Archive : getPreviewIcon(category)
     return (
-      <div className="h-full w-full overflow-hidden">
-        <PdfPreview
-          data={pdfData}
-          fileName={file?.name || 'document.pdf'}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+        <PreviewEmpty
+          icon={EmptyIcon}
+          title={`No preview for ${ext}`}
           onDownload={handleDownload}
+          onOpenWith={handleOpenWith}
         />
+        {category === 'zip' && <ZipPreview blob={previewBlob} fileName={file.name} />}
       </div>
     )
   }
+
+  /* ---- Previewable layout: viewer (+ details tabs when open) ---- */
   return (
-    <div className="flex h-full w-full items-center justify-center overflow-hidden p-4">
-      <FilePreviewer
-        fileName={file?.name || ''}
-        fileUrl={previewUrl}
-        fileText={previewText}
-        onDownload={handleDownload}
-      />
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className={cn('uv-preview-viewer', detailsOpen && 'uv-preview-viewer-open')}>
+        {pdfData ? (
+          <PdfPreview
+            data={pdfData}
+            fileName={file.name}
+            onDownload={handleDownload}
+            onPageCount={(count) => onDetailLoaded(`${count} ${count === 1 ? 'page' : 'pages'}`)}
+          />
+        ) : (
+          <FilePreviewer
+            fileName={file.name}
+            fileUrl={previewUrl}
+            fileText={previewText}
+            onDownload={handleDownload}
+            onOpenWith={handleOpenWith}
+            onImageMeta={(width, height) => onDetailLoaded(`${width}×${height}`)}
+          />
+        )}
+      </div>
+      {detailsOpen && !isShareMode && (
+        <PreviewDetailsPanel file={file} activeTab={activeTab} onTabChange={onTabChange} />
+      )}
     </div>
   )
 }
+
+export type { PreviewTab }

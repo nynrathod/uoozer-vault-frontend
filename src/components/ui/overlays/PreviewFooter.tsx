@@ -1,44 +1,45 @@
-import { HardDrive, Calendar, User, History } from 'lucide-react'
-import { formatBytes, formatRelativeDate } from '@lib/utils'
-import { useFileStore, selectFileById } from '@stores/fileStore'
-import { usePreviewStore } from '@stores/previewStore'
-import { useShareContext } from '@/contexts/ShareContext'
+import { ChevronUp, Lock } from 'lucide-react'
+import { cn } from '@lib/utils'
+import type { FileCategory } from './previewCategories'
 
-export function PreviewFooter() {
-  const fileId = usePreviewStore((s) => s.fileId)
-  const file = useFileStore(selectFileById(fileId))
-  const shareCtx = useShareContext()
-  const isShareMode = !!shareCtx
-  if (!file) return null
+interface PreviewFooterProps {
+  category: FileCategory
+  detailsOpen: boolean
+  onToggleDetails: () => void
+}
+
+export function PreviewFooter({ category, detailsOpen, onToggleDetails }: PreviewFooterProps) {
+  /** The sheet shows "BLAKE3 verified" next to the lock on document
+   *  previews (chunk hashes are verified on every download). */
+  const showsBlake3 =
+    category === 'pdf' || category === 'markdown' || category === 'text' || category === 'code'
+
   return (
-    <div className="border-border bg-background h-auto shrink-0 space-y-3 border-t p-4">
-      <h4 className="text-muted-foreground/60 text-[11px] font-semibold tracking-wider uppercase">
-        File information
-      </h4>
-      <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-[12px]">
-        <div className="text-muted-foreground flex items-center gap-2">
-          <HardDrive className="h-3.5 w-3.5" /> Size{' '}
-          <span className="text-foreground ml-auto font-medium">{formatBytes(file.totalSize)}</span>
-        </div>
-        <div className="text-muted-foreground flex items-center gap-2">
-          <Calendar className="h-3.5 w-3.5" /> Modified{' '}
-          <span className="text-foreground ml-auto font-medium">
-            {formatRelativeDate(file.updatedAt)}
-          </span>
-        </div>
-        {!isShareMode && (
-          <>
-            <div className="text-muted-foreground flex items-center gap-2">
-              <User className="h-3.5 w-3.5" /> Owner{' '}
-              <span className="text-foreground ml-auto font-medium">You</span>
-            </div>
-            <div className="text-muted-foreground flex items-center gap-2">
-              <History className="h-3.5 w-3.5" /> Version{' '}
-              <span className="text-foreground ml-auto font-medium">v{file.version}</span>
-            </div>
-          </>
-        )}
-      </div>
+    <div className="uv-preview-footer">
+      <Lock
+        className="text-sealed h-[13px] w-[13px] shrink-0"
+        strokeWidth={1.6}
+        aria-hidden="true"
+      />
+      <span className="truncate">
+        Decrypted on this device{showsBlake3 ? ' · BLAKE3 verified' : ''}
+      </span>
+      <button
+        type="button"
+        className="uv-preview-footer-toggle"
+        onClick={onToggleDetails}
+        aria-expanded={detailsOpen}
+      >
+        <span>Details</span>
+        <ChevronUp
+          className={cn(
+            'h-[13px] w-[13px] shrink-0 transition-transform duration-[120ms]',
+            detailsOpen && 'rotate-180'
+          )}
+          strokeWidth={1.6}
+          aria-hidden="true"
+        />
+      </button>
     </div>
   )
 }
