@@ -3,7 +3,12 @@ import * as CheckboxPrimitive from '@radix-ui/react-checkbox'
 import { Check } from 'lucide-react'
 import { cn } from '@lib/utils'
 
-/** Accessible checkbox built on Radix UI primitives. */
+/**
+ * Checkbox (Components sheet — "Controls and status", rendered markup):
+ *   checked    18×18 · radius 5 · Blue #2563EB fill · white check (3.4 stroke)
+ *   unchecked  18×18 · 1.5px #8A93A3 border, no fill
+ *   focus      2px blue ring, 2px offset, always on
+ */
 const Checkbox = React.forwardRef<
   React.ElementRef<typeof CheckboxPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof CheckboxPrimitive.Root>
@@ -11,13 +16,13 @@ const Checkbox = React.forwardRef<
   <CheckboxPrimitive.Root
     ref={ref}
     className={cn(
-      'peer border-border ring-offset-background focus-visible:ring-ring data-[state=checked]:bg-primary data-[state=checked]:border-primary data-[state=checked]:text-primary-foreground h-4 w-4 shrink-0 rounded border focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50',
+      'peer border-ghost data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground focus-visible:outline-ring flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[5px] border-[1.5px] outline outline-2 outline-offset-2 outline-transparent transition-colors duration-[120ms] focus-visible:outline focus-visible:outline-2 disabled:cursor-not-allowed disabled:opacity-70 data-[state=checked]:border-0',
       className
     )}
     {...props}
   >
     <CheckboxPrimitive.Indicator className={cn('flex items-center justify-center text-current')}>
-      <Check className="h-3.5 w-3.5" strokeWidth={3} />
+      <Check className="h-3 w-3" strokeWidth={3.4} />
     </CheckboxPrimitive.Indicator>
   </CheckboxPrimitive.Root>
 ))
