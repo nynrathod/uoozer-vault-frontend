@@ -75,15 +75,35 @@
   color: hsl(var(--ink));
 }
 
+.note-prosemirror .note-table-scroller {
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(15 15 15 / 0.18) transparent;
+}
+.note-prosemirror .note-table-scroller::-webkit-scrollbar {
+  height: 8px;
+}
+.note-prosemirror .note-table-scroller::-webkit-scrollbar-track {
+  background: transparent;
+}
+.note-prosemirror .note-table-scroller::-webkit-scrollbar-thumb {
+  background: rgb(15 15 15 / 0.16);
+  border-radius: 4px;
+}
+.note-prosemirror .note-table-scroller::-webkit-scrollbar-thumb:hover {
+  background: rgb(15 15 15 / 0.28);
+}
+
 /* The grid: the contentDOM <table> (the renderer's <tbody> wraps PM's
    rows and stays a REAL row group — display:contents on a tbody breaks
    prosemirror-tables' hit-testing and its colgroup patching).
-   max-width:100% is the visual safety net under the JS fit pass: even if
-   colwidths ever drift, the fixed layout scales the columns down instead
-   of letting the grid spill past the page. */
+   NO max-width clamp: a hand-widened table is ALLOWED to be wider than
+   the page — .note-table-scroller keeps that width inside the block
+   (horizontal scroll), exactly like Notion. */
 .note-prosemirror .note-table-grid {
   width: 100%;
-  max-width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
 }
@@ -124,12 +144,13 @@
   z-index: 2;
 }
 
-/* Column resize — the view's OWN drag (the plugin's is off so it can be
-   CLAMPED to the page). The handle is a node-view child straddling the
-   HOVERED column's right border (8px hit band): a blue line + a grip pill
-   mark it, the pill is draggable. Only the dragged column changes; the
-   drag stops at (page − all other columns), so the grid never leaves the
-   page or the panel. Rows never resize. */
+/* Column resize — the view's OWN drag. The handle is a node-view child
+   straddling the HOVERED column's right border (8px hit band): the small
+   grip pill marks it, and hovering THE PILL lights the blue guide line —
+   a plain column hover shows NO line (user call: the dark blue line must
+   not appear on every column hover). Only the dragged column changes; it
+   may grow far past the panel (large tables are allowed) — the block's
+   horizontal scroll keeps the grid inside the page. Rows never resize. */
 .note-prosemirror .note-table-colhandle {
   position: absolute;
   width: 8px;
@@ -137,7 +158,8 @@
   cursor: col-resize;
   touch-action: none;
 }
-/* The blue guide line, centered on the border. */
+/* The blue guide line, centered on the border — hidden until the pointer
+   reaches the handle itself or a drag is live (never on column hover). */
 .note-prosemirror .note-table-colhandle::before {
   content: '';
   position: absolute;
@@ -147,6 +169,12 @@
   width: 2px;
   border-radius: 1px;
   background: #2383e2;
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+}
+.note-prosemirror .note-table-colhandle:hover::before,
+.note-prosemirror .note-table-colhandle.is-resizing::before {
+  opacity: 1;
 }
 /* The grip pill (the "this is draggable" icon) — middle of the border. */
 .note-prosemirror .note-table-colhandle::after {

@@ -38,14 +38,8 @@ const GRIP_SIZE = 18
 const GRIP_GAP = 4
 const GRIP_PAIR_SPAN = GRIP_SIZE * 2 + GRIP_GAP
 
-/* Width containment — the table lives INSIDE the page, always:
-   · every column addition re-fits the whole grid into the wrapper width
-     (proportional scale), so the table can never spill past the page or
-     the panel, no matter on which side the column was added;
-   · the own resize drag clamps the dragged column between MIN and
-     (container − all other columns), so a drag can never push the grid
-     outside either. */
 const MIN_COL_WIDTH = 40 // px floor for scaled/resized columns
+const MAX_COL_WIDTH = 1200 // px ceiling for a hand-widened column
 
 /* ── glyphs: Notion's minimal icon set (all 1.5px strokes, 12px box) ────── */
 function GripGlyph() {
@@ -505,17 +499,24 @@ export function deleteColumnsRange(editor: Editor, pos: number, from: number, to
 }
 
 /** Commits one column's width to EVERY cell of that column (colspan is
- *  always 1 in this schema — no merge UI). Used by the own resize drag. */
+ *  always 1 in this schema — no merge UI). Used by the own resize drag.
+ *  `markHandFit` flags the table as HAND-WIDENED: from then on no auto
+ *  re-fit shrinks the grid back — a wider table scrolls inside the block
+ *  instead (one transaction, one undo with the width itself). */
 export function setColumnWidth(
   editor: Editor,
   pos: number,
   colIndex: number,
-  width: number
+  width: number,
+  markHandFit = false
 ): boolean {
   const table = tableAt(editor, pos)
   if (!table || table.childCount === 0) return false
   if (colIndex < 0 || colIndex >= table.child(0).childCount) return false
   const tr = editor.state.tr
+  if (markHandFit && table.attrs.handFit !== true) {
+    tr.setNodeMarkup(pos, undefined, { ...table.attrs, handFit: true })
+  }
   let offset = pos + 1
   table.forEach((row, rowOffset) => {
     row.forEach((cell, cellOffset, colI) => {
@@ -678,6 +679,12 @@ function SimpleTableView({ node, editor, deleteNode, getPos }: NodeViewProps) {
      (and lets ⇧click extend instead of the pointerup single-select winning
      the race). */
   const suppressNextGripClick = useRef(false)
+  /* Once the user hand-widens a column the table OWNS its widths: no auto
+     re-fit ever shrinks it back — window/panel changes and column additions
+     keep the user's large table and let it scroll instead. The flag lives
+     on the table node (`handFit` attr), so it SURVIVES reloads and undo
+     restores it together with the widths it belongs to. */
+  const handWidened = node.attrs.handFit === true
   const touchUI = useRef(isTouchUI()).current
 
   const pos = typeof getPos === 'function' ? getPos() : null
@@ -794,16 +801,23 @@ function SimpleTableView({ node, editor, deleteNode, getPos }: NodeViewProps) {
 
   /* ── the page-fit pass ──────────────────────────────────────────────────
      The wrapper IS the page: its client width is the room the grid may
-     occupy. Every column addition re-runs fitColumnsToWidth, and a
-     ResizeObserver re-fits when the window/panel shrinks under an already
-     pinned table — so the table is 100% responsive to the page and can
-     never be seen outside of it. */
+     occupy. While the user has not hand-widened the table, every column
+     addition re-runs fitColumnsToWidth — the grid re-fits into the page
+     and stays 100% responsive with no scrollbar. Once a column is
+     hand-widened (the `handFit` attr) the table KEEPS those widths: a
+     wider grid scrolls inside the block (it can never render outside the
+     page), so the fit pass deliberately does nothing — user width wins. */
   const fitToPage = useCallback(() => {
+    if (handWidened) return // hand-widened: scroll, never shrink
     const wrap = wrapperRef.current
     if (!wrap || typeof tablePos !== 'number') return
     fitColumnsToWidth(editor, tablePos, wrap.clientWidth)
-  }, [editor, tablePos])
+  }, [editor, tablePos, handWidened])
 
+  /* A ResizeObserver keeps LEGACY wide tables (never hand-widened) inside
+     the page when the panel shrinks — old wide docs fold back instead of
+     overflowing. A hand-widened table is skipped: it scrolls instead of
+     being shrunk (user width wins over auto-fit). */
   useEffect(() => {
     const wrap = wrapperRef.current
     if (!wrap || typeof ResizeObserver === 'undefined') return
@@ -1173,14 +1187,17 @@ function SimpleTableView({ node, editor, deleteNode, getPos }: NodeViewProps) {
   /* The GRID's box (left + width included): the right ＋ strip, the bottom
      ＋ bar and the selection bands all anchor to the TABLE's edges — after
      a column add the strip must ride to the NEW right edge, never stay on
-     the old column. */
+     the old column. `wrapW` is the wrapper's visible width: while a wide
+     (hand-widened) grid is scrolled, the strips/bands/handle PARK at the
+     panel edge instead of rendering outside the block. */
   const [gridBox, setGridBox] = useState<{
     top: number
     height: number
     left: number
     width: number
+    wrapW: number
   } | null>(null)
-  useLayoutEffect(() => {
+  const measureChrome = useCallback(() => {
     const wrap = wrapperRef.current
     if (!wrap) return
     const wrapRect = wrap.getBoundingClientRect()
@@ -1229,6 +1246,7 @@ function SimpleTableView({ node, editor, deleteNode, getPos }: NodeViewProps) {
             height: rect.height,
             left: rect.left - wrapRect.left,
             width: rect.width,
+            wrapW: wrapRect.width,
           }
         })()
       : null
@@ -1270,11 +1288,24 @@ function SimpleTableView({ node, editor, deleteNode, getPos }: NodeViewProps) {
       prev.top === nextGrid.top &&
       prev.height === nextGrid.height &&
       prev.left === nextGrid.left &&
-      prev.width === nextGrid.width
+      prev.width === nextGrid.width &&
+      prev.wrapW === nextGrid.wrapW
         ? prev
         : nextGrid
     )
+    /* deps deliberately exclude the setters — they are stable. */
   }, [hoverRow, hoverCol, selected, node, bodyRows, contentTable, colCount])
+  useLayoutEffect(() => {
+    measureChrome()
+  }, [measureChrome])
+  /* Scrolling a hand-widened grid and resizing the panel both move the
+     table under the chrome — re-measure so bands/grips/strips stay glued
+     to the VISIBLE table edges. */
+  useEffect(() => {
+    const onResize = () => measureChrome()
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [measureChrome])
 
   const rowLine = dragLine?.axis === 'row' ? dragLine.pos : null
   const colLine = dragLine?.axis === 'col' ? dragLine.pos : null
@@ -1419,12 +1450,13 @@ function SimpleTableView({ node, editor, deleteNode, getPos }: NodeViewProps) {
   const colGrip = chromeVisible && hoverCol !== null && colBox ? hoverCol : null
 
   /* ── OWN column-resize drag ────────────────────────────────────────────
-     prosemirror-tables' plugin drag is replaced by this view-owned drag
-     for one reason: the CLAMP. The dragged column follows the pointer but
-     is pinned between MIN_COL_WIDTH and (container − all other columns) —
-     the table can grow to the page edge and never one pixel past it, and
-     no other column ever moves. Live feedback patches the <colgroup> we
-     own; release commits one width to every cell of the column. */
+     prosemirror-tables' plugin drag is replaced by this view-owned drag:
+     the dragged column follows the pointer between MIN_COL_WIDTH and
+     MAX_COL_WIDTH — it MAY grow the table far past the panel on purpose
+     (large tables are allowed) and the block's horizontal scroll keeps
+     everything inside the page. No other column ever moves. Live feedback
+     patches the <colgroup> we own; release commits one width to every
+     cell of the column and marks the table hand-widened (`handFit`). */
   const colHandleDown = (
     index: number,
     originLeft: number,
@@ -1443,7 +1475,9 @@ function SimpleTableView({ node, editor, deleteNode, getPos }: NodeViewProps) {
     const startWidth = widths[index] ?? 0
     if (!startWidth) return // unpinned — ensureFixedWidths runs on the next hover
     const otherTotal = widths.reduce((sum, width) => sum + width, 0) - startWidth
-    const max = Math.max(MIN_COL_WIDTH, wrap.clientWidth - otherTotal)
+    // Large tables are ALLOWED: the column may grow past the panel — the
+    // block's horizontal scroll keeps the grid inside the page.
+    const max = Math.max(wrap.clientWidth, MAX_COL_WIDTH)
     const startX = event.clientX
     const drag = { col: index, startX, startWidth, width: startWidth, max, otherTotal, originLeft }
     resizeRef.current = drag
@@ -1472,7 +1506,9 @@ function SimpleTableView({ node, editor, deleteNode, getPos }: NodeViewProps) {
       resizeRef.current = null
       setResize(null)
       if (done && typeof tablePos === 'number' && done.width !== done.startWidth) {
-        setColumnWidth(editor, tablePos, done.col, done.width)
+        // The user owns the widths now (`handFit` persists across reloads):
+        // no auto re-fit shrinks this table — a wider grid scrolls instead.
+        setColumnWidth(editor, tablePos, done.col, done.width, true)
       }
     }
     document.addEventListener('pointermove', onMove)
@@ -1487,6 +1523,62 @@ function SimpleTableView({ node, editor, deleteNode, getPos }: NodeViewProps) {
     : colBox
       ? colBox.left + colBox.width - 4
       : null
+
+  /* ── visible-area clamps for a hand-widened (scrollable) grid ─────────
+     Chrome that anchors to the TABLE's edges must PARK at the panel edge
+     or HIDE when its anchor scrolls out of view — nothing may render
+     outside the block, even though the wrapper itself does not clip. */
+  const wrapW = gridBox?.wrapW ?? null
+  const visibleSpan = (left: number, width: number): { left: number; width: number } => {
+    if (wrapW === null) return { left, width }
+    const from = Math.max(0, left)
+    const to = Math.min(wrapW, left + width)
+    return { left: from, width: Math.max(0, to - from) }
+  }
+  const selRowBand =
+    selected?.axis === 'row' && selRowBox && gridBox
+      ? {
+          ...visibleSpan(gridBox.left, gridBox.width),
+          top: selRowBox.top,
+          height: selRowBox.height,
+        }
+      : null
+  const selColBand =
+    selected?.axis === 'col' && selColBox ? visibleSpan(selColBox.left, selColBox.width) : null
+  const colGripCenter = colBox ? colBox.left + colBox.width / 2 : null
+  const colGripLeft =
+    colGripCenter !== null
+      ? gridBox
+        ? Math.min(
+            Math.max(colGripCenter - GRIP_SIZE / 2, 2),
+            Math.max(2, gridBox.wrapW - GRIP_PAIR_SPAN - 2)
+          )
+        : colGripCenter - GRIP_SIZE / 2
+      : null
+  const colGripInView =
+    colGripCenter !== null && (wrapW === null || (colGripCenter > -4 && colGripCenter < wrapW + 4))
+  const colLineVisible = colLine !== null && (wrapW === null || (colLine >= 0 && colLine <= wrapW))
+  const colLineClamped =
+    colLine !== null && gridBox
+      ? Math.min(Math.max(colLine, 0), Math.max(0, gridBox.wrapW - 2))
+      : colLine
+  const handleLeftClamped =
+    handleLeft !== null && gridBox
+      ? Math.min(handleLeft, Math.max(0, gridBox.wrapW - 10))
+      : handleLeft
+  /* While a wide grid is scrolled, the hovered column may be out of view —
+     the handle hides with it (a live drag always keeps the handle). */
+  const handleColVisible =
+    resize !== null || (colBox !== null && visibleSpan(colBox.left, colBox.width).width > 4)
+  const addColLeft =
+    gridBox && gridBox.left + gridBox.width > gridBox.wrapW + 1 // wide grid is scrolled
+      ? Math.min(gridBox.left + gridBox.width + 4, gridBox.wrapW - 28)
+      : gridBox
+        ? gridBox.left + gridBox.width + 4
+        : null
+  const addRowWidth = gridBox
+    ? Math.max(0, Math.min(gridBox.width, gridBox.wrapW - gridBox.left))
+    : null
 
   return (
     <NodeViewWrapper
@@ -1516,11 +1608,18 @@ function SimpleTableView({ node, editor, deleteNode, getPos }: NodeViewProps) {
         </button>
       )}
 
-      <NodeViewContent<'table'>
-        as="table"
-        className="note-table-grid"
-        style={{ whiteSpace: 'normal' }}
-      />
+      {/* Horizontal scroll containment — a hand-widened grid scrolls
+          INSIDE the block, so it can never render outside the page or the
+          panel. The hover chrome lives OUTSIDE this scroller (node-view
+          children of the wrapper) and keeps its exact behaviour on
+          fitting tables. */}
+      <div className="note-table-scroller" onScroll={measureChrome}>
+        <NodeViewContent<'table'>
+          as="table"
+          className="note-table-grid"
+          style={{ whiteSpace: 'normal' }}
+        />
+      </div>
 
       {/* ROW chrome — the ⠿ pair in the left gutter, the pair centered on
           the hovered row. The ＋ slot is always occupied; its icon only
@@ -1571,11 +1670,11 @@ function SimpleTableView({ node, editor, deleteNode, getPos }: NodeViewProps) {
 
       {/* COLUMN chrome — the ⠿ pair above the grid, the ⠿ centered on the
           hovered column, ＋ parked to its right (Notion's spots). */}
-      {colGrip !== null && colBox && !touchUI && (
+      {colGrip !== null && colBox && colGripInView && !touchUI && (
         <div
           className="note-table-gripzone is-col"
           contentEditable={false}
-          style={{ left: colBox.left + colBox.width / 2 - GRIP_SIZE / 2, top: -GRIP_PAIR_SPAN + 2 }}
+          style={{ left: colGripLeft ?? 0, top: -GRIP_PAIR_SPAN + 2 }}
           onMouseEnter={() => setPinned(true)}
           onMouseLeave={() => setPinned(false)}
         >
@@ -1613,43 +1712,53 @@ function SimpleTableView({ node, editor, deleteNode, getPos }: NodeViewProps) {
         </div>
       )}
 
-      {/* Column-resize handle — the hovered column's RIGHT border lights a
-          blue line + grip pill; dragging moves ONLY that column and is
-          clamped to the page (the grid can never leave the panel). */}
-      {chromeVisible && handleCol !== null && handleLeft !== null && gridBox && !touchUI && (
-        <div
-          className="note-table-colhandle"
-          contentEditable={false}
-          style={{ left: handleLeft, top: gridBox.top, height: gridBox.height }}
-          onPointerDown={(event) =>
-            colHandleDown(handleCol, resize ? resize.originLeft : (colBox?.left ?? 0), event)
-          }
-          onMouseEnter={() => setPinned(true)}
-          onMouseLeave={() => setPinned(false)}
-        />
-      )}
+      {/* Column-resize handle — the hovered column's RIGHT border shows
+          ONLY the small grip pill (no line on a plain column hover); the
+          blue guide line lights while hovering THAT pill or while a drag
+          is live. Dragging moves ONLY that column and may grow it far
+          past the panel — the scroll keeps it inside the page; the handle
+          parks at the panel edge while the border runs past it. */}
+      {chromeVisible &&
+        handleCol !== null &&
+        handleLeft !== null &&
+        handleColVisible &&
+        gridBox &&
+        !touchUI && (
+          <div
+            className={`note-table-colhandle${resize ? 'is-resizing' : ''}`}
+            contentEditable={false}
+            style={{ left: handleLeftClamped ?? 0, top: gridBox.top, height: gridBox.height }}
+            onPointerDown={(event) =>
+              colHandleDown(handleCol, resize ? resize.originLeft : (colBox?.left ?? 0), event)
+            }
+            onMouseEnter={() => setPinned(true)}
+            onMouseLeave={() => setPinned(false)}
+          />
+        )}
 
       {/* Group selection bands — ONE light-blue band + one group border
           across the whole row / column RANGE (never per-cell highlights);
-          they hug the TABLE's edges, not the wrapper's. */}
-      {selected?.axis === 'row' && selRowBox && (
+          they hug the TABLE's edges, and while a wide grid is scrolled
+          they clamp to the visible panel instead of spilling outside. */}
+      {selRowBand && selRowBand.width > 2 && (
         <div
           className="note-table-band is-row"
           style={{
-            top: selRowBox.top,
-            height: selRowBox.height,
-            ...(gridBox ? { left: gridBox.left, width: gridBox.width } : {}),
+            top: selRowBand.top,
+            height: selRowBand.height,
+            left: selRowBand.left,
+            width: selRowBand.width,
           }}
           contentEditable={false}
           aria-hidden="true"
         />
       )}
-      {selected?.axis === 'col' && selColBox && (
+      {selColBand && selColBand.width > 2 && (
         <div
           className="note-table-band is-col"
           style={{
-            left: selColBox.left,
-            width: selColBox.width,
+            left: selColBand.left,
+            width: selColBand.width,
             ...(gridBox ? { top: gridBox.top, height: gridBox.height } : {}),
           }}
           contentEditable={false}
@@ -1660,17 +1769,15 @@ function SimpleTableView({ node, editor, deleteNode, getPos }: NodeViewProps) {
       {/* RIGHT full-height column bar — ALWAYS rendered and ANCHORED TO
           THE TABLE's right edge (measured, not a static offset): adding a
           column moves the bar to the NEW edge, so the ＋ is always on the
-          real last column. The ＋ pill only shows on hover. Click: one
-          column · drag right: many. */}
-      {gridBox && !touchUI && (
+          real last column. While a hand-widened grid is scrolled, the bar
+          parks at the panel edge so it never renders outside the block.
+          The ＋ pill only shows on hover. Click: one column · drag right:
+          many. */}
+      {gridBox && addColLeft !== null && !touchUI && (
         <div
           className="note-table-addcol"
           contentEditable={false}
-          style={{
-            top: gridBox.top,
-            height: gridBox.height,
-            left: gridBox.left + gridBox.width + 4,
-          }}
+          style={{ top: gridBox.top, height: gridBox.height, left: addColLeft }}
           role="button"
           aria-label="Add column"
           title="Click to add a column · Drag to add more"
@@ -1693,7 +1800,6 @@ function SimpleTableView({ node, editor, deleteNode, getPos }: NodeViewProps) {
         <div
           className="note-table-addrow"
           contentEditable={false}
-          style={gridBox ? { marginLeft: gridBox.left, width: gridBox.width } : undefined}
           onPointerDown={onAddPointerDown}
           role="button"
           aria-label="Add row"
@@ -1715,10 +1821,10 @@ function SimpleTableView({ node, editor, deleteNode, getPos }: NodeViewProps) {
           contentEditable={false}
         />
       )}
-      {colLine !== null && (
+      {colLineVisible && colLineClamped !== null && (
         <div
           className="note-table-dragline is-col"
-          style={{ left: colLine }}
+          style={{ left: colLineClamped }}
           contentEditable={false}
         />
       )}
@@ -1817,9 +1923,9 @@ export const SimpleTable = Table.extend({
     return {
       HTMLAttributes: { class: 'note-table' },
       /* The plugin's columnResizing drag is OFF — the node view owns the
-         drag so it can CLAMP: only the dragged column changes and the
-         table can never grow past the page/panel width. The colgroup the
-         view keeps as the table's first child is still fully ours. */
+         drag so it can ALLOW LARGE tables (wider grids scroll inside the
+         block). The colgroup the view keeps as the table's first child is
+         still fully ours. */
       resizable: false,
       renderWrapper: false,
       handleWidth: 8,
@@ -1827,6 +1933,23 @@ export const SimpleTable = Table.extend({
       lastColumnResizable: true,
       allowTableNodeSelection: false,
       View: null, // the React node view below owns the DOM
+    }
+  },
+
+  addAttributes() {
+    return {
+      ...(this.parent?.() ?? {}),
+      /* Set ONCE when the user hand-widens a column: from then on the
+         table OWNS its widths — no auto re-fit shrinks the grid back; a
+         wider grid scrolls inside the block instead. Lives in the doc
+         JSON, so it survives reloads (and undo restores it with the
+         widths it belongs to). */
+      handFit: {
+        default: false,
+        parseHTML: (element: HTMLElement) => element.getAttribute('data-hand-fit') === 'true',
+        renderHTML: (attributes: Record<string, unknown>) =>
+          attributes.handFit ? { 'data-hand-fit': 'true' } : {},
+      },
     }
   },
 
