@@ -1,4 +1,10 @@
 import { Node, mergeAttributes } from '@tiptap/core'
+import {
+  columnsChildCountFromElement,
+  columnsNodeView,
+  equalWidths,
+  parseWidthsAttribute,
+} from './ColumnsView'
 
 export interface ColumnsOptions {
   HTMLAttributes: Record<string, unknown>
@@ -24,6 +30,16 @@ export const Columns = Node.create<ColumnsOptions>({
         },
         renderHTML: (attributes) => ({ 'data-count': String(Number(attributes.count) || 2) }),
       },
+      widths: {
+        default: null,
+        parseHTML: (element) =>
+          parseWidthsAttribute(element.getAttribute('data-widths')) ??
+          equalWidths(columnsChildCountFromElement(element)),
+        renderHTML: (attributes) => {
+          const widths = attributes.widths
+          return Array.isArray(widths) ? { 'data-widths': widths.join(',') } : {}
+        },
+      },
     }
   },
 
@@ -40,6 +56,10 @@ export const Columns = Node.create<ColumnsOptions>({
       }),
       0,
     ]
+  },
+
+  addNodeView() {
+    return columnsNodeView()
   },
 })
 
@@ -68,15 +88,15 @@ export const Column = Node.create<ColumnsOptions>({
   },
 })
 
-/** Builds the insertContent payload for an N-column layout. */
+/** Builds the insertContent payload for an N-column layout (equal widths). */
 export function columnsContent(count: number): {
   type: 'columns'
-  attrs: { count: number }
+  attrs: { count: number; widths: number[] }
   content: { type: 'column'; content: { type: 'paragraph' }[] }[]
 } {
   return {
     type: 'columns',
-    attrs: { count },
+    attrs: { count, widths: equalWidths(count) },
     content: Array.from({ length: count }, () => ({
       type: 'column',
       content: [{ type: 'paragraph' }],

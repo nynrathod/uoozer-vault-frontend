@@ -1,10 +1,30 @@
 import { create } from 'zustand'
-import { NOTES_ACTIVE_KEY, NOTE_SAVE_DELAY_MS } from '../constants'
-import { emptyDocument, plainTextFromDoc, visibleNotes } from '../document'
-import { localNotesRepository, type NotesRepository } from '../persistence/localNotesRepository'
-import { summarizeLocally } from '../summarize'
-import type { AssistantScope, AssistantState, NoteRecord, NoteTint, SaveStatus } from '../types'
 import type { JSONContent } from '@tiptap/core'
+import { NOTES_ACTIVE_KEY, NOTE_SAVE_DELAY_MS, ORDER_STEP } from '../constants'
+import { templateStarterDocument } from '../data/seedNotes'
+import { localNoteRepository } from '../services/localNoteRepository'
+import type { NotesRepository } from '../services/noteRepository'
+import { summarizeLocally } from '../utils/summarize'
+import { plainTextFromDoc, visibleNotes } from '../utils/document'
+import {
+  DEFAULT_PAGE_STYLE,
+  type AssistantScope,
+  type AssistantState,
+  type NoteKind,
+  type NoteRecord,
+  type NoteTemplate,
+  type NoteView,
+  type PageStyle,
+  type SaveStatus,
+} from '../types'
+import { kindBaseStyle } from '../data/pageStyles'
+
+/* ============================================================================
+ * NOTES STORE — the module's single state tree.
+ * Actions only: no React, no DOM queries beyond the persistence seams
+ * (sessionStorage key). UI state that must survive route changes
+ * (focus mode, assistant) lives here; everything else stays local.
+ * ==========================================================================*/
 
 interface NotesState {
   notes: NoteRecord[]
@@ -19,19 +39,30 @@ interface NotesState {
   lastSavedAt: string | null
   focusMode: boolean
   assistant: AssistantState
+  /** Trash dialog (Notion pattern: Trash opens a dialog, not a second pane). */
+  trashOpen: boolean
+
   setActive: (id: string | null) => void
   setTagFilter: (tag: string | null) => void
   setFocusMode: (open: boolean) => void
-  createNote: () => string
+  setTrashOpen: (open: boolean) => void
+
+  createNote: (template?: NoteTemplate, parentNoteId?: string | null) => string
+  createChildNote: (parentNoteId: string) => string
+  duplicateNote: (id: string) => void
+  setNoteParent: (id: string, parentNoteId: string | null) => void
   setTitle: (id: string, title: string) => void
+  setIcon: (id: string, icon: string | null) => void
   setTags: (id: string, tags: string[]) => void
   setContent: (id: string, content: JSONContent) => void
   toggleStar: (id: string) => void
   togglePin: (id: string) => void
-  setTint: (id: string, tint: NoteTint | null) => void
-  trashNote: (id: string, view: NotesViewName) => void
+  setNoteKind: (id: string, kind: NoteKind) => void
+  setPageStyle: (id: string, patch: Partial<PageStyle>) => void
+  trashNote: (id: string, view: NoteView) => void
   restoreNote: (id: string) => void
   deleteForever: (id: string) => void
+
   openAssistant: (input?: { scope?: AssistantScope; text?: string; prompt?: string }) => void
   closeAssistant: () => void
   setAssistantPrompt: (prompt: string) => void
@@ -39,18 +70,9 @@ interface NotesState {
   tryAssistantAgain: () => void
 }
 
-type NotesViewName = 'all' | 'starred' | 'pinned' | 'trash'
+let repository: NotesRepository = localNoteRepository
 
-/** Step used when reindexing the manual order so future inserts have room. */
-const ORDER_STEP = 10
-
-/**
- * Persistence seam. The store only ever talks to this reference; swap it with
- * setNotesRepository() when the API adapter lands.
- */
-let repository: NotesRepository = localNotesRepository
-
-/** Replaces the persistence adapter (used by the future backend integration). */
+/** Replaces the persistence adapter (used by the backend integration). */
 export function setNotesRepository(next: NotesRepository) {
   repository = next
 }
@@ -144,7 +166,9 @@ export async function flushNotes(): Promise<void> {
     const quota = error instanceof DOMException && error.name === 'QuotaExceededError'
     useNotesStore.setState({
       // Re-queue so the next edit (or Retry save) retries the whole batch.
-      dirtyIds: [...new Set([...useNotesStore.getState().dirtyIds, ...changed.map((note) => note.id)])],
+      dirtyIds: [
+        ...new Set([...useNotesStore.getState().dirtyIds, ...changed.map((note) => note.id)]),
+      ],
       pendingDeletes: [...new Set([...useNotesStore.getState().pendingDeletes, ...removed])],
       saveStatus: 'error',
       saveError: quota
@@ -172,6 +196,43 @@ function markDirty(
   }
 }
 
+/** Fresh note record from a template (Blank when omitted). */
+function buildNote(
+  template: NoteTemplate | undefined,
+  topOrder: number,
+  parentNoteId: string | null
+): NoteRecord {
+  const now = new Date().toISOString()
+  return {
+    id: crypto.randomUUID(),
+    title: template && template.id !== 'blank' ? template.label : 'Untitled',
+    tags: [],
+    starred: false,
+    pinned: false,
+    trashed: false,
+    parentNoteId,
+    icon: null,
+    folderId: null,
+    order: topOrder,
+    content: templateStarterDocument(template ?? { ...DEFAULT_TEMPLATES_BLANK }),
+    plainText: '',
+    createdAt: now,
+    updatedAt: now,
+    revision: 0,
+    sealed: null,
+    pageStyle: template ? { ...template.pageStyle } : { ...DEFAULT_PAGE_STYLE },
+  }
+}
+
+/** The Blank template, for callers that create without arguments. */
+const DEFAULT_TEMPLATES_BLANK: NoteTemplate = {
+  id: 'blank',
+  label: 'Blank',
+  description: '',
+  pageStyle: DEFAULT_PAGE_STYLE,
+  starter: 'blank',
+}
+
 /**
  * Bootstrap. Synchronous caches seed the store before first paint; async
  * adapters hydrate right after mount with the `hydrated` flag flipped.
@@ -191,49 +252,116 @@ export const useNotesStore = create<NotesState>((set, get) => ({
   lastSavedAt: null,
   focusMode: false,
   assistant: closedAssistant,
+  trashOpen: false,
 
   setActive: (id) => {
     rememberActive(id)
     set({ activeNoteId: id })
   },
+
   setTagFilter: (tag) => set({ tagFilter: tag }),
+
   setFocusMode: (focusMode) => set({ focusMode }),
 
-  createNote: () => {
-    const now = new Date().toISOString()
-    const id = crypto.randomUUID()
+  createNote: (template, parentNoteId = null) => {
     const state = get()
     // New notes land at the very top of the list.
     const topOrder = state.notes.reduce((min, note) => Math.min(min, note.order), 0) - ORDER_STEP
-    const note: NoteRecord = {
-      id,
-      title: 'Untitled',
-      tags: [],
-      starred: false,
+    const note = buildNote(template, topOrder, parentNoteId)
+    const nextNotes = [note, ...state.notes]
+    rememberActive(note.id)
+    set({
+      activeNoteId: note.id,
+      tagFilter: null,
+      focusMode: false,
+      ...markDirty(nextNotes, note.id, state.dirtyIds, (item) => item),
+    })
+    schedulePersist()
+    return note.id
+  },
+
+  createChildNote: (parentNoteId) => {
+    const parent = get().notes.find((note) => note.id === parentNoteId)
+    // A child page inherits its parent's look so the two read as one page.
+    const template: NoteTemplate = {
+      id: 'blank',
+      label: 'Untitled',
+      description: '',
+      pageStyle: parent ? { ...parent.pageStyle } : { ...DEFAULT_PAGE_STYLE },
+      starter: 'blank',
+    }
+    return get().createNote(template, parentNoteId)
+  },
+
+  /** Copy of one note right below the original (Notion's Duplicate). */
+  duplicateNote: (id) => {
+    const state = get()
+    const source = state.notes.find((note) => note.id === id)
+    if (!source) return
+    const now = new Date().toISOString()
+    const copy: NoteRecord = {
+      ...source,
+      id: crypto.randomUUID(),
+      title: source.title ? `${source.title} copy` : 'Untitled',
       pinned: false,
-      trashed: false,
-      folderId: null,
-      order: topOrder,
-      content: emptyDocument(),
-      plainText: '',
+      order: source.order - ORDER_STEP / 2,
       createdAt: now,
       updatedAt: now,
       revision: 0,
       sealed: null,
-      tint: null,
     }
-    const nextNotes = [note, ...state.notes]
-    rememberActive(id)
-    // markDirty already returns `notes` (identity patch → same order); a
-    // separate key here was dead weight TS flagged as a duplicate.
-    set({
-      activeNoteId: id,
-      tagFilter: null,
-      focusMode: false,
-      ...markDirty(nextNotes, id, state.dirtyIds, (item) => item),
-    })
+    set(markDirty([copy, ...state.notes], copy.id, state.dirtyIds, (note) => note))
     schedulePersist()
-    return id
+  },
+
+  /**
+   * Moves a note under another parent (sidebar “Move”). Guarded: a note
+   * can never move under itself or one of its own descendants.
+   */
+  setNoteParent: (id, parentNoteId) => {
+    const state = get()
+    if (parentNoteId === id) return
+    if (parentNoteId) {
+      // Walk the proposed parent's ancestry; hitting the moved note = cycle.
+      let cursor: string | null = parentNoteId
+      for (let guard = 0; cursor && guard < 100; guard += 1) {
+        if (cursor === id) return
+        cursor = state.notes.find((note) => note.id === cursor)?.parentNoteId ?? null
+      }
+    }
+    set(
+      markDirty(state.notes, id, state.dirtyIds, (note) => ({
+        ...note,
+        parentNoteId,
+        updatedAt: new Date().toISOString(),
+      }))
+    )
+    schedulePersist()
+  },
+
+  setIcon: (id, icon) => {
+    const state = get()
+    set(
+      markDirty(state.notes, id, state.dirtyIds, (note) => ({
+        ...note,
+        icon,
+        updatedAt: new Date().toISOString(),
+      }))
+    )
+    schedulePersist()
+  },
+
+  setNoteKind: (id, kind) => {
+    const state = get()
+    set(
+      markDirty(state.notes, id, state.dirtyIds, (note) => ({
+        ...note,
+        // Kind defaults fill the gaps; explicit user choices survive.
+        pageStyle: { ...kindBaseStyle(kind), ...note.pageStyle, kind },
+        updatedAt: new Date().toISOString(),
+      }))
+    )
+    schedulePersist()
   },
 
   setTitle: (id, title) => {
@@ -306,12 +434,12 @@ export const useNotesStore = create<NotesState>((set, get) => ({
     schedulePersist()
   },
 
-  setTint: (id, tint) => {
+  setPageStyle: (id, patch) => {
     const state = get()
     set(
       markDirty(state.notes, id, state.dirtyIds, (note) => ({
         ...note,
-        tint,
+        pageStyle: { ...note.pageStyle, ...patch },
         updatedAt: new Date().toISOString(),
       }))
     )
@@ -395,6 +523,8 @@ export const useNotesStore = create<NotesState>((set, get) => ({
   },
 
   closeAssistant: () => set({ assistant: { ...get().assistant, open: false, status: 'idle' } }),
+
+  setTrashOpen: (trashOpen) => set({ trashOpen }),
 
   setAssistantPrompt: (prompt) => set({ assistant: { ...get().assistant, prompt } }),
 

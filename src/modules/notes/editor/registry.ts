@@ -1,7 +1,7 @@
 import type { AnyExtension, Editor } from '@tiptap/core'
 import type { LucideIcon } from 'lucide-react'
 
-export type SlashCategory = 'ai' | 'basic' | 'media' | 'advanced'
+export type SlashCategory = 'basic' | 'links' | 'media' | 'advanced' | 'secure' | 'ai'
 
 export interface SlashCommand {
   id: string
@@ -10,6 +10,8 @@ export interface SlashCommand {
   category: SlashCategory
   keywords: string[]
   icon: LucideIcon
+  /** Markdown alias shown on the right of the menu (e.g. `#`, `[]`, ``` ```). */
+  shortcut?: string
   /**
    * Top/most-used modules show up front in the slash menu before anything
    * is typed. Everything else stays reachable by typing to search.
@@ -22,7 +24,11 @@ export interface SlashCommand {
 
 export interface EditorModule {
   id: string
-  extensions: AnyExtension[]
+  /**
+   * The TipTap schema this module contributes. Command-only modules (like
+   * AI, which only opens the assistant) may omit it.
+   */
+  extensions?: AnyExtension[]
   commands?: SlashCommand[]
 }
 
@@ -35,9 +41,28 @@ export function registerEditorModule(module: EditorModule) {
 }
 
 export function getEditorExtensions(): AnyExtension[] {
-  return modules.flatMap((module) => module.extensions)
+  return modules.flatMap((module) => module.extensions ?? [])
 }
 
 export function getSlashCommands(): SlashCommand[] {
   return modules.flatMap((module) => module.commands ?? [])
+}
+
+/** Category display order (Slash menu v2 groups). */
+export const SLASH_CATEGORY_ORDER: SlashCategory[] = [
+  'basic',
+  'links',
+  'media',
+  'advanced',
+  'secure',
+  'ai',
+]
+
+export const SLASH_CATEGORY_LABEL: Record<SlashCategory, string> = {
+  basic: 'Basic',
+  links: 'Links',
+  media: 'Media',
+  advanced: 'Advanced',
+  secure: 'Secure',
+  ai: 'AI',
 }

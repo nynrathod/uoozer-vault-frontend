@@ -1,452 +1,551 @@
-import { useEffect, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
-import {
-  Check,
-  ChevronLeft,
-  Loader2,
-  Maximize2,
-  MoreHorizontal,
-  Palette,
-  Pin,
-  Sparkles,
-  Star,
-  StickyNote,
-  Trash2,
-  X,
-} from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Hourglass, Image as ImageIcon, Lightbulb, Smile, Sun, X } from 'lucide-react'
 import { ROUTES } from '@lib/constants'
-import { cn } from '@lib/utils'
 import { useIsMobile } from '@/hooks/useMediaQuery'
-import { noteUiBus } from '../bus'
-import { countWords, viewFromPath, visibleNotes } from '../document'
-import { formatNoteTime } from '../formatNoteTime'
+import { useUIStore } from '@/stores/uiStore'
+import { templateById } from '../data/pageStyles'
+import { useNoteKeyboard } from '../hooks/useNoteKeyboard'
+import { useNoteLifecycle } from '../hooks/useNoteLifecycle'
+import { useNotesView } from '../hooks/useNotesView'
 import { NoteEditorProvider, NoteEditorSurface } from '../editor/NoteEditorProvider'
-import { flushNotes, useNotesStore } from '../store/notesStore'
-import { NOTE_TINTS, type SaveStatus } from '../types'
-import { AskAssistant } from './AskAssistant'
-import { BlockHandle } from './BlockHandle'
-import { EmojiPicker } from './EmojiPicker'
-import { NotesList } from './NotesList'
-import { SelectionBubble } from './SelectionBubble'
-import { SlashMenu } from './SlashMenu'
-import { TableHandles } from './TableHandles'
+import { onUiEvent } from '../editor/uiEvents'
+import { useActiveNote } from '../store/selectors'
+import { useNotesStore } from '../store/notesStore'
+import { countWords } from '../utils/document'
+import { AskAssistant } from './editor/AskAssistant'
+import { BlockHandle } from './editor/BlockHandle'
+import { BlockSelection } from './editor/BlockSelection'
+import { EmojiPicker } from './editor/EmojiPicker'
+import { EmojiPopover } from './editor/EmojiPopover'
+import { MentionPicker } from './editor/MentionPicker'
+import { MobileFormatBar } from './editor/MobileFormatBar'
+import { SelectionBubble } from './editor/SelectionBubble'
+import { SlashMenu } from './editor/SlashMenu'
+import {
+  JournalFoot,
+  NotepadSquiggle,
+  NotepadTray,
+  PlayfulDock,
+  SafeFoot,
+  SafeRibbon,
+  useSafeVeil,
+  WriterDock,
+  WriterTopStrip,
+} from './kinds/NoteKindChrome'
+import { NoteCover } from './NoteCover'
+import { NoteFooter } from './layout/NoteFooter'
+import { NoteHeader } from './layout/NoteHeader'
+import { NotePageStyleMenu } from './layout/NotePageStyleMenu'
+import { NoteTagRow } from './layout/NoteTagRow'
+import { TrashDialog } from './TrashDialog'
+import { NotesFirstRun, NotesNoSelection, NotesViewEmpty } from './states/NotesEmptyStates'
+import type { NoteKind, NoteRecord } from '../types'
+
+/* ============================================================================
+ * NOTES WORKSPACE — the module's only top-level screen: the note canvas next
+ * to the app's ONE sidebar. The project has a single sidebar (the shell's
+ * Sidebar) and on /notes its Notes section IS the notes tree
+ * (components/NotesSidebarNav — same file path the shell already imports).
+ * This screen renders NO sidebar, NO list pane, NO trash pane — the old
+ * NotesListPane is deleted; navigation lives only in the shell sidebar and
+ * trash lives only in components/TrashDialog (Notion's pattern). On mobile
+ * the shell sidebar becomes the drawer (Header hamburger / back button) —
+ * one sidebar everywhere, nothing that can conflict with Files.
+ * ==========================================================================*/
+
+const COVER_KINDS_BADGE: NoteKind[] = ['playful', 'journal', 'capsule', 'stickyBoard']
+
+const KIND_FALLBACK_ICON: Partial<Record<NoteKind, typeof Lightbulb>> = {
+  playful: Lightbulb,
+  journal: Sun,
+  capsule: Hourglass,
+}
 
 export function NotesWorkspace() {
   const navigate = useNavigate()
-  const { pathname } = useLocation()
   const isMobile = useIsMobile()
-  const view = viewFromPath(pathname)
+  const view = useNotesView()
+  useNoteKeyboard()
+  const { notice, dismissNotice } = useNoteLifecycle()
+
+  const note = useActiveNote()
   const notes = useNotesStore((state) => state.notes)
-  const activeNoteId = useNotesStore((state) => state.activeNoteId)
-  const tagFilter = useNotesStore((state) => state.tagFilter)
+  const hydrated = useNotesStore((state) => state.hydrated)
   const focusMode = useNotesStore((state) => state.focusMode)
-  const saveStatus = useNotesStore((state) => state.saveStatus)
   const saveError = useNotesStore((state) => state.saveError)
   const loadError = useNotesStore((state) => state.loadError)
-  const assistantOpen = useNotesStore((state) => state.assistant.open)
-  const setActive = useNotesStore((state) => state.setActive)
   const setTagFilter = useNotesStore((state) => state.setTagFilter)
-  const setFocusMode = useNotesStore((state) => state.setFocusMode)
-  const closeAssistant = useNotesStore((state) => state.closeAssistant)
-  const [mobileEditor, setMobileEditor] = useState(false)
-  const [notice, setNotice] = useState<string | null>(null)
-  const [menuOpen, setMenuOpen] = useState(false)
-  const note = notes.find((item) => item.id === activeNoteId) ?? null
+
+  const sidebarOpen = useUIStore((state) => state.sidebarOpen)
+
+  const [styleOpen, setStyleOpen] = useState(false)
 
   useEffect(() => {
-    const flush = () => flushNotes()
-    window.addEventListener('beforeunload', flush)
-    const onHide = () => {
-      if (document.visibilityState === 'hidden') flushNotes()
-    }
-    document.addEventListener('visibilitychange', onHide)
-    return () => {
-      flushNotes()
-      window.removeEventListener('beforeunload', flush)
-      document.removeEventListener('visibilitychange', onHide)
-    }
-  }, [])
+    if (view !== 'trash') return
+    useNotesStore.getState().setTrashOpen(true)
+    navigate(ROUTES.NOTES, { replace: true })
+  }, [view, navigate])
 
+  // /burn and /lock slash commands open the page-style panel.
   useEffect(
     () =>
-      noteUiBus.subscribe((event) => {
-        if (event.type === 'assistant.open') {
-          useNotesStore.getState().openAssistant(event.text ? { scope: 'selection', text: event.text } : undefined)
-        }
-        if (event.type === 'notify') setNotice(event.message)
+      onUiEvent((event) => {
+        if (event.type === 'style.open') setStyleOpen(true)
       }),
     []
   )
 
-  useEffect(() => {
-    if (!notice) return
-    const timer = window.setTimeout(() => setNotice(null), 4200)
-    return () => window.clearTimeout(timer)
-  }, [notice])
-
-  useEffect(() => {
-    if (view !== 'all' && tagFilter) setTagFilter(null)
-  }, [view, tagFilter, setTagFilter])
-
-  useEffect(() => {
-    const visible = visibleNotes(notes, view, view === 'all' ? tagFilter : null, '')
-    if (activeNoteId && visible.some((item) => item.id === activeNoteId)) return
-    setActive(visible[0]?.id ?? null)
-  }, [notes, view, tagFilter, activeNoteId, setActive])
-
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
-      if (useNotesStore.getState().assistant.open) {
-        closeAssistant()
-        return
-      }
-      if (useNotesStore.getState().focusMode) setFocusMode(false)
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [closeAssistant, setFocusMode])
-
   const create = () => {
     useNotesStore.getState().createNote()
     navigate(ROUTES.NOTES)
-    setMobileEditor(true)
   }
 
-  const showList = !focusMode && (!isMobile || !mobileEditor)
-  const showNote = focusMode || !isMobile || mobileEditor
-  const words = countWords(note?.plainText ?? '')
+  const createFromTemplate = (templateId: string) => {
+    useNotesStore.getState().createNote(templateById(templateId))
+    navigate(ROUTES.NOTES)
+  }
+
+  const firstRun = hydrated && notes.length === 0
 
   return (
-    <div className={focusMode ? 'note-focus' : 'flex h-full min-h-0'}>
-      {showList && <NotesList view={view} onCreate={create} />}
-      {showNote && (
-        <section className="flex min-w-0 flex-1 flex-col">
-          {note ? (
-            <>
-              <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border/60 px-3 sm:px-4">
-                {focusMode ? (
-                  <button
-                    type="button"
-                    className="border-border/70 bg-card text-foreground flex h-8 items-center gap-2 rounded-full border px-3 text-[13px] font-medium shadow-xs transition-colors duration-150 hover:bg-accent"
-                    onClick={() => setFocusMode(false)}
-                  >
-                    <ChevronLeft className="text-muted-foreground h-3.5 w-3.5" />
-                    Exit focus
-                    <kbd className="note-kbd">esc</kbd>
-                  </button>
-                ) : (
-                  <>
-                    {isMobile && (
-                      <button
-                        type="button"
-                        className="text-muted-foreground hover:bg-accent hover:text-foreground flex items-center gap-1 rounded-lg px-2 py-1.5 text-[13px] font-medium transition-colors duration-150"
-                        onClick={() => setMobileEditor(false)}
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                        Notes
-                      </button>
-                    )}
-                    {!isMobile && (
-                      <p className="text-muted-foreground min-w-0 truncate text-[13px]">
-                        Notes
-                        <span className="text-muted-foreground/40 px-1.5">/</span>
-                        <span className="text-foreground font-medium">{note.title || 'Untitled'}</span>
-                      </p>
-                    )}
-                  </>
-                )}
-
-                <div className="ml-auto flex items-center gap-1">
-                  <p className="text-muted-foreground hidden text-[12px] tabular-nums lg:block">
-                    Edited {formatNoteTime(note.updatedAt)}
-                  </p>
-                  <SaveState status={saveStatus} error={saveError} />
-                  {!focusMode && (
-                    <button
-                      type="button"
-                      title={note.starred ? 'Unstar' : 'Star'}
-                      className={cn(
-                        'text-muted-foreground hover:bg-accent hover:text-foreground rounded-lg p-2 transition-colors duration-150',
-                        note.starred && 'text-[hsl(var(--warning))] hover:text-[hsl(var(--warning))]'
-                      )}
-                      onClick={() => useNotesStore.getState().toggleStar(note.id)}
-                    >
-                      <Star className={cn('h-4 w-4', note.starred && 'fill-current')} />
-                    </button>
-                  )}
-                  {!focusMode && (
-                    <button
-                      type="button"
-                      title="Focus mode"
-                      className="text-muted-foreground hover:bg-accent hover:text-foreground rounded-lg p-2 transition-colors duration-150"
-                      onClick={() => setFocusMode(true)}
-                    >
-                      <Maximize2 className="h-4 w-4" strokeWidth={1.75} />
-                    </button>
-                  )}
-                  {!focusMode && (
-                    <button
-                      type="button"
-                      className="bg-primary/10 text-primary hover:bg-primary/15 ml-1 flex h-8 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium transition-colors duration-150"
-                      onClick={() => useNotesStore.getState().openAssistant()}
-                    >
-                      <Sparkles className="h-3.5 w-3.5" />
-                      Ask AI
-                    </button>
-                  )}
-                  {!focusMode && (
-                    <div className="relative">
-                      <button
-                        type="button"
-                        className="text-muted-foreground hover:bg-accent hover:text-foreground rounded-lg p-2 transition-colors duration-150"
-                        aria-label="Note actions"
-                        onClick={() => setMenuOpen((open) => !open)}
-                      >
-                        <MoreHorizontal className="h-4 w-4" />
-                      </button>
-                      {menuOpen && (
-                        <>
-                          <div className="fixed inset-0 z-[39]" onClick={() => setMenuOpen(false)} />
-                          <div className="note-pop right-0 w-48">
-                            <button
-                              type="button"
-                              className="note-pop-item"
-                              onClick={() => {
-                                setFocusMode(true)
-                                setMenuOpen(false)
-                              }}
-                            >
-                              <Maximize2 className="h-3.5 w-3.5" /> Focus mode
-                            </button>
-                            <button
-                              type="button"
-                              className="note-pop-item"
-                              onClick={() => {
-                                useNotesStore.getState().togglePin(note.id)
-                                setMenuOpen(false)
-                              }}
-                            >
-                              <Pin className="h-3.5 w-3.5" /> {note.pinned ? 'Unpin' : 'Pin'}
-                            </button>
-                            <span className="note-pop-sep" />
-                            <div className="px-2 pb-1.5 pt-1.5">
-                              <p className="text-muted-foreground flex items-center gap-1.5 px-1 pb-1.5 text-[11px] font-semibold">
-                                <Palette className="h-3 w-3" /> Note color
-                              </p>
-                              <div className="flex items-center gap-1.5 px-1 pb-1">
-                                <button
-                                  type="button"
-                                  title="Default"
-                                  aria-label="Default note color"
-                                  className={cn('note-tint-dot is-default', !note.tint && 'is-active')}
-                                  onClick={() => useNotesStore.getState().setTint(note.id, null)}
-                                />
-                                {NOTE_TINTS.map((tint) => (
-                                  <button
-                                    key={tint}
-                                    type="button"
-                                    title={tint.charAt(0).toUpperCase() + tint.slice(1)}
-                                    aria-label={`${tint} note color`}
-                                    className={cn('note-tint-dot', `note-tint-${tint}`, note.tint === tint && 'is-active')}
-                                    onClick={() => useNotesStore.getState().setTint(note.id, tint)}
-                                  />
-                                ))}
-                              </div>
-                            </div>
-                            <span className="note-pop-sep" />
-                            <button
-                              type="button"
-                              className="note-pop-item note-pop-danger"
-                              onClick={() => {
-                                useNotesStore.getState().trashNote(note.id, view)
-                                setMenuOpen(false)
-                                setMobileEditor(false)
-                              }}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" /> Move to trash
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </header>
-
-              {(loadError || notice || saveError) && (
-                <div className="bg-secondary/70 text-foreground flex items-start gap-2 border-b border-border/60 px-4 py-2 text-[12px]">
-                  <p className="min-w-0 flex-1">{notice || saveError || loadError}</p>
-                  <button
-                    type="button"
-                    aria-label="Dismiss"
-                    className="text-muted-foreground hover:text-foreground transition-colors"
-                    onClick={() => setNotice(null)}
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              )}
-
-              <NoteEditorProvider
-                noteId={note.id}
-                content={note.content}
-                onChange={(id, content) => useNotesStore.getState().setContent(id, content)}
-              >
-                <div
-                  className={cn(
-                    'note-canvas min-h-0 flex-1 overflow-y-auto',
-                    note.tint && `note-tint-${note.tint}`
-                  )}
+    <div className={focusMode ? 'note-focus' : 'note-lite flex h-full min-h-0'}>
+      <section className="note-lite-main">
+        {note ? (
+          <NoteScreen
+            note={note}
+            focusMode={focusMode}
+            isMobile={isMobile}
+            styleOpen={styleOpen}
+            setStyleOpen={setStyleOpen}
+            onExpandSidebar={
+              !isMobile && !sidebarOpen
+                ? () => useUIStore.getState().setSidebarOpen(true)
+                : undefined
+            }
+            onExitMobileEditor={() => useUIStore.getState().setMobileMenuOpen(true)}
+            onWriterExit={() => useNotesStore.getState().setNoteKind(note.id, 'paper')}
+            onOpenTag={(tag) => {
+              setTagFilter(tag)
+              navigate(ROUTES.NOTES)
+            }}
+          >
+            {(loadError || notice || saveError) && (
+              <div className="bg-secondary/70 text-foreground border-border/60 flex items-start gap-2 border-b px-4 py-2 text-[12px]">
+                <p className="min-w-0 flex-1">{notice || saveError || loadError}</p>
+                <button
+                  type="button"
+                  aria-label="Dismiss"
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={dismissNotice}
                 >
-                  <div className="note-page mx-auto w-full max-w-[780px] px-6 pt-9 sm:px-10 sm:pt-12">
-                    <input
-                      value={note.title}
-                      aria-label="Note title"
-                      placeholder="Untitled"
-                      onChange={(event) => useNotesStore.getState().setTitle(note.id, event.target.value)}
-                      className="placeholder:text-muted-foreground/40 text-foreground w-full bg-transparent text-[2.25rem] leading-[1.15] font-bold tracking-tight outline-none"
-                    />
-                    {!focusMode && (
-                      <TagRow
-                        tags={note.tags}
-                        onChange={(tags) => useNotesStore.getState().setTags(note.id, tags)}
-                        onOpen={(tag) => {
-                          setTagFilter(tag)
-                          navigate(ROUTES.NOTES)
-                        }}
-                      />
-                    )}
-                    <NoteEditorSurface />
-                    <SlashMenu />
-                    <EmojiPicker />
-                    <SelectionBubble />
-                    <BlockHandle />
-                    <TableHandles />
-                  </div>
-                </div>
-
-                <footer
-                  className={cn(
-                    'text-muted-foreground flex h-9 shrink-0 items-center justify-between border-t px-4 text-[11px] tabular-nums',
-                    focusMode ? 'border-transparent px-6' : 'border-border/60'
-                  )}
-                >
-                  <span>
-                    {words.words} words{words.minutes > 0 ? ` · ${words.minutes} min read` : ''}
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="h-1.5 w-1.5 rounded-full bg-[hsl(var(--success))]" />
-                    End-to-end encrypted
-                  </span>
-                </footer>
-
-                {assistantOpen && <AskAssistant />}
-              </NoteEditorProvider>
-            </>
-          ) : (
-            <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-              <div className="bg-secondary text-muted-foreground flex h-12 w-12 items-center justify-center rounded-full">
-                <StickyNote className="h-5 w-5" strokeWidth={1.75} />
+                  <X className="h-3.5 w-3.5" />
+                </button>
               </div>
-              <p className="text-muted-foreground text-[13px]">
-                {view === 'trash' ? 'Nothing in the trash.' : 'No note in this view.'}
-              </p>
-              <button
-                type="button"
-                className="bg-primary text-primary-foreground h-9 rounded-lg px-4 text-[13px] font-medium shadow-sm transition-all duration-150 hover:shadow-md active:scale-[0.98]"
-                onClick={create}
-              >
-                New note
-              </button>
-            </div>
-          )}
-        </section>
+            )}
+          </NoteScreen>
+        ) : firstRun ? (
+          <NotesFirstRun onCreateFromTemplate={createFromTemplate} />
+        ) : !hydrated ? (
+          <div className="flex flex-1 items-center justify-center">
+            <span className="note-ai-dots" aria-label="Loading notes">
+              <span />
+              <span />
+              <span />
+            </span>
+          </div>
+        ) : notes.some((item) => !item.trashed) ? (
+          <NotesNoSelection
+            onOpen={(id) => {
+              useNotesStore.getState().setActive(id)
+            }}
+            onCreateFromTemplate={createFromTemplate}
+          />
+        ) : (
+          <NotesViewEmpty view={view} onCreate={create} />
+        )}
+      </section>
+
+      <TrashDialog />
+    </div>
+  )
+}
+
+/* ── The note screen: header + kind canvas + editor + kind chrome ────────── */
+
+function NoteScreen({
+  note,
+  focusMode,
+  isMobile,
+  styleOpen,
+  setStyleOpen,
+  onExpandSidebar,
+  onExitMobileEditor,
+  onWriterExit,
+  onOpenTag,
+  children,
+}: {
+  note: NoteRecord
+  focusMode: boolean
+  isMobile: boolean
+  styleOpen: boolean
+  setStyleOpen: (open: boolean) => void
+  onExpandSidebar?: () => void
+  onExitMobileEditor: () => void
+  onWriterExit: () => void
+  onOpenTag: (tag: string) => void
+  children?: ReactNode
+}) {
+  const kind = note.pageStyle.kind
+  const veil = useSafeVeil(kind === 'safe')
+  const assistantOpen = useNotesStore((state) => state.assistant.open)
+  const showLiteHeader = !focusMode && kind !== 'writer' && kind !== 'safe' && !isMobile
+  const FallbackIcon = KIND_FALLBACK_ICON[kind] ?? null
+
+  /* Emoji icon picking (page icon) — one shared popover, anchored to the
+     tile. No window.prompt anywhere in the module. */
+  const [iconPicker, setIconPicker] = useState(false)
+  const iconAnchorRef = useRef<HTMLElement | null>(null)
+  const pickIcon = (element: HTMLElement | null) => {
+    iconAnchorRef.current = element
+    setIconPicker(true)
+  }
+  const setIcon = (icon: string | null) => useNotesStore.getState().setIcon(note.id, icon)
+
+  /* Cover actions — "Add cover" APPLIES a preset right away (the button can
+     never feel dead) and opens the style menu to change it; a set cover
+     shows Notion's Change cover / Remove pair on hover. The row exists for
+     EVERY editable kind (it was paper-only before, which made "Add cover"
+     look broken on the other screens). */
+  const applyDefaultCover = () => {
+    useNotesStore.getState().setPageStyle(note.id, { cover: 'sunrise' })
+    setStyleOpen(true)
+  }
+  const removeCover = () => useNotesStore.getState().setPageStyle(note.id, { cover: null })
+
+  /* Notion's quiet "Add icon · Add cover" row — shown above the title on
+     every kind that renders a page body (not focus mode). */
+  const showPageActions = !focusMode && kind !== 'writer' && kind !== 'safe' && kind !== 'notepad'
+  const pageActions = showPageActions ? (
+    <div className="note-page-actions">
+      {!note.icon && (
+        <button
+          type="button"
+          className="note-page-action"
+          onClick={(event) => pickIcon(event.currentTarget)}
+        >
+          <Smile className="h-4 w-4" strokeWidth={1.6} aria-hidden="true" />
+          Add icon
+        </button>
+      )}
+      {!note.pageStyle.cover && (
+        <button type="button" className="note-page-action" onClick={applyDefaultCover}>
+          <ImageIcon className="h-4 w-4" strokeWidth={1.6} aria-hidden="true" />
+          Add cover
+        </button>
       )}
     </div>
-  )
-}
+  ) : null
 
-function SaveState({ status, error }: { status: SaveStatus; error: string | null }) {
-  if (status === 'saving') {
-    return (
-      <span className="text-muted-foreground flex items-center gap-1.5 px-2 text-[12px] tabular-nums">
-        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        Saving…
-      </span>
-    )
-  }
-  if (status === 'error') {
-    return (
-      <button
-        type="button"
-        className="text-destructive hover:bg-destructive/10 rounded-lg px-2 py-1 text-[12px] font-medium transition-colors duration-150"
-        onClick={() => flushNotes()}
-      >
-        {error ? 'Retry save' : 'Not saved'}
-      </button>
-    )
-  }
-  return (
-    <span className="flex items-center gap-1 px-2 text-[12px] font-medium text-[hsl(var(--success))]">
-      <Check className="h-3.5 w-3.5" strokeWidth={2.5} /> Saved
-    </span>
-  )
-}
-
-function TagRow({
-  tags,
-  onChange,
-  onOpen,
-}: {
-  tags: string[]
-  onChange: (tags: string[]) => void
-  onOpen: (tag: string) => void
-}) {
-  const [draft, setDraft] = useState('')
-  const add = () => {
-    const next = draft.trim().replace(/^#/, '').toLowerCase()
-    if (!next || tags.includes(next)) {
-      setDraft('')
-      return
-    }
-    onChange([...tags, next])
-    setDraft('')
-  }
-  return (
-    <div className="mt-3 flex flex-wrap items-center gap-1.5">
-      {tags.map((tag) => (
-        <span
-          key={tag}
-          className="bg-secondary/80 text-foreground/75 flex items-center gap-0.5 rounded-full py-0.5 pl-2.5 pr-1 text-[12px] font-medium transition-colors duration-150 hover:bg-accent"
+  const titleBlock = (
+    <>
+      {/* Kinds with covers use the round badge; paper uses the 44px tile. */}
+      {COVER_KINDS_BADGE.includes(kind) ? (
+        <div
+          className="note-icon-badge"
+          role="button"
+          tabIndex={0}
+          title="Change icon"
+          onClick={(event) => pickIcon(event.currentTarget)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') pickIcon(event.currentTarget)
+          }}
         >
-          <button type="button" className="hover:text-primary transition-colors" onClick={() => onOpen(tag)}>
-            #{tag}
-          </button>
-          <button
-            type="button"
-            className="text-muted-foreground/60 hover:text-destructive flex h-4 w-4 items-center justify-center rounded-full transition-colors"
-            aria-label={`Remove ${tag}`}
-            onClick={() => onChange(tags.filter((item) => item !== tag))}
-          >
-            <X className="h-3 w-3" strokeWidth={2.5} />
-          </button>
+          {note.icon ??
+            (FallbackIcon ? (
+              <FallbackIcon className="h-[26px] w-[26px]" strokeWidth={1.6} aria-hidden="true" />
+            ) : null)}
+        </div>
+      ) : (
+        <span
+          className="note-lite-icontile"
+          role="button"
+          tabIndex={0}
+          title="Change icon"
+          onClick={(event) => pickIcon(event.currentTarget)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') pickIcon(event.currentTarget)
+          }}
+        >
+          {note.icon ??
+            (FallbackIcon ? (
+              <FallbackIcon className="h-6 w-6" strokeWidth={1.6} aria-hidden="true" />
+            ) : (
+              '•'
+            ))}
         </span>
-      ))}
-      <input
-        value={draft}
-        onChange={(event) => setDraft(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter') {
-            event.preventDefault()
-            add()
-          }
-        }}
-        onBlur={add}
-        placeholder="Add tag"
-        aria-label="Add tag"
-        className="placeholder:text-muted-foreground/50 w-24 rounded-full bg-transparent px-2 py-0.5 text-[12px] outline-none transition-[width] duration-150 focus:w-32"
-      />
-    </div>
+      )}
+    </>
   )
+
+  const canvasAttrs = {
+    'data-background': note.pageStyle.background,
+    'data-font': note.pageStyle.font,
+    'data-textsize': note.pageStyle.textSize,
+    'data-fullwidth': String(note.pageStyle.fullWidth),
+    'data-kind': kind,
+    ...(note.pageStyle.cover ? { 'data-cover': note.pageStyle.cover } : {}),
+  }
+
+  const columnClass =
+    kind === 'writer'
+      ? 'mx-auto w-full max-w-[640px] px-6 pt-24 sm:px-10'
+      : kind === 'safe'
+        ? 'mx-auto w-full max-w-[700px] px-6 pt-16 sm:px-10'
+        : COVER_KINDS_BADGE.includes(kind)
+          ? 'mx-auto w-full max-w-[720px] px-8 sm:px-16'
+          : kind === 'notepad'
+            ? 'note-pad-body'
+            : 'note-page mx-auto w-full max-w-[700px] px-6 pt-7 sm:px-10 sm:pt-7'
+
+  const metaRow = (
+    <>
+      {!focusMode && kind !== 'notepad' && (
+        <NoteTagRow
+          tags={note.tags}
+          onChange={(tags) => useNotesStore.getState().setTags(note.id, tags)}
+          onOpen={onOpenTag}
+        />
+      )}
+    </>
+  )
+
+  /* Cover — for EVERY kind once it is set (this is what made "Add cover"
+     look broken before: only four kinds ever rendered it). Hover shows
+     Notion's Change cover · Remove controls. */
+  const coverBlock = note.pageStyle.cover ? (
+    <div className="note-cover-holder">
+      <div className="note-cover-frame">
+        <NoteCover value={note.pageStyle.cover} />
+        {COVER_KINDS_BADGE.includes(kind) && (
+          <span className="note-cover-badge">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.75}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <rect x="4" y="11" width="16" height="10" rx="2" />
+              <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+            </svg>
+            Only you can read this
+          </span>
+        )}
+        <div className="note-cover-actions">
+          <button type="button" className="note-cover-action" onClick={() => setStyleOpen(true)}>
+            Change cover
+          </button>
+          <button type="button" className="note-cover-action" onClick={removeCover}>
+            Remove
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null
+
+  return (
+    <>
+      {showLiteHeader && (
+        <NoteHeader
+          note={note}
+          view="all"
+          focusMode={focusMode}
+          isMobile={isMobile}
+          onExitMobileEditor={onExitMobileEditor}
+          onOpenStyle={() => setStyleOpen(true)}
+          onExpandSidebar={onExpandSidebar}
+        />
+      )}
+      {children}
+      <NoteEditorProvider
+        noteId={note.id}
+        content={note.content}
+        onChange={(id, content) => useNotesStore.getState().setContent(id, content)}
+      >
+        <div
+          className={`note-canvas min-h-0 flex-1 overflow-y-auto ${veil.veiled && !veil.peeking ? 'note-safe-veiled' : ''} ${veil.peeking ? 'note-safe-peek' : ''}`}
+          {...canvasAttrs}
+        >
+          {kind === 'safe' && <SafeRibbon />}
+          {kind === 'writer' && !focusMode && <WriterTopStrip onExit={onWriterExit} />}
+
+          {coverBlock}
+
+          {COVER_KINDS_BADGE.includes(kind) ? (
+            <div className="note-card">
+              <div className="relative px-8 pb-6 sm:px-16">
+                <div style={{ marginTop: '-34px' }}>{titleBlock}</div>
+                <TitleInput note={note} />
+                {kind === 'journal' && (
+                  <p className="note-journal-meta">Journal · {formatDate(note.updatedAt)}</p>
+                )}
+                {kind === 'capsule' && (
+                  <div className="mt-3 flex items-center gap-2">
+                    <span className="note-capsule-kindpill">
+                      <Hourglass className="h-[13px] w-[13px]" aria-hidden="true" />
+                      Time capsule
+                    </span>
+                  </div>
+                )}
+                {metaRow}
+                {pageActions}
+                <NoteEditorSurface />
+              </div>
+            </div>
+          ) : kind === 'notepad' ? (
+            <div className="note-pad">
+              <div className="note-pad-rings" aria-hidden="true" />
+              <div className="note-pad-ruled flex-1">
+                <span className="note-pad-margin" aria-hidden="true" />
+                <span className="note-pad-badge">
+                  <svg
+                    width="13"
+                    height="13"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={1.75}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <rect x="4" y="11" width="16" height="10" rx="2" />
+                    <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+                  </svg>
+                  Only you can read this
+                </span>
+                <div className={columnClass}>
+                  <TitleInput note={note} />
+                  <NotepadSquiggle />
+                  <p className="note-pad-meta">{formatDate(note.updatedAt)}</p>
+                  {metaRow}
+                  <NoteEditorSurface />
+                </div>
+                <p className="note-pad-foot">
+                  <span>
+                    {countWords(note.plainText).words} words · sealed when you close the pad
+                  </span>
+                  <span className="flex items-center">
+                    <span className="note-pad-foot-dot" />
+                    End-to-end encrypted
+                  </span>
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className={columnClass}>
+              {kind !== 'writer' && kind !== 'safe' && (
+                <div className="note-lite-titleblock">
+                  {titleBlock}
+                  <TitleInput note={note} />
+                </div>
+              )}
+              {kind === 'writer' && (
+                <p className="note-writer-date">{formatDate(note.updatedAt)}</p>
+              )}
+              {(kind === 'writer' || kind === 'safe') && <TitleInput note={note} />}
+              {kind === 'safe' && (
+                <div className="mt-3 flex items-center gap-2">
+                  {note.pageStyle.burnAfter !== 'off' && (
+                    <span className="note-safe-burn">
+                      <svg
+                        className="h-[13px] w-[13px]"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={1.75}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <circle cx="12" cy="13" r="8" />
+                        <path d="M12 9v4l2 2M9 2h6" />
+                      </svg>
+                      Burns in {note.pageStyle.burnAfter}
+                    </span>
+                  )}
+                </div>
+              )}
+              {metaRow}
+              {pageActions}
+              <NoteEditorSurface />
+            </div>
+          )}
+
+          <SlashMenu />
+          <EmojiPicker />
+          <MentionPicker />
+          <SelectionBubble />
+          <BlockHandle />
+          <BlockSelection />
+          {kind === 'notepad' && <NotepadTray />}
+          {kind === 'writer' && <WriterDock note={note} />}
+          {kind === 'playful' && !isMobile && <PlayfulDock />}
+          <NotePageStyleMenu
+            noteId={note.id}
+            open={styleOpen}
+            onClose={() => setStyleOpen(false)}
+            onPickIcon={(element) => pickIcon(element)}
+          />
+          <EmojiPopover
+            open={iconPicker}
+            onClose={() => setIconPicker(false)}
+            anchorEl={iconAnchorRef.current}
+            label="Change page icon"
+            onSelect={(char) => setIcon(char)}
+            onRemove={() => setIcon(null)}
+          />
+        </div>
+
+        {kind === 'safe' && <SafeFoot />}
+        {kind === 'journal' && <JournalFoot note={note} />}
+        {(kind === 'paper' || kind === 'stickyBoard') && (
+          <NoteFooter note={note} focusMode={focusMode} />
+        )}
+
+        {isMobile && !focusMode && <MobileFormatBar />}
+        {assistantOpen && <AskAssistant />}
+      </NoteEditorProvider>
+    </>
+  )
+}
+
+function TitleInput({ note }: { note: NoteRecord }) {
+  return (
+    <input
+      value={note.title}
+      aria-label="Note title"
+      placeholder="Untitled"
+      onChange={(event) => useNotesStore.getState().setTitle(note.id, event.target.value)}
+      className={`placeholder:text-muted-foreground/40 ${
+        COVER_KINDS_BADGE.includes(note.pageStyle.kind) || note.pageStyle.kind === 'notepad'
+          ? 'note-title-input mt-3 block w-full bg-transparent outline-none'
+          : 'note-lite-title-input note-title-input'
+      }`}
+    />
+  )
+}
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  })
 }

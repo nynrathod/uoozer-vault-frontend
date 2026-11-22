@@ -1,16 +1,7 @@
 import type { JSONContent } from '@tiptap/core'
 import { decryptMetadataObject, encryptMetadataObject } from '@lib/crypto'
 import { useAuthStore } from '@/stores/authStore'
-import type { SealedNoteBlob } from '../types'
-
-/**
- * Notes cipher boundary. The same vault DEK that encrypts file metadata
- * encrypts notes: XChaCha20-Poly1305 with a fresh 192-bit nonce per seal,
- * executed by the existing crypto worker. No plaintext ever crosses this
- * port. The note id is embedded in the sealed payload so a blob copied
- * between notes fails authentication instead of decrypting into the wrong
- * document.
- */
+import type { PageStyle, SealedNoteBlob } from '../types'
 
 export interface NotePlaintext {
   id: string
@@ -18,6 +9,9 @@ export interface NotePlaintext {
   tags: string[]
   plainText: string
   content: JSONContent
+  pageStyle?: PageStyle
+  parentNoteId?: string | null
+  icon?: string | null
 }
 
 export interface NoteCipher {
@@ -62,10 +56,16 @@ export function createVaultNoteCipher(getDek: () => Uint8Array | null): NoteCiph
     },
 
     async open(sealed: SealedNoteBlob) {
-      if (!isSealedBlob(sealed)) throw new NoteCipherError('This note was saved in an unknown format.')
+      if (!isSealedBlob(sealed)) {
+        throw new NoteCipherError('This note was saved in an unknown format.')
+      }
       const dek = getDek()
       if (!dek) throw new NoteCipherError('The vault is locked; notes cannot be decrypted yet.')
-      const opened = await decryptMetadataObject<NotePlaintext>(sealed.ciphertext, sealed.nonce, dek)
+      const opened = await decryptMetadataObject<NotePlaintext>(
+        sealed.ciphertext,
+        sealed.nonce,
+        dek
+      )
       if (!opened || typeof opened.id !== 'string') {
         throw new NoteCipherError('This note could not be decrypted with the current keys.')
       }

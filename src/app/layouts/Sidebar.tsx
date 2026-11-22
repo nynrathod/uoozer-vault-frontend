@@ -161,10 +161,14 @@ export function Sidebar() {
           </div>
         )}
 
-        {/* Sidebar navigation */}
-        <div className="flex-1 overflow-x-hidden overflow-y-auto pt-2">
+        <div
+          className={cn(
+            'min-h-0 flex-1 pt-2',
+            isNotesApp ? 'flex flex-col overflow-hidden' : 'overflow-x-hidden overflow-y-auto'
+          )}
+        >
           {/* App navigation */}
-          <nav className="space-y-px">
+          <nav className="shrink-0 space-y-px">
             {APP_ROWS.map((app) => (
               <NavLink
                 key={app.id}
@@ -210,7 +214,7 @@ export function Sidebar() {
             }}
             title="Search (⌘K)"
             className={cn(
-              'text-gray-strong hover:bg-hover-surface mt-3 flex h-7.5 w-full items-center gap-2.5 rounded-sm text-[13.5px] leading-7.5 transition-colors duration-120',
+              'text-gray-strong hover:bg-hover-surface mt-3 flex h-7.5 w-full shrink-0 items-center gap-2.5 rounded-sm text-[13.5px] leading-7.5 transition-colors duration-120',
               isExpanded ? 'px-2' : 'justify-center px-0'
             )}
           >
@@ -235,7 +239,7 @@ export function Sidebar() {
                 </p>
               )}
 
-              <nav className="space-y-px">
+              <nav className="shrink-0 space-y-px">
                 {LIBRARY.map((item) => (
                   <NavLink
                     key={item.path}

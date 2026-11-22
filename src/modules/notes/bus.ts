@@ -1,12 +1,12 @@
 export type NoteUiEvent =
-  | { type: 'assistant.open'; text?: string }
+  | { type: 'assistant.open'; text?: string; prompt?: string }
   | { type: 'notify'; tone: 'error' | 'info'; message: string }
+  | { type: 'note.open'; noteId?: string; label?: string }
 
 type Listener = (event: NoteUiEvent) => void
 
 const listeners = new Set<Listener>()
 
-/** Editor modules talk to the page through this bus, so nodes never import the store. */
 export const noteUiBus = {
   emit(event: NoteUiEvent) {
     listeners.forEach((listener) => listener(event))

@@ -1,13 +1,4 @@
-/**
- * Tiny typed event pipe between editor extensions (which own no React tree)
- * and overlay components mounted inside NoteEditorProvider (which do).
- *
- * Example: the slash menu's "Emoji" command runs deep inside the editor
- * module registry and cannot render UI itself — it emits 'emoji.open' and
- * the EmojiPicker component listens for it and pops open at the caret.
- */
-
-export type NoteUiEvent = { type: 'emoji.open' }
+export type NoteUiEvent = { type: 'emoji.open' } | { type: 'link.open' } | { type: 'style.open' }
 
 const listeners = new Set<(event: NoteUiEvent) => void>()
 

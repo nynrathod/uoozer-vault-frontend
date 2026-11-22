@@ -1,11 +1,41 @@
 import { mergeAttributes, Node } from '@tiptap/core'
-import { Lock } from 'lucide-react'
-import { ReactNodeViewRenderer, NodeViewWrapper, NodeViewContent, type NodeViewProps } from '@tiptap/react'
+import { Check, AlertTriangle, Lock } from 'lucide-react'
+import {
+  ReactNodeViewRenderer,
+  NodeViewWrapper,
+  NodeViewContent,
+  type NodeViewProps,
+} from '@tiptap/react'
 
-function CalloutView({ node }: NodeViewProps) {
+const TONES = ['secure', 'success', 'warning'] as const
+type CalloutTone = (typeof TONES)[number]
+
+function nextTone(tone: string): CalloutTone {
+  const index = TONES.indexOf(tone as CalloutTone)
+  return TONES[(index + 1) % TONES.length] ?? 'secure'
+}
+
+const TONE_ICON: Record<CalloutTone, typeof Lock> = {
+  secure: Lock,
+  success: Check,
+  warning: AlertTriangle,
+}
+
+function CalloutView({ node, updateAttributes }: NodeViewProps) {
+  const tone = TONES.includes(node.attrs.tone) ? (node.attrs.tone as CalloutTone) : 'secure'
+  const Icon = TONE_ICON[tone]
   return (
-    <NodeViewWrapper className="note-callout" data-tone={String(node.attrs.tone ?? 'secure')}>
-      <Lock className="text-primary mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
+    <NodeViewWrapper className="note-callout" data-tone={tone}>
+      <button
+        type="button"
+        className="note-callout-icon"
+        contentEditable={false}
+        title="Change tone"
+        aria-label="Change callout tone"
+        onClick={() => updateAttributes({ tone: nextTone(tone) })}
+      >
+        <Icon className="h-4 w-4" strokeWidth={2} />
+      </button>
       <NodeViewContent className="note-callout-body" />
     </NodeViewWrapper>
   )
