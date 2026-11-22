@@ -1,0 +1,244 @@
+.note-prosemirror div.note-columns.note-col-block {
+  position: relative;
+  display: block;
+  gap: 0;
+}
+
+/* ── The PM content row: one flex track per column, flex = width percent ── */
+
+.note-prosemirror .note-col-row {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+}
+
+/* Column padding around each rule (Blocks-1: 12px on the rule-facing side) */
+.note-prosemirror .note-col-row > .note-column {
+  min-width: 0;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+.note-prosemirror .note-col-row > .note-column:first-child {
+  padding-left: 0;
+}
+.note-prosemirror .note-col-row > .note-column:last-child {
+  padding-right: 0;
+}
+
+/* ── The rule between columns: 1px #CFE0FD line + wide hit zone ─────────── */
+
+.note-prosemirror .note-col-rule {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: #cfe0fd;
+  cursor: col-resize;
+  touch-action: none;
+  z-index: 3;
+  transform: translateX(-50%);
+}
+/* Invisible hit zone so the 1px rule is actually grabbable. */
+.note-prosemirror .note-col-rule::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -8px;
+  right: -8px;
+}
+
+/* Block not hovered: the sheet's dimmed rule (#8A93A3 at opacity .25) */
+.note-prosemirror .note-col-block:not(:hover) .note-col-rule {
+  background: #8a93a3;
+  opacity: 0.25;
+}
+/* Block hovered: the Blocks-1 light rule */
+.note-prosemirror .note-col-block:hover .note-col-rule {
+  background: #cfe0fd;
+  opacity: 1;
+}
+/* While dragging, the active rule stays lit even if the pointer drifts off */
+.note-prosemirror .note-col-block.is-dragging .note-col-rule.is-active {
+  background: #cfe0fd;
+  opacity: 1;
+}
+
+/* ── Drag handle: 14×24 white pill + 6-dot glyph, exactly Blocks-1 ──────── */
+
+.note-prosemirror .note-col-handle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 14px;
+  height: 24px;
+  border-radius: 7px;
+  background: #ffffff;
+  box-shadow: 0 0 0 1px #bfd2f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #2563eb;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+.note-prosemirror .note-col-handle svg {
+  display: block;
+}
+.note-prosemirror .note-col-rule:hover .note-col-handle {
+  opacity: 1;
+}
+.note-prosemirror .note-col-block.is-dragging .note-col-rule.is-active .note-col-handle {
+  opacity: 1;
+}
+
+/* ── Width tooltip (while dragging) — Notes-Blocks-3 black pill ─────────── */
+
+.note-prosemirror .note-col-tooltip {
+  position: absolute;
+  top: -24px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: #111827;
+  color: #ffffff;
+  font-size: 12px;
+  line-height: 22px;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  z-index: 5;
+  pointer-events: none;
+}
+
+/* ── Hover toolbar — Notes-Blocks-3 white pill above the block ──────────── */
+
+.note-prosemirror .note-col-toolbar {
+  position: absolute;
+  left: 0;
+  top: -44px;
+  height: 34px;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow:
+    0 8px 24px rgba(17, 24, 39, 0.12),
+    0 0 0 1px rgba(17, 24, 39, 0.06);
+  padding: 0 6px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 13px;
+  white-space: nowrap;
+  z-index: 6;
+}
+.note-prosemirror .note-col-toolbar > button {
+  display: flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  color: #111827;
+}
+.note-prosemirror .note-col-toolbar > button:hover {
+  background: #f3f5f9;
+}
+.note-prosemirror .note-col-toolbar-count {
+  font-weight: 500;
+}
+.note-prosemirror .note-col-toolbar-equal {
+  color: #374151;
+}
+.note-prosemirror .note-col-toolbar-delete {
+  color: #b91c1c;
+}
+
+/* ── Count menu (240px) — rows with the N vertical bars glyph ───────────── */
+
+.note-prosemirror .note-col-menu {
+  position: absolute;
+  left: 0;
+  top: -6px;
+  width: 240px;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 6px;
+  box-shadow:
+    0 8px 24px rgba(17, 24, 39, 0.14),
+    0 0 0 1px rgba(17, 24, 39, 0.06);
+  display: flex;
+  flex-direction: column;
+  z-index: 7;
+}
+.note-prosemirror .note-col-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 34px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13.5px;
+  color: #374151;
+  text-align: left;
+}
+.note-prosemirror .note-col-menu-item:hover,
+.note-prosemirror .note-col-menu-item.is-active {
+  background: #f3f5f9;
+}
+.note-prosemirror .note-col-menu-bars {
+  display: flex;
+  gap: 2px;
+  width: 28px;
+  flex: none;
+}
+.note-prosemirror .note-col-menu-bar {
+  flex: 1;
+  height: 14px;
+  border-radius: 2px;
+  background: #8a93a3;
+}
+.note-prosemirror .note-col-menu-hint {
+  margin-left: auto;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* ── While dragging: force the resize cursor, stop text selection ───────── */
+
+body.note-col-resizing {
+  cursor: col-resize;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.note-prosemirror .note-col-block.is-dragging .note-col-row {
+  user-select: none;
+}
+
+/* ── Mobile: under 480px wide, columns stack (sheet caption) ────────────── */
+
+@media (max-width: 480px) {
+  .note-prosemirror .note-col-row {
+    flex-direction: column;
+    gap: 12px;
+  }
+  .note-prosemirror .note-col-row > .note-column {
+    flex: none !important; /* beats the inline flex:<width> on each track */
+    width: 100%;
+    max-width: 100%;
+    padding-left: 0;
+    padding-right: 0;
+  }
+  .note-prosemirror .note-col-rule,
+  .note-prosemirror .note-col-tooltip {
+    display: none;
+  }
+}
