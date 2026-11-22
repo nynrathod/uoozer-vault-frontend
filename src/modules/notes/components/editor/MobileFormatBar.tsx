@@ -20,6 +20,7 @@ import {
 import { useState } from 'react'
 import { useNoteEditor } from '../../editor/NoteEditorProvider'
 import { NOTE_SHADES } from '../../editor/colors'
+import { normalizeLinkHref } from '../../utils/linkUrl'
 
 export function MobileFormatBar() {
   const editor = useNoteEditor()
@@ -232,7 +233,7 @@ export function MobileFormatBar() {
             event.preventDefault()
             setLinkOpen(false)
             try {
-              const href = linkValue.trim()
+              const href = normalizeLinkHref(linkValue)
               if (!href) editor.chain().focus().unsetLink().run()
               else editor.chain().focus().extendMarkRange('link').setLink({ href }).run()
             } catch {

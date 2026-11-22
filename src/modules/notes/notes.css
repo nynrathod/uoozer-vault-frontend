@@ -77,9 +77,13 @@
 
 /* The grid: the contentDOM <table> (the renderer's <tbody> wraps PM's
    rows and stays a REAL row group — display:contents on a tbody breaks
-   prosemirror-tables' hit-testing and its colgroup patching). */
+   prosemirror-tables' hit-testing and its colgroup patching).
+   max-width:100% is the visual safety net under the JS fit pass: even if
+   colwidths ever drift, the fixed layout scales the columns down instead
+   of letting the grid spill past the page. */
 .note-prosemirror .note-table-grid {
   width: 100%;
+  max-width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
 }
@@ -120,27 +124,21 @@
   z-index: 2;
 }
 
-/* Column resize — the OLD thin border drag (prosemirror-tables), now
-   FINDABLE: hovering a cell lights its right border as a blue line AND a
-   small grip pill with a drag glyph, centered on the border. The plugin
-   hit-tests an 8px band by geometry (handleWidth: 8) — the pill sits
-   inside it, so the whole pill drags. Rows never resize. */
-.note-prosemirror .note-table-grid .column-resize-handle {
+/* Column resize — the view's OWN drag (the plugin's is off so it can be
+   CLAMPED to the page). The handle is a node-view child straddling the
+   HOVERED column's right border (8px hit band): a blue line + a grip pill
+   mark it, the pill is draggable. Only the dragged column changes; the
+   drag stops at (page − all other columns), so the grid never leaves the
+   page or the panel. Rows never resize. */
+.note-prosemirror .note-table-colhandle {
   position: absolute;
-  top: -1px;
-  bottom: -1px;
-  right: -4px;
   width: 8px;
-  display: none;
   z-index: 3;
   cursor: col-resize;
-}
-.note-prosemirror .note-table-grid th:hover .column-resize-handle,
-.note-prosemirror .note-table-grid td:hover .column-resize-handle {
-  display: block;
+  touch-action: none;
 }
 /* The blue guide line, centered on the border. */
-.note-prosemirror .note-table-grid .column-resize-handle::before {
+.note-prosemirror .note-table-colhandle::before {
   content: '';
   position: absolute;
   top: 0;
@@ -151,7 +149,7 @@
   background: #2383e2;
 }
 /* The grip pill (the "this is draggable" icon) — middle of the border. */
-.note-prosemirror .note-table-grid .column-resize-handle::after {
+.note-prosemirror .note-table-colhandle::after {
   content: '';
   position: absolute;
   top: 50%;
@@ -174,7 +172,7 @@
     0 0 0 1px rgb(15 15 15 / 0.1),
     0 1px 3px rgb(15 15 15 / 0.14);
 }
-.note-prosemirror .note-table-grid .column-resize-handle:hover::after {
+.note-prosemirror .note-table-colhandle:hover::after {
   background-image: repeating-linear-gradient(
     to right,
     transparent 0 1.5px,
@@ -185,8 +183,12 @@
     0 0 0 1px rgb(35 131 226 / 0.35),
     0 1px 3px rgb(15 15 15 / 0.14);
 }
-body.resize-cursor,
-.note-prosemirror .resize-cursor {
+body.note-table-resizing {
+  cursor: col-resize;
+  user-select: none;
+  -webkit-user-select: none;
+}
+body.note-table-resizing * {
   cursor: col-resize;
 }
 
@@ -335,7 +337,9 @@ body.resize-cursor,
    adds many; the live count floats beside the pill while dragging. */
 .note-prosemirror .note-table-addcol {
   position: absolute;
-  right: -12px;
+  /* Horizontal position comes from the TSX (the TABLE's measured right
+     edge + 4px) so the ＋ always rides the real last column — adding a
+     column moves the bar with the grid. */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -496,6 +500,7 @@ body.note-table-dragging {
   .note-prosemirror .note-table-gripzone,
   .note-prosemirror .note-table-addcol,
   .note-prosemirror .note-table-addrow,
+  .note-prosemirror .note-table-colhandle,
   .note-prosemirror .note-table-grid .column-resize-handle,
   .note-prosemirror .note-col-toolbar,
   .note-prosemirror .note-col-rule {
@@ -2648,6 +2653,9 @@ body.note-col-resizing,
   text-decoration: underline;
   text-underline-offset: 2px;
   text-decoration-color: hsl(var(--brand) / 0.4);
+  /* Links open on a plain click (handled in NoteEditorProvider) — the
+     pointer says "this is clickable", the text caret never appears. */
+  cursor: pointer;
 }
 
 .note-prosemirror code {

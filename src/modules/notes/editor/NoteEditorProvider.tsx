@@ -5,6 +5,7 @@ import type { JSONContent } from '@tiptap/core'
 import { createNoteEditorExtensions } from './extensions'
 import { insertImageFile } from './commands'
 import { sanitizeDocumentContent } from '../utils/document'
+import { normalizeLinkHref } from '../utils/linkUrl'
 
 const NoteEditorContext = createContext<Editor | null>(null)
 
@@ -40,7 +41,12 @@ export function NoteEditorProvider({
       content: safeContent,
       editorProps: {
         attributes: { class: 'note-prosemirror', spellcheck: 'true' },
-
+        /* Links open on a plain click (Notion), never only via the context
+           menu: an anchor click while the caret is collapsed navigates, a
+           click that ends a text selection does not. The href is taken
+           from the raw ATTRIBUTE and normalized — the DOM's .href property
+           resolves scheme-less values against the app origin (the
+           "localhost/" prefix bug); the attribute is what the user wrote. */
         handleDOMEvents: {
           click: (view, event) => {
             const target = event.target as Element | null
@@ -48,7 +54,8 @@ export function NoteEditorProvider({
             if (!anchor || !view.dom.contains(anchor)) return false
             if (!window.getSelection()?.isCollapsed) return false
             event.preventDefault()
-            window.open(anchor.href, '_blank', 'noopener,noreferrer')
+            const href = normalizeLinkHref(anchor.getAttribute('href') ?? '')
+            if (href) window.open(href, '_blank', 'noopener,noreferrer')
             return true
           },
         },
@@ -80,6 +87,10 @@ export function NoteEditorProvider({
     editorRef.current = editor
   }, [editor])
 
+  /* A click OUTSIDE the editor dissolves any module selection (Notion:
+     nothing stays highlighted). It converts a NodeSelection (selected
+     callout / table / sticky…) or an AllSelection back to a plain caret
+     and never steals focus from inputs, menus or pickers. */
   useEffect(() => {
     if (!editor) return
     const onDocMouseDown = (event: MouseEvent) => {
@@ -115,6 +126,17 @@ export function NoteEditorProvider({
   return <NoteEditorContext.Provider value={editor}>{children}</NoteEditorContext.Provider>
 }
 
+/** The editable surface: a full-height wrapper + the ProseMirror mount.
+ *
+ * EMPTY-SPACE SELECTION (Notion's page behaviour): the content column is
+ * centered, so the canvas keeps wide empty margins left and right — and
+ * clicking them used to do NOTHING (no caret, no selection dissolve).
+ * Now a mousedown on the canvas's empty space (outside the editor body
+ * and outside every piece of chrome) places the caret at the nearest text
+ * position via ProseMirror's own hit-testing, focuses the editor, and as
+ * a side effect dissolves any module selection — exactly "click outside
+ * = cancel whatever was selected", without ever stealing a click from a
+ * button, input, menu or picker. */
 export function NoteEditorSurface() {
   const editor = useNoteEditor()
 

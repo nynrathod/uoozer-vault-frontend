@@ -27,6 +27,7 @@ import {
 import { cn } from '@lib/utils'
 import { NOTE_SHADES, shadeLabel } from '../../editor/colors'
 import { useNoteEditor } from '../../editor/NoteEditorProvider'
+import { normalizeLinkHref } from '../../utils/linkUrl'
 
 interface BubbleAnchor {
   x: number
@@ -215,7 +216,7 @@ export function SelectionBubble() {
   const top = Math.max(8, anchor.y - size.h - 6)
 
   const applyLink = () => {
-    const href = linkValue.trim()
+    const href = normalizeLinkHref(linkValue)
     if (!href) editor.chain().focus().unsetLink().run()
     else editor.chain().focus().extendMarkRange('link').setLink({ href }).run()
     setOpenPop(null)

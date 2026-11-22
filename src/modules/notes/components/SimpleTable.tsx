@@ -38,6 +38,15 @@ const GRIP_SIZE = 18
 const GRIP_GAP = 4
 const GRIP_PAIR_SPAN = GRIP_SIZE * 2 + GRIP_GAP
 
+/* Width containment — the table lives INSIDE the page, always:
+   · every column addition re-fits the whole grid into the wrapper width
+     (proportional scale), so the table can never spill past the page or
+     the panel, no matter on which side the column was added;
+   · the own resize drag clamps the dragged column between MIN and
+     (container − all other columns), so a drag can never push the grid
+     outside either. */
+const MIN_COL_WIDTH = 40 // px floor for scaled/resized columns
+
 /* ── glyphs: Notion's minimal icon set (all 1.5px strokes, 12px box) ────── */
 function GripGlyph() {
   return (
@@ -442,6 +451,146 @@ export function moveColumn(editor: Editor, pos: number, from: number, to: number
   return true
 }
 
+/* ── RANGE deletes (select rows/columns → Delete removes them all) ──────── */
+
+/** Deletes every row in the inclusive range [from..to]. A range covering
+ *  ALL rows is clamped so one row always survives (Notion: a table keeps
+ *  at least one row). One transaction — undo restores everything at once. */
+export function deleteRowsRange(editor: Editor, pos: number, from: number, to: number): boolean {
+  const table = tableAt(editor, pos)
+  if (!table || table.childCount <= 1) return false
+  const last = table.childCount - 1
+  let lo = Math.max(0, Math.min(from, to))
+  let hi = Math.min(last, Math.max(from, to))
+  if (lo === 0 && hi === last) hi = last - 1 // never delete the final row
+  if (hi < lo) return false
+  const spans: Array<{ from: number; to: number }> = []
+  let offset = pos + 1
+  table.forEach((row, rowOffset, rowIndex) => {
+    if (rowIndex >= lo && rowIndex <= hi) {
+      spans.push({ from: offset + rowOffset, to: offset + rowOffset + row.nodeSize })
+    }
+  })
+  const tr = editor.state.tr
+  spans.sort((a, b) => b.from - a.from).forEach((span) => tr.delete(span.from, span.to))
+  editor.view.dispatch(tr)
+  return true
+}
+
+/** Deletes every column in the inclusive range [from..to]. A range covering
+ *  ALL columns is clamped so one column always survives. */
+export function deleteColumnsRange(editor: Editor, pos: number, from: number, to: number): boolean {
+  const table = tableAt(editor, pos)
+  if (!table || table.childCount === 0) return false
+  const last = table.child(0).childCount - 1
+  if (last < 1) return false
+  let lo = Math.max(0, Math.min(from, to))
+  let hi = Math.min(last, Math.max(from, to))
+  if (lo === 0 && hi === last) hi = last - 1 // never delete the final column
+  if (hi < lo) return false
+  const spans: Array<{ from: number; to: number }> = []
+  let offset = pos + 1
+  table.forEach((row, rowOffset) => {
+    row.forEach((cell, cellOffset, colI) => {
+      if (colI >= lo && colI <= hi) {
+        const cellFrom = offset + rowOffset + cellOffset + 1
+        spans.push({ from: cellFrom, to: cellFrom + cell.nodeSize })
+      }
+    })
+  })
+  const tr = editor.state.tr
+  spans.sort((a, b) => b.from - a.from).forEach((span) => tr.delete(span.from, span.to))
+  editor.view.dispatch(tr)
+  return true
+}
+
+/** Commits one column's width to EVERY cell of that column (colspan is
+ *  always 1 in this schema — no merge UI). Used by the own resize drag. */
+export function setColumnWidth(
+  editor: Editor,
+  pos: number,
+  colIndex: number,
+  width: number
+): boolean {
+  const table = tableAt(editor, pos)
+  if (!table || table.childCount === 0) return false
+  if (colIndex < 0 || colIndex >= table.child(0).childCount) return false
+  const tr = editor.state.tr
+  let offset = pos + 1
+  table.forEach((row, rowOffset) => {
+    row.forEach((cell, cellOffset, colI) => {
+      if (colI === colIndex) {
+        tr.setNodeMarkup(offset + rowOffset + cellOffset + 1, undefined, {
+          ...cell.attrs,
+          colwidth: [width],
+        })
+      }
+    })
+  })
+  if (!tr.docChanged) return false
+  editor.view.dispatch(tr)
+  return true
+}
+
+/** Fits the table INTO `containerWidth`: when the sum of the column widths
+ *  exceeds the page/panel, every column scales down proportionally (with a
+ *  small floor) until the grid fits. This is what makes adding a column on
+ *  ANY side keep the whole table inside the page — the grid never spills
+ *  out of the screen. Unpinned tables already render at 100% and are left
+ *  alone. Returns true when a change was dispatched. */
+export function fitColumnsToWidth(editor: Editor, pos: number, containerWidth: number): boolean {
+  const table = tableAt(editor, pos)
+  if (!table || table.childCount === 0 || !containerWidth || containerWidth < 1) return false
+  const first = table.child(0)
+  const cols = first.childCount
+  if (cols === 0) return false
+  const widths: number[] = []
+  for (let index = 0; index < cols; index += 1) {
+    const cell = first.child(index)
+    const colwidth = Array.isArray(cell.attrs.colwidth) ? (cell.attrs.colwidth as number[]) : null
+    const width = colwidth?.[0] ?? 0
+    if (!width) return false // unpinned column — the 100% layout already fits
+    widths.push(width)
+  }
+  const total = widths.reduce((sum, width) => sum + width, 0)
+  if (total <= containerWidth) return false
+  const factor = containerWidth / total
+  const scaled = widths.map((width) => Math.max(MIN_COL_WIDTH, Math.round(width * factor)))
+  // The MIN floor can overshoot the container — shave the remainder off
+  // the widest columns until it fits (each keeps at least MIN_COL_WIDTH).
+  let over = scaled.reduce((sum, width) => sum + width, 0) - containerWidth
+  while (over > 0) {
+    let widest = -1
+    let widestWidth = MIN_COL_WIDTH
+    for (let index = 0; index < scaled.length; index += 1) {
+      if (scaled[index] > widestWidth) {
+        widestWidth = scaled[index]
+        widest = index
+      }
+    }
+    if (widest < 0) break
+    const shave = Math.min(over, widestWidth - MIN_COL_WIDTH)
+    if (shave <= 0) break
+    scaled[widest] -= shave
+    over -= shave
+  }
+  const tr = editor.state.tr
+  let offset = pos + 1
+  table.forEach((row, rowOffset) => {
+    row.forEach((cell, cellOffset, colIndex) => {
+      const width = scaled[colIndex]
+      if (!width) return
+      tr.setNodeMarkup(offset + rowOffset + cellOffset + 1, undefined, {
+        ...cell.attrs,
+        colwidth: [width],
+      })
+    })
+  })
+  if (!tr.docChanged) return false
+  editor.view.dispatch(tr)
+  return true
+}
+
 /* ============================================================================
  * The node view
  * ==========================================================================*/
@@ -464,8 +613,23 @@ interface MenuItem {
   disabled?: boolean
 }
 
-/** The row/column selected as a GROUP (⠿ click). */
-type GroupSelection = { axis: 'row' | 'col'; index: number } | null
+/** The row/column range selected as a GROUP (⠿ click; ⇧click extends).
+ *  `from..to` is inclusive — a single row/column is from === to. */
+type GroupSelection = { axis: 'row' | 'col'; from: number; to: number } | null
+
+/** Grip click → single; ⇧click on another grip of the SAME axis extends
+ *  the range (min/max union). A ⇧click on a fresh selection starts single. */
+function extendGroupSelection(
+  current: GroupSelection,
+  axis: 'row' | 'col',
+  index: number,
+  extend: boolean
+): GroupSelection {
+  if (extend && current && current.axis === axis) {
+    return { axis, from: Math.min(current.from, index), to: Math.max(current.to, index) }
+  }
+  return { axis, from: index, to: index }
+}
 
 /** Touch devices get no hover chrome at all (user call: the ＋/⠿ must be
  *  GONE on mobile — block settings live in the long-press menu there).
@@ -491,6 +655,29 @@ function SimpleTableView({ node, editor, deleteNode, getPos }: NodeViewProps) {
   const [pinned, setPinned] = useState(false)
   const [addRowsLive, setAddRowsLive] = useState(0)
   const [addColsLive, setAddColsLive] = useState(0)
+  /* Own column-resize drag (replaces prosemirror-tables' plugin drag so it
+     can be CLAMPED to the page: a drag changes only its column and can
+     never push the grid outside the page or the panel). The ref carries
+     the drag truth for the commit; the state mirrors it for rendering. */
+  const resizeRef = useRef<{
+    col: number
+    startX: number
+    startWidth: number
+    width: number
+    max: number
+    otherTotal: number
+    originLeft: number
+  } | null>(null)
+  const [resize, setResize] = useState<{
+    col: number
+    width: number
+    originLeft: number
+  } | null>(null)
+  /* A real drag release also fires a click on the grip — this flag stops
+     that click from re-selecting the ORIGINAL index over the landed one
+     (and lets ⇧click extend instead of the pointerup single-select winning
+     the race). */
+  const suppressNextGripClick = useRef(false)
   const touchUI = useRef(isTouchUI()).current
 
   const pos = typeof getPos === 'function' ? getPos() : null
@@ -515,15 +702,14 @@ function SimpleTableView({ node, editor, deleteNode, getPos }: NodeViewProps) {
     return Array.from(table.querySelectorAll(':scope > tr')) as HTMLElement[]
   }, [contentTable])
 
-  /* ── pin column widths on first hover ───────────────────────────────────
+  /* ── pin column widths on first hover ───────────────────────────────
      While any column lacks an explicit colwidth, the table renders at 100%
      width and the BROWSER redistributes space across ALL columns when one
-     changes — dragging one border moved every neighbour. Once every
-     column is pinned (its measured width stored in the cell attrs),
-     prosemirror-tables' drag changes ONLY the dragged column and the
-     table's total width simply grows/shrinks into the free right side.
+     changes. Once every column is pinned (its measured width stored in
+     the cell attrs), the own resize drag changes ONLY the dragged column.
      Pinning once is also what makes "add a column → keep sizes" hold:
-     the new cells copy the anchor colwidth, the rest never move. */
+     the new cells copy the anchor colwidth, the rest never move (and the
+     fit pass below keeps the whole grid inside the page). */
   const ensureFixedWidths = useCallback(() => {
     if (typeof tablePos !== 'number') return
     const fresh = tableAt(editor, tablePos)
@@ -606,6 +792,61 @@ function SimpleTableView({ node, editor, deleteNode, getPos }: NodeViewProps) {
     syncColgroup()
   }, [syncColgroup])
 
+  /* ── the page-fit pass ──────────────────────────────────────────────────
+     The wrapper IS the page: its client width is the room the grid may
+     occupy. Every column addition re-runs fitColumnsToWidth, and a
+     ResizeObserver re-fits when the window/panel shrinks under an already
+     pinned table — so the table is 100% responsive to the page and can
+     never be seen outside of it. */
+  const fitToPage = useCallback(() => {
+    const wrap = wrapperRef.current
+    if (!wrap || typeof tablePos !== 'number') return
+    fitColumnsToWidth(editor, tablePos, wrap.clientWidth)
+  }, [editor, tablePos])
+
+  useEffect(() => {
+    const wrap = wrapperRef.current
+    if (!wrap || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(() => {
+      // Never fight an active drag; the drag clamps itself.
+      if (resizeRef.current) return
+      fitToPage()
+    })
+    observer.observe(wrap)
+    return () => observer.disconnect()
+  }, [fitToPage])
+
+  /* Column additions funnel through here so EVERY path (right strip click
+     and drag, grip ＋, menu insert/duplicate) re-fits the grid to the
+     page in the same tick it grows. */
+  const addColumnRightOf = useCallback(
+    (colIndex: number): boolean => {
+      if (typeof tablePos !== 'number') return false
+      if (!insertColumnNear(editor, tablePos, colIndex, true)) return false
+      fitToPage()
+      return true
+    },
+    [editor, tablePos, fitToPage]
+  )
+  const addColumnLeftOf = useCallback(
+    (colIndex: number): boolean => {
+      if (typeof tablePos !== 'number') return false
+      if (!insertColumnNear(editor, tablePos, colIndex, false)) return false
+      fitToPage()
+      return true
+    },
+    [editor, tablePos, fitToPage]
+  )
+  const duplicateColAt = useCallback(
+    (colIndex: number): boolean => {
+      if (typeof tablePos !== 'number') return false
+      if (!duplicateColumn(editor, tablePos, colIndex)) return false
+      fitToPage()
+      return true
+    },
+    [editor, tablePos, fitToPage]
+  )
+
   /* Close the menu on outside interaction. */
   useEffect(() => {
     if (!menu) return
@@ -625,8 +866,14 @@ function SimpleTableView({ node, editor, deleteNode, getPos }: NodeViewProps) {
     }
   }, [menu])
 
-  /* Group selection keyboard behaviour: Delete removes the whole row or
-     column, Escape deselects. Clicking any cell also deselects. */
+  /* Group selection keyboard behaviour: Delete/Backspace removes ALL rows
+     or columns in the selected range, Escape deselects. The band is
+     unambiguous — and any click OUTSIDE the grid (a paragraph, another
+     block) clears it first (listener below), so a Delete can never fire
+     against a stale band. The ProseMirror root is ONE contenteditable for
+     the whole editor, so the DOM event target can never tell where the
+     caret sits — the visible band is the source of truth, exactly like
+     Notion: row selected → Delete deletes the row. */
   useEffect(() => {
     if (!selected) return
     const onKey = (event: KeyboardEvent) => {
@@ -637,18 +884,16 @@ function SimpleTableView({ node, editor, deleteNode, getPos }: NodeViewProps) {
       if ((event.key === 'Delete' || event.key === 'Backspace') && typeof tablePos === 'number') {
         const target = event.target as Element | null
         const targetEl = target instanceof HTMLElement ? target : null
-        if (
-          targetEl &&
-          (targetEl.tagName === 'INPUT' ||
-            targetEl.tagName === 'TEXTAREA' ||
-            targetEl.isContentEditable)
-        ) {
-          // Caret in a cell: let typing delete characters, not the group.
+        if (targetEl && (targetEl.tagName === 'INPUT' || targetEl.tagName === 'TEXTAREA')) {
+          // A real text field (rename, search…) is editing: never eat the key.
           return
         }
         event.preventDefault()
-        if (selected.axis === 'row') deleteRow(editor, tablePos, selected.index)
-        else deleteColumn(editor, tablePos, selected.index)
+        if (selected.axis === 'row') {
+          deleteRowsRange(editor, tablePos, selected.from, selected.to)
+        } else {
+          deleteColumnsRange(editor, tablePos, selected.from, selected.to)
+        }
         setSelected(null)
       }
     }
@@ -656,18 +901,33 @@ function SimpleTableView({ node, editor, deleteNode, getPos }: NodeViewProps) {
     return () => window.removeEventListener('keydown', onKey, true)
   }, [selected, tablePos, editor])
 
+  /* A click on any editable surface OUTSIDE this grid clears the band —
+     a caret that moved into a paragraph must never inherit the group's
+     Delete. Inputs/fields and chrome own their own clicks. */
+  useEffect(() => {
+    if (!selected) return
+    const onDown = (event: MouseEvent) => {
+      const target = event.target as Element | null
+      if (!target) return
+      if (wrapperRef.current?.contains(target)) return // cells clear via onGridMouseDown
+      if (target.closest('.note-table-pop')) return // our own menu
+      const editable = target.closest('[contenteditable="true"], input, textarea')
+      if (editable) setSelected(null)
+    }
+    document.addEventListener('mousedown', onDown, true)
+    return () => document.removeEventListener('mousedown', onDown, true)
+  }, [selected])
+
   /* Clear transient chrome when the grid changes under us. */
   useEffect(() => {
     setHoverRow((current) => (current !== null && current >= rowCount ? null : current))
     setHoverCol((current) => (current !== null && current >= colCount ? null : current))
-    setSelected((current) =>
-      current === null
-        ? current
-        : (current.axis === 'row' && current.index < rowCount) ||
-            (current.axis === 'col' && current.index < colCount)
-          ? current
-          : null
-    )
+    setSelected((current) => {
+      if (current === null) return current
+      const count = current.axis === 'row' ? rowCount : colCount
+      if (current.from >= count) return null
+      return { ...current, from: current.from, to: Math.min(current.to, count - 1) }
+    })
   }, [rowCount, colCount])
 
   /* Hover with a grace timer — the grips sit in the gutters OUTSIDE the
@@ -755,16 +1015,18 @@ function SimpleTableView({ node, editor, deleteNode, getPos }: NodeViewProps) {
       dragRef.current = null
       setDragLine(null)
       if (!moved || !drag || typeof tablePos !== 'number') {
-        // A plain click: group-select the row and open its menu.
-        setSelected({ axis: 'row', index })
+        // A plain click: the grip's onClick owns selection (it knows about
+        // ⇧) — pointerup deliberately does NOT touch it.
         return
       }
       if (drag.to === null || drag.to === drag.from || drag.to === drag.from + 1) {
-        setSelected({ axis: 'row', index })
+        // No real reorder — same as a plain click: let onClick decide.
         return
       }
+      suppressNextGripClick.current = true
       moveRow(editor, tablePos, drag.from, drag.to)
-      setSelected({ axis: 'row', index: drag.to > drag.from ? drag.to - 1 : drag.to })
+      const landed = drag.to > drag.from ? drag.to - 1 : drag.to
+      setSelected({ axis: 'row', from: landed, to: landed })
     }
     document.addEventListener('pointermove', onMove)
     document.addEventListener('pointerup', onUp)
@@ -812,15 +1074,16 @@ function SimpleTableView({ node, editor, deleteNode, getPos }: NodeViewProps) {
       dragRef.current = null
       setDragLine(null)
       if (!moved || !drag || typeof tablePos !== 'number') {
-        setSelected({ axis: 'col', index })
+        // A plain click: onClick owns selection (⇧-aware).
         return
       }
       if (drag.to === null || drag.to === drag.from || drag.to === drag.from + 1) {
-        setSelected({ axis: 'col', index })
         return
       }
+      suppressNextGripClick.current = true
       moveColumn(editor, tablePos, drag.from, drag.to)
-      setSelected({ axis: 'col', index: drag.to > drag.from ? drag.to - 1 : drag.to })
+      const landed = drag.to > drag.from ? drag.to - 1 : drag.to
+      setSelected({ axis: 'col', from: landed, to: landed })
     }
     document.addEventListener('pointermove', onMove)
     document.addEventListener('pointerup', onUp)
@@ -839,7 +1102,7 @@ function SimpleTableView({ node, editor, deleteNode, getPos }: NodeViewProps) {
       while (state.added < shouldAdd) {
         const fresh = tableAt(editor, tablePos)
         if (!fresh || fresh.childCount === 0) return
-        if (!insertColumnNear(editor, tablePos, fresh.child(0).childCount - 1, true)) return
+        if (!addColumnRightOf(fresh.child(0).childCount - 1)) return
         state.added += 1
         setAddColsLive(state.added)
       }
@@ -852,7 +1115,7 @@ function SimpleTableView({ node, editor, deleteNode, getPos }: NodeViewProps) {
         if (typeof tablePos === 'number') {
           const fresh = tableAt(editor, tablePos)
           if (fresh && fresh.childCount > 0) {
-            insertColumnNear(editor, tablePos, fresh.child(0).childCount - 1, true)
+            addColumnRightOf(fresh.child(0).childCount - 1)
           }
         }
       }
@@ -907,18 +1170,26 @@ function SimpleTableView({ node, editor, deleteNode, getPos }: NodeViewProps) {
   const [colBox, setColBox] = useState<{ left: number; width: number } | null>(null)
   const [selRowBox, setSelRowBox] = useState<{ top: number; height: number } | null>(null)
   const [selColBox, setSelColBox] = useState<{ left: number; width: number } | null>(null)
-  const [gridBox, setGridBox] = useState<{ top: number; height: number } | null>(null)
+  /* The GRID's box (left + width included): the right ＋ strip, the bottom
+     ＋ bar and the selection bands all anchor to the TABLE's edges — after
+     a column add the strip must ride to the NEW right edge, never stay on
+     the old column. */
+  const [gridBox, setGridBox] = useState<{
+    top: number
+    height: number
+    left: number
+    width: number
+  } | null>(null)
   useLayoutEffect(() => {
     const wrap = wrapperRef.current
     if (!wrap) return
+    const wrapRect = wrap.getBoundingClientRect()
     const measureRow = (el: HTMLElement) => {
       const rect = el.getBoundingClientRect()
-      const wrapRect = wrap.getBoundingClientRect()
       return { top: rect.top - wrapRect.top, height: rect.height }
     }
     const measureCol = (el: HTMLElement) => {
       const rect = el.getBoundingClientRect()
-      const wrapRect = wrap.getBoundingClientRect()
       return { left: rect.left - wrapRect.left, width: rect.width }
     }
     const rows = bodyRows()
@@ -930,17 +1201,35 @@ function SimpleTableView({ node, editor, deleteNode, getPos }: NodeViewProps) {
           : null
         : null
     const nextSelRow =
-      selected?.axis === 'row' && rows[selected.index] ? measureRow(rows[selected.index]) : null
+      selected?.axis === 'row' && rows[selected.from] && rows[selected.to]
+        ? {
+            top: rows[selected.from].getBoundingClientRect().top - wrapRect.top,
+            height:
+              rows[selected.to].getBoundingClientRect().bottom -
+              rows[selected.from].getBoundingClientRect().top,
+          }
+        : null
     const nextSelCol =
-      selected?.axis === 'col' && (rows[0]?.children[selected.index] as HTMLElement | undefined)
-        ? measureCol(rows[0].children[selected.index] as HTMLElement)
+      selected?.axis === 'col' &&
+      (rows[0]?.children[selected.from] as HTMLElement | undefined) &&
+      (rows[0]?.children[selected.to] as HTMLElement | undefined)
+        ? {
+            left: rows[0].children[selected.from].getBoundingClientRect().left - wrapRect.left,
+            width:
+              rows[0].children[selected.to].getBoundingClientRect().right -
+              rows[0].children[selected.from].getBoundingClientRect().left,
+          }
         : null
     const gridEl = contentTable()
     const nextGrid = gridEl
       ? (() => {
           const rect = gridEl.getBoundingClientRect()
-          const wrapRect = wrap.getBoundingClientRect()
-          return { top: rect.top - wrapRect.top, height: rect.height }
+          return {
+            top: rect.top - wrapRect.top,
+            height: rect.height,
+            left: rect.left - wrapRect.left,
+            width: rect.width,
+          }
         })()
       : null
     setRowBox((prev) =>
@@ -979,7 +1268,9 @@ function SimpleTableView({ node, editor, deleteNode, getPos }: NodeViewProps) {
       prev !== null &&
       nextGrid !== null &&
       prev.top === nextGrid.top &&
-      prev.height === nextGrid.height
+      prev.height === nextGrid.height &&
+      prev.left === nextGrid.left &&
+      prev.width === nextGrid.width
         ? prev
         : nextGrid
     )
@@ -1071,21 +1362,19 @@ function SimpleTableView({ node, editor, deleteNode, getPos }: NodeViewProps) {
         key: 'left',
         label: 'Insert left',
         icon: <IconColLeft />,
-        run: () =>
-          typeof tablePos === 'number' && insertColumnNear(editor, tablePos, menu.index, false),
+        run: () => addColumnLeftOf(menu.index),
       },
       {
         key: 'right',
         label: 'Insert right',
         icon: <IconColRight />,
-        run: () =>
-          typeof tablePos === 'number' && insertColumnNear(editor, tablePos, menu.index, true),
+        run: () => addColumnRightOf(menu.index),
       },
       {
         key: 'dup',
         label: 'Duplicate column',
         icon: <IconDuplicate />,
-        run: () => typeof tablePos === 'number' && duplicateColumn(editor, tablePos, menu.index),
+        run: () => duplicateColAt(menu.index),
       },
       {
         key: 'color',
@@ -1103,7 +1392,19 @@ function SimpleTableView({ node, editor, deleteNode, getPos }: NodeViewProps) {
         run: () => typeof tablePos === 'number' && deleteColumn(editor, tablePos, menu.index),
       },
     ]
-  }, [menu, headerRow, headerCol, tablePos, editor, deleteNode, rowCount, colCount])
+  }, [
+    menu,
+    headerRow,
+    headerCol,
+    tablePos,
+    editor,
+    deleteNode,
+    rowCount,
+    colCount,
+    addColumnLeftOf,
+    addColumnRightOf,
+    duplicateColAt,
+  ])
 
   const applyColor = (shade: CellShade | null) => {
     if (typeof tablePos !== 'number' || !menu || menu.kind !== 'color') return
@@ -1116,6 +1417,76 @@ function SimpleTableView({ node, editor, deleteNode, getPos }: NodeViewProps) {
      ABOVE the grid, centered on the column (⠿ left, ＋ right). */
   const rowGrip = chromeVisible && hoverRow !== null && rowBox ? hoverRow : null
   const colGrip = chromeVisible && hoverCol !== null && colBox ? hoverCol : null
+
+  /* ── OWN column-resize drag ────────────────────────────────────────────
+     prosemirror-tables' plugin drag is replaced by this view-owned drag
+     for one reason: the CLAMP. The dragged column follows the pointer but
+     is pinned between MIN_COL_WIDTH and (container − all other columns) —
+     the table can grow to the page edge and never one pixel past it, and
+     no other column ever moves. Live feedback patches the <colgroup> we
+     own; release commits one width to every cell of the column. */
+  const colHandleDown = (
+    index: number,
+    originLeft: number,
+    event: React.PointerEvent<HTMLDivElement>
+  ) => {
+    if (event.button !== 0) return
+    event.preventDefault()
+    event.stopPropagation()
+    if (typeof tablePos !== 'number') return
+    const wrap = wrapperRef.current
+    const table = contentTable()
+    if (!wrap || !table) return
+    const colgroup = table.querySelector(':scope > colgroup')
+    const colEls = colgroup ? (Array.from(colgroup.children) as HTMLElement[]) : []
+    const widths = colEls.map((col) => parseFloat(col.style.width) || 0)
+    const startWidth = widths[index] ?? 0
+    if (!startWidth) return // unpinned — ensureFixedWidths runs on the next hover
+    const otherTotal = widths.reduce((sum, width) => sum + width, 0) - startWidth
+    const max = Math.max(MIN_COL_WIDTH, wrap.clientWidth - otherTotal)
+    const startX = event.clientX
+    const drag = { col: index, startX, startWidth, width: startWidth, max, otherTotal, originLeft }
+    resizeRef.current = drag
+    setResize({ col: index, width: startWidth, originLeft })
+    document.body.classList.add('note-table-resizing')
+
+    const onMove = (move: PointerEvent) => {
+      const live = resizeRef.current
+      if (!live) return
+      const raw = live.startWidth + (move.clientX - live.startX)
+      const width = Math.min(Math.max(raw, MIN_COL_WIDTH), live.max)
+      live.width = width
+      setResize((current) => (current ? { ...current, width } : current))
+      // Live feedback: patch OUR colgroup + the table box; nothing else moves.
+      const liveTable = contentTable()
+      const liveGroup = liveTable?.querySelector(':scope > colgroup')
+      const colEl = liveGroup?.children[live.col] as HTMLElement | undefined
+      if (colEl) colEl.style.width = `${width}px`
+      if (liveTable) liveTable.style.width = `${live.otherTotal + width}px`
+    }
+    const onUp = () => {
+      document.removeEventListener('pointermove', onMove)
+      document.removeEventListener('pointerup', onUp)
+      document.body.classList.remove('note-table-resizing')
+      const done = resizeRef.current
+      resizeRef.current = null
+      setResize(null)
+      if (done && typeof tablePos === 'number' && done.width !== done.startWidth) {
+        setColumnWidth(editor, tablePos, done.col, done.width)
+      }
+    }
+    document.addEventListener('pointermove', onMove)
+    document.addEventListener('pointerup', onUp)
+  }
+
+  /* The resize handle rides the HOVERED column's right border; while a
+     drag is live it stays on the dragged column at the CURRENT width. */
+  const handleCol = resize ? resize.col : hoverCol
+  const handleLeft = resize
+    ? resize.originLeft + resize.width - 4
+    : colBox
+      ? colBox.left + colBox.width - 4
+      : null
 
   return (
     <NodeViewWrapper
@@ -1170,7 +1541,13 @@ function SimpleTableView({ node, editor, deleteNode, getPos }: NodeViewProps) {
             title="Drag to move · Click to select row"
             onPointerDown={(event) => rowGripDown(rowGrip, event)}
             onClick={(event) => {
-              setSelected({ axis: 'row', index: rowGrip })
+              if (suppressNextGripClick.current) {
+                suppressNextGripClick.current = false
+                return
+              }
+              setSelected((current) =>
+                extendGroupSelection(current, 'row', rowGrip, event.shiftKey)
+              )
               openMenuAt({ kind: 'row', index: rowGrip }, event.currentTarget)
             }}
           >
@@ -1210,7 +1587,13 @@ function SimpleTableView({ node, editor, deleteNode, getPos }: NodeViewProps) {
             title="Drag to move · Click to select column"
             onPointerDown={(event) => colGripDown(colGrip, event)}
             onClick={(event) => {
-              setSelected({ axis: 'col', index: colGrip })
+              if (suppressNextGripClick.current) {
+                suppressNextGripClick.current = false
+                return
+              }
+              setSelected((current) =>
+                extendGroupSelection(current, 'col', colGrip, event.shiftKey)
+              )
               openMenuAt({ kind: 'col', index: colGrip }, event.currentTarget)
             }}
           >
@@ -1223,21 +1606,40 @@ function SimpleTableView({ node, editor, deleteNode, getPos }: NodeViewProps) {
             aria-label="Insert column right"
             title="Insert column right"
             onPointerDown={(event) => event.stopPropagation()}
-            onClick={() =>
-              typeof tablePos === 'number' && insertColumnNear(editor, tablePos, colGrip, true)
-            }
+            onClick={() => typeof tablePos === 'number' && addColumnRightOf(colGrip)}
           >
             <PlusGlyph />
           </button>
         </div>
       )}
 
+      {/* Column-resize handle — the hovered column's RIGHT border lights a
+          blue line + grip pill; dragging moves ONLY that column and is
+          clamped to the page (the grid can never leave the panel). */}
+      {chromeVisible && handleCol !== null && handleLeft !== null && gridBox && !touchUI && (
+        <div
+          className="note-table-colhandle"
+          contentEditable={false}
+          style={{ left: handleLeft, top: gridBox.top, height: gridBox.height }}
+          onPointerDown={(event) =>
+            colHandleDown(handleCol, resize ? resize.originLeft : (colBox?.left ?? 0), event)
+          }
+          onMouseEnter={() => setPinned(true)}
+          onMouseLeave={() => setPinned(false)}
+        />
+      )}
+
       {/* Group selection bands — ONE light-blue band + one group border
-          across the whole row / column (never per-cell highlights). */}
+          across the whole row / column RANGE (never per-cell highlights);
+          they hug the TABLE's edges, not the wrapper's. */}
       {selected?.axis === 'row' && selRowBox && (
         <div
           className="note-table-band is-row"
-          style={{ top: selRowBox.top, height: selRowBox.height }}
+          style={{
+            top: selRowBox.top,
+            height: selRowBox.height,
+            ...(gridBox ? { left: gridBox.left, width: gridBox.width } : {}),
+          }}
           contentEditable={false}
           aria-hidden="true"
         />
@@ -1245,20 +1647,30 @@ function SimpleTableView({ node, editor, deleteNode, getPos }: NodeViewProps) {
       {selected?.axis === 'col' && selColBox && (
         <div
           className="note-table-band is-col"
-          style={{ left: selColBox.left, width: selColBox.width }}
+          style={{
+            left: selColBox.left,
+            width: selColBox.width,
+            ...(gridBox ? { top: gridBox.top, height: gridBox.height } : {}),
+          }}
           contentEditable={false}
           aria-hidden="true"
         />
       )}
 
-      {/* RIGHT full-height column bar — ALWAYS rendered (its space is the
-          grid's own edge, so nothing shifts); the ＋ pill only shows on
-          hover. Click: one column · drag right: many. */}
+      {/* RIGHT full-height column bar — ALWAYS rendered and ANCHORED TO
+          THE TABLE's right edge (measured, not a static offset): adding a
+          column moves the bar to the NEW edge, so the ＋ is always on the
+          real last column. The ＋ pill only shows on hover. Click: one
+          column · drag right: many. */}
       {gridBox && !touchUI && (
         <div
           className="note-table-addcol"
           contentEditable={false}
-          style={{ top: gridBox.top, height: gridBox.height }}
+          style={{
+            top: gridBox.top,
+            height: gridBox.height,
+            left: gridBox.left + gridBox.width + 4,
+          }}
           role="button"
           aria-label="Add column"
           title="Click to add a column · Drag to add more"
@@ -1273,12 +1685,15 @@ function SimpleTableView({ node, editor, deleteNode, getPos }: NodeViewProps) {
 
       {/* BOTTOM row bar — Notion's quiet "New row" affordance: ALWAYS here
           so its line is reserved (hover never shifts the page below the
-          table); the ＋ and hint only show on hover. Click: one row at the
-          bottom · drag: many. */}
+          table); the ＋ and hint only show on hover. It spans the TABLE's
+          width (measured), so its ＋ sits under the grid's centre even when
+          the grid is narrower than the panel. Click: one row at the bottom
+          · drag: many. */}
       {!touchUI && (
         <div
           className="note-table-addrow"
           contentEditable={false}
+          style={gridBox ? { marginLeft: gridBox.left, width: gridBox.width } : undefined}
           onPointerDown={onAddPointerDown}
           role="button"
           aria-label="Add row"
@@ -1401,7 +1816,11 @@ export const SimpleTable = Table.extend({
   addOptions() {
     return {
       HTMLAttributes: { class: 'note-table' },
-      resizable: true,
+      /* The plugin's columnResizing drag is OFF — the node view owns the
+         drag so it can CLAMP: only the dragged column changes and the
+         table can never grow past the page/panel width. The colgroup the
+         view keeps as the table's first child is still fully ours. */
+      resizable: false,
       renderWrapper: false,
       handleWidth: 8,
       cellMinWidth: 25,

@@ -83,6 +83,15 @@ export type LegacyNoteRecord = Partial<NoteRecord> & { tint?: unknown }
 
 /* ── The note record ──────────────────────────────────────────────────────── */
 
+/**
+ * One note. `folderId` is reserved for a future link into the vault.
+ * `order` is a stable list position (smaller floats to the top); new and
+ * restored notes take the top slot. Pinned notes always render above the
+ * rest. `revision` increments on every persisted change and doubles as the
+ * optimistic-concurrency token for the API adapter. `sealed` holds the
+ * encrypted envelope once the notes cipher is active. `pageStyle` paints
+ * the note canvas (tint · font · size · switches).
+ */
 export interface NoteRecord {
   id: string
   title: string

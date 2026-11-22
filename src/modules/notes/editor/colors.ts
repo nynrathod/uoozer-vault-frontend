@@ -21,6 +21,11 @@ export function shadeLabel(name: string | null | undefined): string {
   return NOTE_SHADES.find((shade) => shade.name === name)?.label ?? 'Default'
 }
 
+/**
+ * Builds a theme-aware shade mark: the stored attribute is the shade NAME,
+ * rendering is a class + data attribute, and notes.css maps the class to
+ * the right value per theme. Passing null to the setter clears the mark.
+ */
 function createShadeMark(markName: string, className: string, dataAttr: string) {
   return Mark.create({
     name: markName,
